@@ -1,2 +1,8 @@
 /target
 /Cargo.lock
+.vscode
+/ffmpeg/*
+!/ffmpeg/windows
+/ffmpeg/windows/debug
+/input
+/output
