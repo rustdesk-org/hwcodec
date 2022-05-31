@@ -4,6 +4,7 @@ use hwcodec::{
     decode::{DecodeContext, Decoder},
     encode::{EncodeContext, EncodeFrame, Encoder},
     ffmpeg::*,
+    AVHWDeviceType, AVPixelFormat,
 };
 
 #[derive(Debug)]

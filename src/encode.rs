@@ -1,8 +1,11 @@
-use crate::ffmpeg::{
-    encode, ffmpeg_linesize_offset_length, free_encoder, new_encoder, AVPixelFormat, CodecInfo,
-    DataFormat::{self, *},
-    Vendor::*,
-    AV_NUM_DATA_POINTERS,
+use crate::{
+    encode,
+    ffmpeg::{
+        ffmpeg_linesize_offset_length, CodecInfo,
+        DataFormat::{self, *},
+        Vendor::*,
+    },
+    free_encoder, new_encoder, AVPixelFormat, AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{

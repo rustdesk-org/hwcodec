@@ -1,7 +1,9 @@
 use hwcodec::{
     decode::{DecodeContext, Decoder},
     encode::{EncodeContext, Encoder},
-    ffmpeg::{ffmpeg_linesize_offset_length, AVHWDeviceType::*, AVPixelFormat::*},
+    ffmpeg::ffmpeg_linesize_offset_length,
+    AVHWDeviceType::*,
+    AVPixelFormat::*,
 };
 use log::info;
 use std::{

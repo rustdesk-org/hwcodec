@@ -1,7 +1,9 @@
-use crate::ffmpeg::{
-    decode, free_decoder, hwdevice_supported, new_decoder,
+use crate::{
+    decode,
+    ffmpeg::CodecInfo,
+    free_decoder, hwdevice_supported, new_decoder,
     AVHWDeviceType::{self, *},
-    AVPixelFormat, CodecInfo, AV_NUM_DATA_POINTERS,
+    AVPixelFormat, AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{
