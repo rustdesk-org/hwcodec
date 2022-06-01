@@ -10,6 +10,14 @@
 
 // #define CFG_PKG_TRACE
 
+enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
+
+enum RateContorl {
+  RC_DEFAULT,
+  RC_CBR,
+  RC_VBR,
+};
+
 typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
                                const void *obj);
 
@@ -82,9 +90,148 @@ _exit:
   return ret;
 }
 
-Encoder *new_encoder(const char *name, int fps, int width, int height,
-                     int pixfmt, int align, int *linesize, int *offset,
-                     int *length, EncodeCallback callback) {
+static int set_lantency_free(void *priv_data, const char *name) {
+  int ret;
+
+  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
+    if ((ret = av_opt_set(priv_data, "delay", "0", 0)) < 0) {
+      fprintf(stderr, "nvenc set opt delay failed: %s\n", av_err2str(ret));
+      return -1;
+    }
+  }
+  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
+    if ((ret = av_opt_set(priv_data, "query_timeout", "1000", 0)) < 0) {
+      fprintf(stderr, "amf set opt query_timeout failed: %s\n",
+              av_err2str(ret));
+      return -1;
+    }
+  }
+  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
+    if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
+      fprintf(stderr, "qsv set opt failed: %s\n", av_err2str(ret));
+      return -1;
+    }
+  }
+  return 0;
+}
+
+static int set_quality(void *priv_data, const char *name, int quality) {
+  int ret;
+
+  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
+    switch (quality) {
+      // p7 isn't zero lantency
+      case Quality_Medium:
+        if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt preset p4 failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Low:
+        if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt preset p1 failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
+    switch (quality) {
+      case Quality_High:
+        if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
+          fprintf(stderr, "amf set opt quality quality failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Medium:
+        if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
+          fprintf(stderr, "amf set opt quality balanced failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Low:
+        if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
+          fprintf(stderr, "amf set opt quality speed failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
+    switch (quality) {
+      case Quality_High:
+        if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
+          fprintf(stderr, "qsv set opt preset veryslow failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Medium:
+        if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
+          fprintf(stderr, "qsv set opt preset medium failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Low:
+        if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
+          fprintf(stderr, "qsv set opt preset veryfast failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return ret;
+}
+
+static int set_rate_control(void *priv_data, const char *name, int rc) {
+  int ret;
+
+  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
+    switch (rc) {
+      case RC_CBR:
+        if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt rc cbr failed: %s\n", av_err2str(ret));
+        }
+        break;
+      case RC_VBR:
+        if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt rc vbr failed: %s\n", av_err2str(ret));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
+    switch (rc) {
+      case RC_CBR:
+        if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
+          fprintf(stderr, "amf set opt rc cbr failed: %s\n", av_err2str(ret));
+        }
+        break;
+      case RC_VBR:
+        if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
+          fprintf(stderr, "amf set opt rc vbr_latency failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return ret;
+}
+
+Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
+                     int align, int bit_rate, int time_base_num,
+                     int time_base_den, int gop, int quality, int rc,
+                     int *linesize, int *offset, int *length,
+                     EncodeCallback callback) {
   const AVCodec *codec = NULL;
   AVCodecContext *c = NULL;
   AVFrame *frame = NULL;
@@ -132,35 +279,23 @@ Encoder *new_encoder(const char *name, int fps, int width, int height,
   c->pix_fmt = pixfmt;
   c->has_b_frames = 0;
   c->max_b_frames = 0;
-  c->gop_size = 60;
+  c->gop_size = gop;
   /* put sample parameters */
-  // c->bit_rate = 400000;
+  // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
+  if (bit_rate >= 1000) c->bit_rate = bit_rate;
   /* frames per second */
-  c->time_base = (AVRational){1, fps};
-  c->framerate = (AVRational){fps, 1};
+  c->time_base = av_make_q(time_base_num, time_base_den);
+  c->framerate = av_inv_q(c->time_base);
   c->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
   c->flags |= AV_CODEC_FLAG_LOW_DELAY;
   c->thread_count = 4;
   c->thread_type = FF_THREAD_SLICE;
 
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    if ((ret = av_opt_set(c->priv_data, "delay", "0", 0)) < 0) {
-      fprintf(stderr, "nvenc set opt failed: %s\n", av_err2str(ret));
-      goto _exit;
-    }
+  if (set_lantency_free(c->priv_data, name) < 0) {
+    goto _exit;
   }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    if ((ret = av_opt_set(c->priv_data, "query_timeout", "1000", 0)) < 0) {
-      fprintf(stderr, "amf set opt failed: %s\n", av_err2str(ret));
-      goto _exit;
-    }
-  }
-  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
-    if ((ret = av_opt_set(c->priv_data, "async_depth", "1", 0)) < 0) {
-      fprintf(stderr, "qsv set opt failed: %s\n", av_err2str(ret));
-      goto _exit;
-    }
-  }
+  set_quality(c->priv_data, name, quality);
+  set_rate_control(c->priv_data, name, rc);
 
   if ((ret = avcodec_open2(c, codec, NULL)) < 0) {
     fprintf(stderr, "avcodec_open2: %s\n", av_err2str(ret));

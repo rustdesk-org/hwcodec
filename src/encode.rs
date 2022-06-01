@@ -5,7 +5,7 @@ use crate::{
         DataFormat::{self, *},
         Vendor::*,
     },
-    free_encoder, new_encoder, AVPixelFormat, AV_NUM_DATA_POINTERS,
+    free_encoder, new_encoder, AVPixelFormat, Quality, RateContorl, AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{
@@ -18,11 +18,15 @@ use std::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodeContext {
     pub name: String,
-    pub fps: i32,
     pub width: i32,
     pub height: i32,
     pub pixfmt: AVPixelFormat,
     pub align: i32,
+    pub bitrate: i32,
+    pub timebase: [i32; 2],
+    pub gop: i32,
+    pub quality: Quality,
+    pub rc: RateContorl,
 }
 
 pub struct EncodeFrame {
@@ -56,11 +60,16 @@ impl Encoder {
             length.resize(1, 0);
             let codec = new_encoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
-                ctx.fps,
                 ctx.width,
                 ctx.height,
                 ctx.pixfmt as c_int,
                 ctx.align,
+                ctx.bitrate as _,
+                ctx.timebase[0],
+                ctx.timebase[1],
+                ctx.gop,
+                ctx.quality as _,
+                ctx.rc as _,
                 linesize.as_mut_ptr(),
                 offset.as_mut_ptr(),
                 length.as_mut_ptr(),

@@ -5,6 +5,8 @@ use hwcodec::{
     encode::{EncodeContext, EncodeFrame, Encoder},
     ffmpeg::*,
     AVHWDeviceType, AVPixelFormat,
+    Quality::*,
+    RateContorl::*,
 };
 
 #[derive(Debug)]
@@ -102,11 +104,15 @@ fn test(
 ) {
     let ctx = EncodeContext {
         name: String::from(""),
-        fps: 30,
         width: 1920,
         height: 1080,
         pixfmt,
         align: 0,
+        bitrate: 40000000,
+        timebase: [1, 30],
+        gop: 60,
+        quality: Quality_Default,
+        rc: RC_DEFAULT,
     };
     let yuvs = prepare_yuv(ctx.clone(), "input/1920_1080.yuv").unwrap();
 
@@ -114,11 +120,7 @@ fn test(
     for info in encoder_infos {
         let mut encode = Encoder::new(EncodeContext {
             name: info.name.clone(),
-            fps: ctx.fps,
-            width: ctx.width,
-            height: ctx.height,
-            pixfmt: ctx.pixfmt,
-            align: ctx.align,
+            ..ctx.clone()
         })
         .unwrap();
         let start = std::time::Instant::now();
@@ -198,11 +200,7 @@ fn prepare_h26x(
         if let Some(h26x) = h26x {
             let mut encode = Encoder::new(EncodeContext {
                 name: h26x.name.clone(),
-                fps: ctx.fps,
-                width: ctx.width,
-                height: ctx.height,
-                pixfmt: ctx.pixfmt,
-                align: ctx.align,
+                ..ctx.clone()
             })
             .unwrap();
             let mut h26xs = vec![];
