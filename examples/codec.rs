@@ -1,3 +1,4 @@
+use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
     decode::{DecodeContext, Decoder},
     encode::{EncodeContext, Encoder},
@@ -13,6 +14,8 @@ use std::{
 };
 
 fn main() {
+    init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+
     let encode_ctx = EncodeContext {
         name: String::from("hevc_amf"),
         width: 1920,
@@ -34,7 +37,7 @@ fn main() {
 
 fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
     let mut yuv_file = File::open("input/1920_1080.yuv").unwrap();
-    let mut encode_file = File::create("output/1920_1080.264").unwrap();
+    let mut encode_file = File::create("output/1920_1080.265").unwrap();
     let mut decode_file = File::create("output/1920_1080_decode.yuv").unwrap();
     let size: usize;
     if let Ok((_, _, len)) = ffmpeg_linesize_offset_length(
@@ -60,7 +63,7 @@ fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
     let mut f = |data: &[u8]| {
         let now = std::time::Instant::now();
         if let Ok(encode_frames) = video_encoder.encode(data) {
-            println!("encode:{:?}", now.elapsed());
+            log::info!("encode:{:?}", now.elapsed());
             encode_sum += now.elapsed().as_micros();
             for encode_frame in encode_frames.iter() {
                 encode_size += encode_frame.data.len();
@@ -69,11 +72,11 @@ fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
 
                 let now = std::time::Instant::now();
                 if let Ok(docode_frames) = video_decoder.decode(&encode_frame.data) {
-                    println!("decode:{:?}", now.elapsed());
+                    log::info!("decode:{:?}", now.elapsed());
                     decode_sum += now.elapsed().as_micros();
                     counter += 1;
                     for decode_frame in docode_frames {
-                        println!("decode_frame:{}", decode_frame);
+                        log::info!("decode_frame:{}", decode_frame);
                         for data in decode_frame.data.iter() {
                             decode_file.write_all(data).unwrap();
                             decode_file.flush().unwrap();
@@ -94,12 +97,12 @@ fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
                 }
             }
             Err(e) => {
-                println!("{:?}", e);
+                log::info!("{:?}", e);
                 break;
             }
         }
     }
-    println!(
+    log::info!(
         "counter:{}, encode_avg:{}us, decode_avg:{}us, size_avg:{}",
         counter,
         encode_sum / counter,

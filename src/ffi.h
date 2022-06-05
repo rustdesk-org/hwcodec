@@ -5,6 +5,16 @@
 
 #define AV_NUM_DATA_POINTERS 8
 
+#define AV_LOG_QUIET -8
+#define AV_LOG_PANIC 0
+#define AV_LOG_FATAL 8
+#define AV_LOG_ERROR 16
+#define AV_LOG_WARNING 24
+#define AV_LOG_INFO 32
+#define AV_LOG_VERBOSE 40
+#define AV_LOG_DEBUG 48
+#define AV_LOG_TRACE 56
+
 enum AVPixelFormat {
   AV_PIX_FMT_YUV420P = 0,
   AV_PIX_FMT_NV12 = 23,
@@ -51,5 +61,7 @@ void free_decoder(void *decoder);
 int hwdevice_supported(int device_type);
 int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
                                int *linesize, int *offset, int *length);
+int av_log_get_level(void);
+void av_log_set_level(int level);
 
 #endif  // FFI_H

@@ -10,6 +10,9 @@
 
 // #define CFG_PKG_TRACE
 
+extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
+#define fprintf my_fprintf
+
 enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
 
 enum RateContorl {
@@ -389,7 +392,7 @@ static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj) {
     encoded = true;
 #ifdef CFG_PKG_TRACE
     encoder->out++;
-    printf("delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
+    fprintf(stdout, "delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
     encoder->callback(pkt->data, pkt->size, pkt->pts, obj);
   }
@@ -403,7 +406,7 @@ int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj) {
 
 #ifdef CFG_PKG_TRACE
   encoder->in++;
-  printf("delay EI: in:%d, out:%d\n", encoder->in, encoder->out);
+  fprintf(stdout, "delay EI: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
   if ((ret = av_frame_make_writable(encoder->frame)) != 0) {
     fprintf(stderr, "av_frame_make_writable failed: %s", av_err2str(ret));

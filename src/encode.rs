@@ -1,11 +1,12 @@
 use crate::{
-    encode,
+    av_log_get_level, av_log_set_level, encode,
     ffmpeg::{
         ffmpeg_linesize_offset_length, CodecInfo,
         DataFormat::{self, *},
         Vendor::*,
     },
-    free_encoder, new_encoder, AVPixelFormat, Quality, RateContorl, AV_NUM_DATA_POINTERS,
+    free_encoder, new_encoder, AVPixelFormat, Quality, RateContorl, AV_LOG_ERROR, AV_LOG_PANIC,
+    AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{
@@ -101,7 +102,9 @@ impl Encoder {
                 self.frames as *const _ as *const c_void,
             );
             if result != 0 {
-                error!("Error encode: {}", result);
+                if av_log_get_level() >= AV_LOG_ERROR as _ {
+                    error!("Error encode: {}", result);
+                }
                 return Err(result);
             }
             Ok(&mut *self.frames)
@@ -142,6 +145,11 @@ impl Encoder {
 
     // TODO
     fn avaliable_encoders_(ctx: EncodeContext) -> Vec<CodecInfo> {
+        let log_level;
+        unsafe {
+            log_level = av_log_get_level();
+            av_log_set_level(AV_LOG_PANIC as _);
+        };
         let mut codecs = vec![
             // 264
             CodecInfo {
@@ -212,6 +220,10 @@ impl Encoder {
                     }
                 }
             }
+        }
+
+        unsafe {
+            av_log_set_level(log_level);
         }
 
         res

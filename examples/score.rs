@@ -1,5 +1,6 @@
 use std::{cell::Cell, fmt::Display, fs::File, io::Read};
 
+use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
     decode::{DecodeContext, Decoder},
     encode::{EncodeContext, EncodeFrame, Encoder},
@@ -44,22 +45,24 @@ impl Display for DecoderStat {
 }
 
 fn main() {
+    init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+
     let mut stat_encoder = Cell::new(vec![]);
     let mut stat_decoder = Cell::new(vec![]);
 
-    println!("NV12");
+    log::info!("NV12");
     test(
         AVPixelFormat::AV_PIX_FMT_NV12,
         &mut stat_encoder,
         &mut stat_decoder,
     );
-    println!("YUV420");
+    log::info!("YUV420");
     test(
         AVPixelFormat::AV_PIX_FMT_YUV420P,
         &mut stat_encoder,
         &mut stat_decoder,
     );
-    println!("SCORE");
+    log::info!("SCORE");
     encode_score(stat_encoder.take());
     decode_score(stat_decoder.take());
 }
@@ -79,7 +82,7 @@ fn encode_score(stats: Vec<EncoderStat>) {
         let score_size = 100 * avg_size / stat.size;
         let score_quality = if stat.name.contains("hevc") { 100 } else { 80 };
         let score = (score_speed * 5 + score_size * 2 + score_quality * 3) / 10;
-        println!("{}, score:{}", stat, score);
+        log::info!("{}, score:{}", stat, score);
     }
 }
 
@@ -93,7 +96,7 @@ fn decode_score(stats: Vec<DecoderStat>) {
     for stat in stats.iter() {
         let score_speed = 100 * avg_us / stat.us;
         let score = score_speed;
-        println!("{}, score:{}", stat, score);
+        log::info!("{}, score:{}", stat, score);
     }
 }
 
@@ -108,7 +111,7 @@ fn test(
         height: 1080,
         pixfmt,
         align: 0,
-        bitrate: 40000000,
+        bitrate: 20000000,
         timebase: [1, 30],
         gop: 60,
         quality: Quality_Default,
@@ -131,7 +134,7 @@ fn test(
                 size += h26x.data.len();
             }
         }
-        println!(
+        log::info!(
             "encode:{:?}, time_avg:{}us, size_avg:{}byte",
             info.name,
             start.elapsed().as_micros() as usize / yuvs.len(),
@@ -175,7 +178,7 @@ fn test(
             }
         }
         if decoded {
-            println!(
+            log::info!(
                 "decode:{} {:?}, time_avg:{}us",
                 info.name,
                 info.hwdevice,
@@ -246,7 +249,7 @@ fn prepare_yuv(ctx: EncodeContext, filename: &str) -> Result<Vec<Vec<u8>>, ()> {
                 }
             }
             Err(e) => {
-                println!("{:?}", e);
+                log::info!("{:?}", e);
                 return Err(());
             }
         }

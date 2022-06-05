@@ -1,9 +1,9 @@
 use crate::{
-    decode,
-    ffmpeg::CodecInfo,
+    av_log_get_level, av_log_set_level, decode,
+    ffmpeg::{CodecInfo, DataFormat::*, Vendor::*},
     free_decoder, hwdevice_supported, new_decoder,
     AVHWDeviceType::{self, *},
-    AVPixelFormat, AV_NUM_DATA_POINTERS,
+    AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC, AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{
@@ -90,7 +90,9 @@ impl Decoder {
             );
 
             if ret < 0 {
-                error!("Error decode: {}", ret);
+                if av_log_get_level() >= AV_LOG_ERROR as _ {
+                    error!("Error decode: {}", ret);
+                }
                 Err(ret)
             } else {
                 Ok(&mut *self.frames)
@@ -163,7 +165,11 @@ impl Decoder {
     }
 
     fn avaliable_decoders_() -> Vec<CodecInfo> {
-        use crate::ffmpeg::{DataFormat::*, Vendor::*};
+        let log_level;
+        unsafe {
+            log_level = av_log_get_level();
+            av_log_set_level(AV_LOG_PANIC as _);
+        };
 
         let mut hwdevices = vec![
             AV_HWDEVICE_TYPE_CUDA,
@@ -286,6 +292,9 @@ impl Decoder {
                     }
                 }
             }
+        }
+        unsafe {
+            av_log_set_level(log_level);
         }
 
         res

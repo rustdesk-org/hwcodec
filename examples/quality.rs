@@ -1,3 +1,4 @@
+use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
     encode::{EncodeContext, Encoder},
     ffmpeg::ffmpeg_linesize_offset_length,
@@ -14,6 +15,8 @@ use std::{
 const PSNR: bool = false;
 
 fn main() {
+    init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+
     let ctx = EncodeContext {
         name: String::from("hevc_amf"),
         width: 1920,
@@ -51,9 +54,12 @@ fn mixed(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
         let (time, size, encode_filename) =
             encode("mixed", format!("{:?}", v).as_str(), ctx.clone(), yuvs);
         psnr(encode_filename);
-        println!(
+        log::info!(
             "bitrate:{}, timebase:{}, {} us, {} byte",
-            v.0, v.1, time, size
+            v.0,
+            v.1,
+            time,
+            size
         );
     }
 }
@@ -67,7 +73,7 @@ fn bitrate(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
         let (time, size, encode_filename) =
             encode("bitrate", format!("{}", v).as_str(), ctx.clone(), yuvs);
         psnr(encode_filename);
-        println!("bitrate:{}, {} us, {} byte", v, time, size);
+        log::info!("bitrate:{}, {} us, {} byte", v, time, size);
     }
 }
 
@@ -78,7 +84,7 @@ fn timebase(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
         let (time, size, encode_filename) =
             encode("timebase", format!("{}", v).as_str(), ctx.clone(), yuvs);
         psnr(encode_filename);
-        println!("timebase:{}, {} us, {} byte", v, time, size);
+        log::info!("timebase:{}, {} us, {} byte", v, time, size);
     }
 }
 
@@ -89,7 +95,7 @@ fn gop(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
         let (time, size, encode_filename) =
             encode("gop", format!("{}", v).as_str(), ctx.clone(), yuvs);
         psnr(encode_filename);
-        println!("gop:{}, {} us, {} byte", v, time, size);
+        log::info!("gop:{}, {} us, {} byte", v, time, size);
     }
 }
 
@@ -100,7 +106,7 @@ fn quality(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
         let (time, size, encode_filename) =
             encode("quality", format!("{:?}", v).as_str(), ctx.clone(), yuvs);
         psnr(encode_filename);
-        println!("quality:{:?}, {} us, {} byte", v, time, size);
+        log::info!("quality:{:?}, {} us, {} byte", v, time, size);
     }
 }
 
@@ -115,7 +121,7 @@ fn rate_control(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
             yuvs,
         );
         psnr(encode_filename);
-        println!("rate_control:{:?}, {} us, {} byte", v, time, size);
+        log::info!("rate_control:{:?}, {} us, {} byte", v, time, size);
     }
 }
 
@@ -191,7 +197,7 @@ fn prepare_yuv(ctx: EncodeContext, filename: &str) -> Result<Vec<Vec<u8>>, ()> {
                 }
             }
             Err(e) => {
-                println!("{:?}", e);
+                log::info!("{:?}", e);
                 return Err(());
             }
         }

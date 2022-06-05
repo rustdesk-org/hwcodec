@@ -8,6 +8,9 @@
 
 // #define CFG_PKG_TRACE
 
+extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
+#define fprintf my_fprintf
+
 typedef void (*DecodeCallback)(const void *obj, int width, int height,
                                enum AVPixelFormat pixfmt,
                                int linesize[AV_NUM_DATA_POINTERS],
@@ -62,6 +65,9 @@ Decoder *new_decoder(const char *name, int device_type,
       fprintf(stderr, "qsv set opt failed %s\n", av_err2str(ret));
       goto _exit;
     }
+    // https://github.com/FFmpeg/FFmpeg/blob/c6364b711bad1fe2fbd90e5b2798f87080ddf5ea/libavcodec/qsvdec.c#L932
+    // for disable warning
+    c->pkt_timebase = av_make_q(1, 30);
   }
 
   if (hwaccel) {
@@ -168,7 +174,7 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
     decoded = true;
 #ifdef CFG_PKG_TRACE
     decoder->out++;
-    printf("delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
+    fprintf(stdout, "delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
 #endif
     decoder->callback(obj, tmp_frame->width, tmp_frame->height,
                       tmp_frame->format, tmp_frame->linesize, tmp_frame->data,
@@ -183,7 +189,7 @@ int decode(Decoder *decoder, const uint8_t *data, int length, const void *obj) {
   int ret;
 #ifdef CFG_PKG_TRACE
   decoder->in++;
-  printf("delay DI: in:%d, out:%d\n", decoder->in, decoder->out);
+  fprintf(stdout, "delay DI: in:%d, out:%d\n", decoder->in, decoder->out);
 #endif
 
   if (!data || !length) {

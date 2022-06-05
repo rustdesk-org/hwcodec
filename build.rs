@@ -22,5 +22,6 @@ fn main() {
         .include("ffmpeg/windows/release/include")
         .file("src/encode.c")
         .file("src/decode.c")
+        .file("src/common.c")
         .compile("hwcodec");
 }
