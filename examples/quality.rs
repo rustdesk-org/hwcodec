@@ -26,12 +26,13 @@ fn main() {
         bitrate: 2_000_000,
         timebase: [1, 30],
         gop: 60,
-        quality: Quality_High,
+        quality: Quality_Default,
         rc: RC_DEFAULT,
     };
     let yuvs = prepare_yuv(ctx.clone(), "input/1920_1080.yuv").unwrap();
     mixed(ctx.clone(), &yuvs);
     bitrate(ctx.clone(), &yuvs);
+    all_bitrate(ctx.clone(), &yuvs);
     timebase(ctx.clone(), &yuvs);
     gop(ctx.clone(), &yuvs);
     quality(ctx.clone(), &yuvs);
@@ -66,7 +67,7 @@ fn mixed(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
 
 fn bitrate(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
     let arr = [
-        -1, 1000, 2000, 5000, 8000, 10000, 100000, 1000000, 1500000, 2000000, 4000000, 10000000,
+        -1, 1000, 8000, 200_000, 1_000_000, 1_320_000, 2_000_000, 4_000_000,
     ];
     for v in arr.iter() {
         ctx.bitrate = v.clone();
@@ -74,6 +75,21 @@ fn bitrate(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
             encode("bitrate", format!("{}", v).as_str(), ctx.clone(), yuvs);
         psnr(encode_filename);
         log::info!("bitrate:{}, {} us, {} byte", v, time, size);
+    }
+}
+
+fn all_bitrate(mut ctx: EncodeContext, yuvs: &Vec<Vec<u8>>) {
+    let mut arr = vec![];
+    for i in 10..101 {
+        arr.push(i * 2 * 2_000_000 / 100);
+    }
+    let yuvs = &yuvs[0..1].to_vec();
+    for v in arr.iter() {
+        ctx.bitrate = v.clone();
+        let (time, size, encode_filename) =
+            encode("all_bitrate", format!("{}", v).as_str(), ctx.clone(), yuvs);
+        psnr(encode_filename);
+        log::info!("all_bitrate:{}, {} us, {} byte", v, time, size);
     }
 }
 
