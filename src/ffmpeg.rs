@@ -1,14 +1,15 @@
 use crate::*;
+use serde_derive::{Deserialize, Serialize};
 use std::os::raw::c_int;
 use std::result::Result;
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum DataFormat {
     H264,
     H265,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Vendor {
     NVIDIA,
     AMD,
@@ -16,7 +17,23 @@ pub enum Vendor {
     OTHER,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
+pub enum AVHWDeviceType {
+    AV_HWDEVICE_TYPE_NONE,
+    AV_HWDEVICE_TYPE_VDPAU,
+    AV_HWDEVICE_TYPE_CUDA,
+    AV_HWDEVICE_TYPE_VAAPI,
+    AV_HWDEVICE_TYPE_DXVA2,
+    AV_HWDEVICE_TYPE_QSV,
+    AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+    AV_HWDEVICE_TYPE_D3D11VA,
+    AV_HWDEVICE_TYPE_DRM,
+    AV_HWDEVICE_TYPE_OPENCL,
+    AV_HWDEVICE_TYPE_MEDIACODEC,
+    AV_HWDEVICE_TYPE_VULKAN,
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CodecInfo {
     pub name: String,
     pub format: DataFormat,
@@ -38,31 +55,53 @@ impl Default for CodecInfo {
 }
 
 impl CodecInfo {
-    pub fn score(coders: Vec<CodecInfo>) -> (Option<CodecInfo>, Option<CodecInfo>) {
-        let mut coder_h264: Option<CodecInfo> = None;
-        let mut coder_h265: Option<CodecInfo> = None;
+    pub fn score(coders: Vec<CodecInfo>) -> CodecInfos {
+        let mut h264: Option<CodecInfo> = None;
+        let mut h265: Option<CodecInfo> = None;
 
         for coder in coders {
             match coder.format {
-                DataFormat::H264 => match &coder_h264 {
+                DataFormat::H264 => match &h264 {
                     Some(old) => {
                         if old.score < coder.score {
-                            coder_h264 = Some(coder)
+                            h264 = Some(coder)
                         }
                     }
-                    None => coder_h264 = Some(coder),
+                    None => h264 = Some(coder),
                 },
-                DataFormat::H265 => match &coder_h265 {
+                DataFormat::H265 => match &h265 {
                     Some(old) => {
                         if old.score < coder.score {
-                            coder_h265 = Some(coder)
+                            h265 = Some(coder)
                         }
                     }
-                    None => coder_h265 = Some(coder),
+                    None => h265 = Some(coder),
                 },
             }
         }
-        (coder_h264, coder_h265)
+        CodecInfos { h264, h265 }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+pub struct CodecInfos {
+    pub h264: Option<CodecInfo>,
+    pub h265: Option<CodecInfo>,
+}
+
+impl CodecInfos {
+    pub fn serialize(&self) -> Result<String, ()> {
+        match serde_json::to_string_pretty(self) {
+            Ok(s) => Ok(s),
+            Err(_) => Err(()),
+        }
+    }
+
+    pub fn deserialize(s: &str) -> Result<Self, ()> {
+        match serde_json::from_str(s) {
+            Ok(c) => Ok(c),
+            Err(_) => Err(()),
+        }
     }
 }
 

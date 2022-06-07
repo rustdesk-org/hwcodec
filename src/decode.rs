@@ -1,9 +1,13 @@
 use crate::{
     av_log_get_level, av_log_set_level, decode,
-    ffmpeg::{CodecInfo, DataFormat::*, Vendor::*},
-    free_decoder, hwdevice_supported, new_decoder,
-    AVHWDeviceType::{self, *},
-    AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC, AV_NUM_DATA_POINTERS,
+    ffmpeg::{
+        AVHWDeviceType::{self, *},
+        CodecInfo,
+        DataFormat::*,
+        Vendor::*,
+    },
+    free_decoder, hwdevice_supported, new_decoder, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
+    AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{
@@ -122,7 +126,7 @@ impl Decoder {
             key: key != 0,
         };
 
-        if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P as _ {
+        if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int {
             let y = from_raw_parts(datas[0], (linesizes[0] * height) as usize).to_vec();
             let u = from_raw_parts(datas[1], (linesizes[1] * height / 2) as usize).to_vec();
             let v = from_raw_parts(datas[2], (linesizes[2] * height / 2) as usize).to_vec();
@@ -136,7 +140,7 @@ impl Decoder {
             frame.linesize.push(linesizes[2]);
 
             frames.push(frame);
-        } else if pixfmt == AVPixelFormat::AV_PIX_FMT_NV12 as _ {
+        } else if pixfmt == AVPixelFormat::AV_PIX_FMT_NV12 as c_int {
             let y = from_raw_parts(datas[0], (linesizes[0] * height) as usize).to_vec();
             let uv = from_raw_parts(datas[1], (linesizes[1] * height / 2) as usize).to_vec();
 

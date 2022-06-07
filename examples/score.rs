@@ -5,7 +5,7 @@ use hwcodec::{
     decode::{DecodeContext, Decoder},
     encode::{EncodeContext, EncodeFrame, Encoder},
     ffmpeg::*,
-    AVHWDeviceType, AVPixelFormat,
+    AVPixelFormat,
     Quality::*,
     RateContorl::*,
 };
@@ -197,7 +197,7 @@ fn prepare_h26x(
     ctx: EncodeContext,
     yuvs: &Vec<Vec<u8>>,
 ) -> (Option<Vec<EncodeFrame>>, Option<Vec<EncodeFrame>>) {
-    let (h264, h265) = CodecInfo::score(Encoder::avaliable_encoders(ctx.clone()));
+    let best = CodecInfo::score(Encoder::avaliable_encoders(ctx.clone()));
 
     let f = |h26x: Option<CodecInfo>| {
         if let Some(h26x) = h26x {
@@ -219,8 +219,8 @@ fn prepare_h26x(
             None
         }
     };
-    let data_h264: Option<Vec<EncodeFrame>> = f(h264);
-    let data_h265: Option<Vec<EncodeFrame>> = f(h265);
+    let data_h264: Option<Vec<EncodeFrame>> = f(best.h264);
+    let data_h265: Option<Vec<EncodeFrame>> = f(best.h265);
 
     (data_h264, data_h265)
 }

@@ -2,8 +2,7 @@ use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
     decode::{DecodeContext, Decoder},
     encode::{EncodeContext, Encoder},
-    ffmpeg::ffmpeg_linesize_offset_length,
-    AVHWDeviceType::*,
+    ffmpeg::{ffmpeg_linesize_offset_length, AVHWDeviceType::*},
     AVPixelFormat::*,
     Quality::*,
     RateContorl::*,
