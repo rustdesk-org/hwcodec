@@ -83,7 +83,6 @@ Decoder *new_decoder(const char *name, int device_type,
       goto _exit;
     }
   } else {
-    sw_parse_ctx = av_parser_init(codec->id);
     if (!(sw_parse_ctx = av_parser_init(codec->id))) {
       fprintf(stderr, "parser not found\n");
       goto _exit;
