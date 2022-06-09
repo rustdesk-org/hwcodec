@@ -6,8 +6,7 @@ use crate::{
         DataFormat::*,
         Vendor::*,
     },
-    free_decoder, hwdevice_supported, new_decoder, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
-    AV_NUM_DATA_POINTERS,
+    free_decoder, new_decoder, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC, AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
 use std::{
@@ -17,6 +16,10 @@ use std::{
     os::raw::c_int,
     path::PathBuf,
     slice::from_raw_parts,
+    sync::{Arc, Mutex},
+    thread,
+    time::Instant,
+    vec,
 };
 
 #[derive(Debug, Clone)]
@@ -175,18 +178,8 @@ impl Decoder {
             av_log_set_level(AV_LOG_PANIC as _);
         };
 
-        let mut hwdevices = vec![
-            AV_HWDEVICE_TYPE_CUDA,
-            AV_HWDEVICE_TYPE_DXVA2,
-            AV_HWDEVICE_TYPE_D3D11VA,
-            AV_HWDEVICE_TYPE_QSV,
-        ];
-        unsafe {
-            hwdevices.retain(|&d| hwdevice_supported(d as _) == 0);
-        }
-
         // TODO
-        let mut codecs = vec![
+        let codecs = vec![
             // 264
             CodecInfo {
                 name: "h264".to_owned(),
@@ -261,8 +254,7 @@ impl Decoder {
             },
         ];
 
-        codecs.retain(|d| d.hwdevice == AV_HWDEVICE_TYPE_NONE || hwdevices.contains(&d.hwdevice));
-
+        let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
         let mut res = vec![];
 
         let mut cur_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -275,24 +267,66 @@ impl Decoder {
         if let Ok(mut file264) = File::open(filepath_264) {
             let mut buf264 = vec![0u8; 36 * 1024];
             if let Ok(sz264) = file264.read(&mut buf264) {
+                let buf264 = Arc::new(buf264);
                 if let Ok(mut file265) = File::open(filepath_265) {
                     let mut buf265 = vec![0u8; 36 * 1024];
                     if let Ok(sz265) = file265.read(&mut buf265) {
+                        let buf265 = Arc::new(buf265);
+                        let mut handles = vec![];
                         for codec in codecs {
-                            let c = DecodeContext {
-                                name: codec.name.clone(),
-                                device_type: codec.hwdevice,
-                            };
-                            if let Ok(mut decoder) = Decoder::new(c) {
-                                let data = match codec.format {
-                                    H264 => &buf264[..sz264],
-                                    H265 => &buf265[..sz265],
+                            let infos = infos.clone();
+                            let buf264 = buf264.clone();
+                            let buf265 = buf265.clone();
+                            let handle = thread::spawn(move || {
+                                let c = DecodeContext {
+                                    name: codec.name.clone(),
+                                    device_type: codec.hwdevice,
                                 };
-                                if let Ok(_) = decoder.decode(data) {
-                                    res.push(codec);
+                                let start = Instant::now();
+                                if let Ok(mut decoder) = Decoder::new(c) {
+                                    log::debug!(
+                                        "name:{} device:{:?} new:{:?}",
+                                        codec.name.clone(),
+                                        codec.hwdevice,
+                                        start.elapsed()
+                                    );
+                                    let data = match codec.format {
+                                        H264 => &buf264[..sz264],
+                                        H265 => &buf265[..sz265],
+                                    };
+                                    let start = Instant::now();
+                                    if let Ok(_) = decoder.decode(data) {
+                                        log::debug!(
+                                            "name:{} device:{:?} decode:{:?}",
+                                            codec.name,
+                                            codec.hwdevice,
+                                            start.elapsed()
+                                        );
+                                        infos.lock().unwrap().push(codec);
+                                    } else {
+                                        log::debug!(
+                                            "name:{} device:{:?} decode failed:{:?}",
+                                            codec.name,
+                                            codec.hwdevice,
+                                            start.elapsed()
+                                        );
+                                    }
+                                } else {
+                                    log::debug!(
+                                        "name:{} device:{:?} new failed:{:?}",
+                                        codec.name.clone(),
+                                        codec.hwdevice,
+                                        start.elapsed()
+                                    );
                                 }
-                            }
+                            });
+
+                            handles.push(handle);
                         }
+                        for handle in handles {
+                            handle.join().ok();
+                        }
+                        res = infos.lock().unwrap().clone();
                     }
                 }
             }

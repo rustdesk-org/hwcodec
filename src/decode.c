@@ -233,13 +233,3 @@ void free_decoder(Decoder *decoder) {
   else if (!decoder->hw_device_ctx)
     av_buffer_unref(&decoder->hw_device_ctx);
 }
-
-int hwdevice_supported(enum AVHWDeviceType device_type) {
-  AVBufferRef *hw_device_ctx = NULL;
-  int ret;
-
-  ret = av_hwdevice_ctx_create(&hw_device_ctx, device_type, NULL, NULL, 0);
-  if (hw_device_ctx) av_buffer_unref(&hw_device_ctx);
-
-  return ret;
-}

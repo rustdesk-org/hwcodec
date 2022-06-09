@@ -14,6 +14,9 @@ use std::{
     fmt::Display,
     os::raw::c_int,
     slice,
+    sync::{Arc, Mutex},
+    thread,
+    time::Instant,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -206,20 +209,42 @@ impl Encoder {
             return true;
         });
 
+        let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
         let mut res = vec![];
 
+        let start = Instant::now();
         if let Ok(yuv) = Encoder::dummy_yuv(ctx.clone()) {
+            log::debug!("prepare yuv {:?}", start.elapsed());
+            let yuv = Arc::new(yuv);
+            let mut handles = vec![];
             for codec in codecs {
-                let c = EncodeContext {
-                    name: codec.name.clone(),
-                    ..ctx
-                };
-                if let Ok(mut encoder) = Encoder::new(c) {
-                    if let Ok(_) = encoder.encode(&yuv) {
-                        res.push(codec);
+                let yuv = yuv.clone();
+                let infos = infos.clone();
+                let handle = thread::spawn(move || {
+                    let c = EncodeContext {
+                        name: codec.name.clone(),
+                        ..ctx
+                    };
+                    let start = Instant::now();
+                    if let Ok(mut encoder) = Encoder::new(c) {
+                        log::debug!("{} new {:?}", codec.name, start.elapsed());
+                        let start = Instant::now();
+                        if let Ok(_) = encoder.encode(&yuv) {
+                            log::debug!("{} encode {:?}", codec.name, start.elapsed());
+                            infos.lock().unwrap().push(codec);
+                        } else {
+                            log::debug!("{} encode failed {:?}", codec.name, start.elapsed());
+                        }
+                    } else {
+                        log::debug!("{} new failed {:?}", codec.name, start.elapsed());
                     }
-                }
+                });
+                handles.push(handle);
             }
+            for handle in handles {
+                handle.join().ok();
+            }
+            res = infos.lock().unwrap().clone();
         }
 
         unsafe {
