@@ -24,7 +24,7 @@
 ### Start
 
 #### Run in Rustdesk
-`cargo run --features scrap/hwcodec`
+`cargo run --features hwcodec`
 
 #### compile it yourself
 
