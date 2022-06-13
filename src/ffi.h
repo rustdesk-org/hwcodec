@@ -43,9 +43,9 @@ int encode(void *encoder, const uint8_t *data, int length, const void *obj);
 int decode(void *decoder, const uint8_t *data, int length, const void *obj);
 void free_encoder(void *encoder);
 void free_decoder(void *decoder);
-int hwdevice_supported(int device_type);
 int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
                                int *linesize, int *offset, int *length);
+int set_bitrate(void *encoder, int bitrate);
 int av_log_get_level(void);
 void av_log_set_level(int level);
 

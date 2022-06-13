@@ -124,6 +124,12 @@ impl Encoder {
         }
     }
 
+    pub fn set_bitrate(&mut self, bitrate: i32) {
+        unsafe {
+            crate::set_bitrate(&mut *self.codec, bitrate);
+        }
+    }
+
     pub fn format_from_name(name: String) -> Result<DataFormat, ()> {
         if name.contains("h264") {
             return Ok(H264);

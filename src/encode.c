@@ -29,6 +29,7 @@ typedef struct Encoder {
   AVFrame *frame;
   AVPacket *pkt;
   int offset[AV_NUM_DATA_POINTERS];
+  char name[32];
   EncodeCallback callback;
 
 #ifdef CFG_PKG_TRACE
@@ -313,6 +314,7 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   encoder->frame = frame;
   encoder->pkt = pkt;
   encoder->callback = callback;
+  snprintf(encoder->name, sizeof(encoder->name), "%s", name);
 #ifdef CFG_PKG_TRACE
   encoder->in = 0;
   encoder->out = 0;
@@ -425,4 +427,14 @@ void free_encoder(Encoder *encoder) {
   if (encoder->pkt) av_packet_free(&encoder->pkt);
   if (encoder->frame) av_frame_free(&encoder->frame);
   if (encoder->c) avcodec_free_context(&encoder->c);
+}
+
+int set_bitrate(Encoder *encoder, int bitrate) {
+  const char *name = encoder->name;
+  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0 ||
+      strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
+    encoder->c->bit_rate = bitrate;
+    return 0;
+  }
+  return -1;
 }
