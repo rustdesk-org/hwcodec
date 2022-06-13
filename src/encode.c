@@ -286,7 +286,12 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   c->gop_size = gop;
   /* put sample parameters */
   // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-  if (bit_rate >= 1000) c->bit_rate = bit_rate;
+  if (bit_rate >= 1000) {
+    c->bit_rate = bit_rate;
+    if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
+      c->rc_max_rate = bit_rate;
+    }
+  }
   /* frames per second */
   c->time_base = av_make_q(time_base_num, time_base_den);
   c->framerate = av_inv_q(c->time_base);
