@@ -330,6 +330,7 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   return encoder;
 
 _exit:
+  if (encoder) free(encoder);
   if (pkt) av_packet_free(&pkt);
   if (frame) av_frame_free(&frame);
   if (c) avcodec_free_context(&c);
