@@ -186,7 +186,7 @@ impl Decoder {
                 format: H264,
                 vendor: OTHER,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                score: 93,
+                score: 94,
             },
             CodecInfo {
                 name: "h264".to_owned(),
@@ -222,7 +222,7 @@ impl Decoder {
                 format: H265,
                 vendor: OTHER,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                score: 93, // not tested
+                score: 95, // not tested
             },
             CodecInfo {
                 name: "hevc".to_owned(),
