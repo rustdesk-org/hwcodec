@@ -38,7 +38,7 @@ fn bitrate(encoder: &mut Encoder, yuvs: &Vec<Vec<u8>>) {
         -1, 1000, 8000, 200_000, 1_000_000, 1_320_000, 2_000_000, 4_000_000,
     ];
     for v in arr.iter() {
-        encoder.set_bitrate(v.clone());
+        encoder.set_bitrate(v.clone()).unwrap();
         let (time, size, _encode_filename) =
             encode_decode("bitrate", format!("{}", v).as_str(), encoder, yuvs);
         log::info!("bitrate:{}, {} us, {} byte", v, time, size);

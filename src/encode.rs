@@ -124,9 +124,12 @@ impl Encoder {
         }
     }
 
-    pub fn set_bitrate(&mut self, bitrate: i32) {
-        unsafe {
-            crate::set_bitrate(&mut *self.codec, bitrate);
+    pub fn set_bitrate(&mut self, bitrate: i32) -> Result<(), ()> {
+        let ret = unsafe { crate::set_bitrate(&mut *self.codec, bitrate) };
+        if ret == 0 {
+            Ok(())
+        } else {
+            Err(())
         }
     }
 
