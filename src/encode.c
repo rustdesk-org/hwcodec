@@ -417,7 +417,7 @@ int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj) {
   fprintf(stdout, "delay EI: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
   if ((ret = av_frame_make_writable(encoder->frame)) != 0) {
-    fprintf(stderr, "av_frame_make_writable failed: %s", av_err2str(ret));
+    fprintf(stderr, "av_frame_make_writable failed: %s\n", av_err2str(ret));
     return ret;
   }
   if ((ret = fill_frame(encoder->frame, (uint8_t *)data, length,
@@ -441,5 +441,6 @@ int set_bitrate(Encoder *encoder, int bitrate) {
     encoder->c->bit_rate = bitrate;
     return 0;
   }
+  fprintf(stderr, "%s does not implement bitrate change\n", name);
   return -1;
 }
