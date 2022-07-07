@@ -127,7 +127,7 @@ CC=cl.exe ./configure  \
 ```
 #### bin
 ```shell
---disable-programs --enable-ffmpeg --disable-ffplay --disable-ffprobe \
+--disable-programs --disable-ffmpeg --disable-ffplay --disable-ffprobe \
 ```
 #### nvidia
 ```shell

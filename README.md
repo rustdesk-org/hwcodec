@@ -3,7 +3,7 @@
 ### Platforms
 
 - [x] Windows
-- [ ] Linux
+- [x] Linux
 - [ ] macOS
 - [ ] iOS
 - [ ] android
@@ -25,6 +25,16 @@
 
 #### Run in Rustdesk
 `cargo run --features hwcodec`
+
+### Notice
+
+#### Drive installation
+
+For linux, it may be necessary to install the driver. See compile [doc](https://github.com/21pages/hwcodec/tree/main/doc)
+
+#### Library dependency
+
+see [build.rs](https://github.com/21pages/hwcodec/blob/main/build.rs)
 
 #### compile it yourself
 
