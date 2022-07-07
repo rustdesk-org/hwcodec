@@ -26,6 +26,10 @@ cd nv-codec-headers && sudo make install
 
 * `git clone git@github.com:GPUOpen-LibrariesAndSDKs/AMF.git`
 * `sudo cp AMF/amf/public/include /usr/local/include/AMF -r`
+* 安装驱动工具，根据[官方文档](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，安装自己系统的`amdgpu-install`
+* 运行命令：`amdgpu-install -y --usecase=amf`， 运行命令前最好关闭所有非终端窗口。
+* 如果没有安装好驱动， 可能会报错这种错误：`DLL libamfrt64.so.1 failed to open`.
+
 
 ## 二. 准备其它依赖库
 
@@ -59,8 +63,9 @@ sudo apt-get update -qq && sudo apt-get -y install \
   unzip \
   libnuma1 \
   libnuma-dev \
-  libunistring-dev \
+  libunistring-dev
 ```
+也许有多余， 但必须有`libva-dev`, `libvdpau-dev`
 
 ## 三. 编译
 
@@ -105,6 +110,16 @@ CC=gcc ./configure  \
 --extra-cflags="-I/usr/local/include" \
 ```
 
+#### vaapi
+```shell
+--enable-hwaccel=h264_vaapi --enable-hwaccel=hevc_vaapi \
+```
+
+#### vdpau
+```shell
+--enable-hwaccel=h264_vdpau --enable-hwaccel=hevc_vdpau \
+```
+
 #### debug
 ```shell
 --extra-cflags="-g" \
@@ -112,6 +127,3 @@ CC=gcc ./configure  \
 
 ### 编译安装
 `make -j32 && make install`
-
-
-
