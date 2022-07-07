@@ -179,8 +179,7 @@ impl Decoder {
         };
 
         // TODO
-        let codecs = vec![
-            // 264
+        let mut codecs = vec![
             CodecInfo {
                 name: "h264".to_owned(),
                 format: H264,
@@ -189,70 +188,109 @@ impl Decoder {
                 score: 94,
             },
             CodecInfo {
-                name: "h264".to_owned(),
-                format: H264,
-                vendor: OTHER,
-                hwdevice: AV_HWDEVICE_TYPE_DXVA2,
-                score: 90,
-            },
-            CodecInfo {
-                name: "h264".to_owned(),
-                format: H264,
-                vendor: OTHER,
-                hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
-                score: 91,
-            },
-            CodecInfo {
-                name: "h264_qsv".to_owned(),
-                format: H264,
-                vendor: INTEL,
-                hwdevice: AV_HWDEVICE_TYPE_QSV,
-                score: 80, // not tested
-            },
-            CodecInfo {
-                name: "h264_qsv".to_owned(),
-                format: H264,
-                vendor: INTEL,
-                hwdevice: AV_HWDEVICE_TYPE_NONE,
-                score: 80, // Why qsv decoder so fast
-            },
-            // hevc
-            CodecInfo {
                 name: "hevc".to_owned(),
                 format: H265,
                 vendor: OTHER,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 95, // not tested
             },
+        ];
+
+        #[cfg(target_os = "windows")]
+        {
+            codecs.append(& mut vec![
+                CodecInfo {
+                    name: "h264".to_owned(),
+                    format: H264,
+                    vendor: OTHER,
+                    hwdevice: AV_HWDEVICE_TYPE_DXVA2,
+                    score: 90,
+                },
+                CodecInfo {
+                    name: "h264".to_owned(),
+                    format: H264,
+                    vendor: OTHER,
+                    hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
+                    score: 91,
+                },
+                CodecInfo {
+                    name: "h264_qsv".to_owned(),
+                    format: H264,
+                    vendor: INTEL,
+                    hwdevice: AV_HWDEVICE_TYPE_QSV,
+                    score: 80, // not tested
+                },
+                CodecInfo {
+                    name: "h264_qsv".to_owned(),
+                    format: H264,
+                    vendor: INTEL,
+                    hwdevice: AV_HWDEVICE_TYPE_NONE,
+                    score: 80, // Why qsv decoder so fast
+                },
+                CodecInfo {
+                    name: "hevc".to_owned(),
+                    format: H265,
+                    vendor: OTHER,
+                    hwdevice: AV_HWDEVICE_TYPE_DXVA2,
+                    score: 90,
+                },
+                CodecInfo {
+                    name: "hevc".to_owned(),
+                    format: H265,
+                    vendor: OTHER,
+                    hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
+                    score: 91,
+                },
+                CodecInfo {
+                    name: "hevc_qsv".to_owned(),
+                    format: H265,
+                    vendor: INTEL,
+                    hwdevice: AV_HWDEVICE_TYPE_QSV,
+                    score: 80, // not tested
+                },
+                CodecInfo {
+                    name: "hevc_qsv".to_owned(),
+                    format: H265,
+                    vendor: INTEL,
+                    hwdevice: AV_HWDEVICE_TYPE_NONE,
+                    score: 80,
+                },
+            ]);
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            codecs.append(& mut vec![
             CodecInfo {
-                name: "hevc".to_owned(),
-                format: H265,
+                name: "h264".to_owned(),
+                format: H264,
                 vendor: OTHER,
-                hwdevice: AV_HWDEVICE_TYPE_DXVA2,
-                score: 90,
-            },
-            CodecInfo {
-                name: "hevc".to_owned(),
-                format: H265,
-                vendor: OTHER,
-                hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
+                hwdevice: AV_HWDEVICE_TYPE_VAAPI,
                 score: 91,
             },
             CodecInfo {
-                name: "hevc_qsv".to_owned(),
-                format: H265,
-                vendor: INTEL,
-                hwdevice: AV_HWDEVICE_TYPE_QSV,
-                score: 80, // not tested
+                name: "h264".to_owned(),
+                format: H264,
+                vendor: OTHER,
+                hwdevice: AV_HWDEVICE_TYPE_VDPAU,
+                score: 91,
             },
             CodecInfo {
-                name: "hevc_qsv".to_owned(),
+                name: "hevc".to_owned(),
                 format: H265,
-                vendor: INTEL,
-                hwdevice: AV_HWDEVICE_TYPE_NONE,
-                score: 80,
+                vendor: OTHER,
+                hwdevice: AV_HWDEVICE_TYPE_VAAPI,
+                score: 91,
             },
-        ];
+            CodecInfo {
+                name: "hevc".to_owned(),
+                format: H265,
+                vendor: OTHER,
+                hwdevice: AV_HWDEVICE_TYPE_VDPAU,
+                score: 91,
+            },
+            ]);
+        }
 
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
         let mut res = vec![];
