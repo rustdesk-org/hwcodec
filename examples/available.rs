@@ -2,6 +2,7 @@ use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
     decode::Decoder,
     encode::{EncodeContext, Encoder},
+    ffmpeg::CodecInfo,
     AVPixelFormat,
     Quality::*,
     RateContorl::*,
@@ -9,7 +10,7 @@ use hwcodec::{
 use std::time::Instant;
 
 fn main() {
-    init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "debug"));
+    init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 
     let ctx = EncodeContext {
         name: String::from(""),
@@ -27,9 +28,11 @@ fn main() {
     let encoders = Encoder::avaliable_encoders(ctx.clone());
     log::info!("avaliable_encoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", encoders.len(), encoders);
+    log::info!("best encoders:{:?}", CodecInfo::score(encoders));
 
     let start = Instant::now();
     let decoders = Decoder::avaliable_decoders();
     log::info!("avaliable_decoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", decoders.len(), decoders);
+    log::info!("best decoders:{:?}", CodecInfo::score(decoders));
 }
