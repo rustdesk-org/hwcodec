@@ -30,7 +30,6 @@
 ```shell
 git clone git@github.com:21pages/FFmpeg.git
 ```
-修改的commit尚未合并到官方仓库, 你可以rebase更新.
 
 ### 1.2 nvidia
 

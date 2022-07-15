@@ -1,20 +1,21 @@
-# 编译流程
+# Compilation process
 
-当前支持显卡: nvidia, amd, 暂不支持intel
+## support 
+* graphics cards: nvidia, amd; intel not yet
+* codec: h264, h265
 
-当前支持编解码: h264, h265
-
-## 一. 准备源文件/库文件
+## 1. Prepare source/library files
 
 ### 1.1 ffmpeg
 
 ```shell
 git clone git@github.com:21pages/FFmpeg.git
 ```
+
 ### 1.2 nvidia
 
-* 更新驱动, 安装`cuda`, 安装 `Video Codec SDK`,都在[这里](https://developer.nvidia.com/nvidia-video-codec-sdk/download)
-* 安装 `nv-codec-headers`:
+* Update drivers, install`cuda`, install `Video Codec SDK`,all [here](https://developer.nvidia.com/nvidia-video-codec-sdk/download)
+* Install `nv-codec-headers`:
 ```shell
 git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git
 cd nv-codec-headers && sudo make install
@@ -24,12 +25,12 @@ cd nv-codec-headers && sudo make install
 
 * `git clone git@github.com:GPUOpen-LibrariesAndSDKs/AMF.git`
 * `sudo cp AMF/amf/public/include /usr/local/include/AMF -r`
-* 安装驱动工具，根据[官方文档](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，安装自己系统的`amdgpu-install`
-* 运行命令：`amdgpu-install -y --usecase=amf`， 运行命令前最好关闭所有非终端窗口。
-* 如果没有安装好驱动， 可能会报错这种错误：`DLL libamfrt64.so.1 failed to open`.
+* Install the drive tool according to [official document](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，install `amdgpu-install` of your own system.
+* Run：`amdgpu-install -y --usecase=amf`， It is best to close all non terminal windows before running the command.
+* If the driver is not installed properly, an error may be reported：`DLL libamfrt64.so.1 failed to open`.
 
 
-## 二. 准备其它依赖库
+## 2. Prepare other dependent Libraries
 
 ```
 sudo apt-get update -qq && sudo apt-get -y install \
@@ -63,11 +64,11 @@ sudo apt-get update -qq && sudo apt-get -y install \
   libnuma-dev \
   libunistring-dev
 ```
-也许有多余， 但必须有`libva-dev`, `libvdpau-dev`
+It may be redundant, but it must include `libva-dev`, `libvdpau-dev`.
 
-## 三. 编译
+## 3. Compile
 
-### 编译选项
+### Configure option
 
 #### common
 ```shell
@@ -123,5 +124,5 @@ CC=gcc ./configure  \
 --extra-cflags="-g" \
 ```
 
-### 编译安装
+### Compile and install
 `make -j32 && make install`
