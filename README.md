@@ -17,7 +17,7 @@
 
 ### Features
 
-* Support Nvidia, AMD, Intel graphics cards
+* Support Nvidia, AMD graphics cards (Intel partial)
 * All codecs are latency-free
 
 
