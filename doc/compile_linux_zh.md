@@ -4,6 +4,24 @@
 
 当前支持编解码: h264, h265
 
+
+**注意1：安装nvidia / amd 官方提供的显卡驱动后，每当操作系统升级内核，可能会造成无法进入桌面模式的情况，需要再次手动安装驱动程序。注意保留显卡驱动的安装程序以便随时可通过命令行再次手动安装。**
+
+**注意2：安装显卡驱动前，需要关闭桌面模式，在操作系统命令行模式下进行手动安装，切换至命令行模式方法如下：**
+```
+# 禁用桌面启动模式
+sudo systemctl set-default multi-user.target 
+
+# 下次启动的时候将不会自动进入桌面
+# 启动后通过Ctrl + Alt + (F1 ~ F3) 进入一个命令行会话
+# 安装相应驱动
+...
+
+# 当安装好驱动后，开启桌面启动模式后重启
+sudo systemctl set-default graphical.target
+sudo reboot
+```
+
 ## 一. 准备源文件/库文件
 
 ### 1.1 ffmpeg
@@ -25,7 +43,7 @@ cd nv-codec-headers && sudo make install
 * `git clone git@github.com:GPUOpen-LibrariesAndSDKs/AMF.git`
 * `sudo cp AMF/amf/public/include /usr/local/include/AMF -r`
 * 安装驱动工具，根据[官方文档](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，安装自己系统的`amdgpu-install`
-* 运行命令：`amdgpu-install -y --usecase=amf`， 运行命令前最好关闭所有非终端窗口。
+* **关闭桌面模式（参考`注意2`）**，运行命令：`amdgpu-install -y --usecase=amf`
 * 如果没有安装好驱动， 可能会报错这种错误：`DLL libamfrt64.so.1 failed to open`.
 
 

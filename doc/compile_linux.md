@@ -4,6 +4,24 @@
 * graphics cards: nvidia, amd; intel not yet
 * codec: h264, h265
 
+**NOTICE 1: Once you have installed the official drivers from nvidia / amd. Whenever the operating system upgrades the kernel, it may not be able to enter the desktop session. You need to manually install the drivers again. Keep the driver installer so you can manually install it again from the command line at any time.**
+
+
+**NOTICE 2: Before you install graphics card driver, you must disable desktop mode, and install it in operating system command line session. Toggle to CMD session as follows:**
+```
+# disable desktop session boot
+sudo systemctl set-default multi-user.target 
+
+# will not enter desktop session on next boot
+# choose a CMD session by `Ctrl + Alt + (F1 ~ F3)`
+# install driver...
+...
+
+# after installing the driver, enable the desktop boot mode and reboot
+sudo systemctl set-default graphical.target
+sudo reboot
+```
+
 ## 1. Prepare source/library files
 
 ### 1.1 ffmpeg
@@ -26,7 +44,7 @@ cd nv-codec-headers && sudo make install
 * `git clone git@github.com:GPUOpen-LibrariesAndSDKs/AMF.git`
 * `sudo cp AMF/amf/public/include /usr/local/include/AMF -r`
 * Install the drive tool according to [official document](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，install `amdgpu-install` of your own system.
-* Run：`amdgpu-install -y --usecase=amf`， It is best to close all non terminal windows before running the command.
+* **disable desktop (ref `NOTICE 2`)** , Run：`amdgpu-install -y --usecase=amf`
 * If the driver is not installed properly, an error may be reported：`DLL libamfrt64.so.1 failed to open`.
 
 
