@@ -39,10 +39,15 @@ void *new_encoder(const char *name, int width, int height, int pixfmt,
                   int gop, int quality, int rc, int *linesize, int *offset,
                   int *length, EncodeCallback callback);
 void *new_decoder(const char *name, int device_type, DecodeCallback callback);
+void *new_muxer(const char *filename, int width, int height, int is265,
+                int framerate);
 int encode(void *encoder, const uint8_t *data, int length, const void *obj);
 int decode(void *decoder, const uint8_t *data, int length, const void *obj);
+int write_video_frame(void *muxer, const uint8_t *data, int len);
+int write_tail(void *muxer);
 void free_encoder(void *encoder);
 void free_decoder(void *decoder);
+void free_muxer(void *muxer);
 int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
                                int *linesize, int *offset, int *length);
 int set_bitrate(void *encoder, int bitrate);

@@ -7,3 +7,4 @@ include!(concat!(env!("OUT_DIR"), "/ffi.rs"));
 pub mod decode;
 pub mod encode;
 pub mod ffmpeg;
+pub mod mux;

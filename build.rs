@@ -17,7 +17,9 @@ fn main() {
     #[cfg(target_os = "windows")]
     {
         println!("cargo:rustc-link-search=native=ffmpeg/windows/release/lib");
-        let static_libs = ["avcodec", "avfilter", "avutil", "mfx"];
+        let static_libs = [
+            "avcodec", "avfilter", "avutil", "avformat", "avdevice", "mfx",
+        ];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
         let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
@@ -37,6 +39,7 @@ fn main() {
     builder
         .file("src/encode.c")
         .file("src/decode.c")
+        .file("src/mux.c")
         .file("src/common.c")
         .compile("hwcodec");
 }
