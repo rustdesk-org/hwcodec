@@ -29,9 +29,9 @@ fn main() {
     #[cfg(target_os = "linux")]
     {
         println!("cargo:rustc-link-search=native=ffmpeg/linux/release/lib");
-        let static_libs = ["avcodec", "avfilter", "avutil"];
+        let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-        let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11"];
+        let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
         builder.include("ffmpeg/linux/release/include");
     }

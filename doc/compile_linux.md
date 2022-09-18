@@ -105,7 +105,7 @@ CC=gcc ./configure  \
 --disable-appkit --disable-bzlib --disable-coreimage  --disable-metal --disable-sdl2 \
 --disable-securetransport --disable-vulkan --disable-audiotoolbox --disable-v4l2-m2m \
 --disable-debug --disable-valgrind-backtrace --disable-large-tests \
---disable-avformat --disable-swresample --disable-swscale --disable-postproc \
+--enable-avformat --disable-swresample --disable-swscale --disable-postproc \
 ```
 #### bin
 ```shell
@@ -135,6 +135,12 @@ CC=gcc ./configure  \
 #### vdpau
 ```shell
 --enable-hwaccel=h264_vdpau --enable-hwaccel=hevc_vdpau \
+```
+
+#### mux
+```shell
+--enable-muxer=flv \
+--enable-protocol=file \
 ```
 
 #### debug

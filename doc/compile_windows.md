@@ -122,7 +122,7 @@ CC=cl.exe ./configure  \
 --disable-appkit --disable-bzlib --disable-coreimage  --disable-metal --disable-sdl2 \
 --disable-securetransport --disable-vulkan --disable-audiotoolbox --disable-v4l2-m2m \
 --disable-debug --disable-valgrind-backtrace --disable-large-tests \
---disable-avformat --disable-swresample --disable-swscale --disable-postproc \
+--enable-avformat --disable-swresample --disable-swscale --disable-postproc \
 ```
 #### bin
 ```shell
@@ -165,6 +165,12 @@ Modify `PKG_CONFIG_PATH`,
 --enable-d3d11va \
 --enable-hwaccel=h264_d3d11va --enable-hwaccel=hevc_d3d11va \
 --enable-hwaccel=h264_d3d11va2 --enable-hwaccel=hevc_d3d11va2 \
+```
+
+#### mux
+```shell
+--enable-muxer=flv \
+--enable-protocol=file \
 ```
 
 #### debug

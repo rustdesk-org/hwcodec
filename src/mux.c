@@ -90,12 +90,11 @@ _exit:
 
 int write_video_frame(Muxer *muxer, const uint8_t *data, int len) {
   OutputStream *ost = &muxer->video_st;
-  AVStream *st = ost->st;
   AVPacket *pkt = ost->tmp_pkt;
   AVFormatContext *fmt_ctx = muxer->oc;
   int ret;
 
-  pkt->data = data;
+  pkt->data = (uint8_t *)data;
   pkt->size = len;
   pkt->pts = ost->next_pts++ * muxer->framerate;
   pkt->dts = pkt->pts;
