@@ -28,6 +28,10 @@
 
 ### Notice
 
+#### "Unable to update https://github.com/21pages/hwcodec#890204e0"
+
+`cargo update -p hwcodec`
+
 #### Drive installation
 
 For linux, it may be necessary to install the driver. See compile [doc](https://github.com/21pages/hwcodec/tree/main/doc)
