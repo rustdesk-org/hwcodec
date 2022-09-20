@@ -13,7 +13,7 @@ fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 
     let mut muxer = Muxer::new(MuxContext {
-        filename: "output/mux.flv".to_owned(),
+        filename: "output/mux.mp4".to_owned(),
         width: 1920,
         height: 1080,
         is265: false,
