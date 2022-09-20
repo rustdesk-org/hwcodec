@@ -7,7 +7,7 @@ use hwcodec::{
     Quality::*,
     RateContorl::*,
 };
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, time::Instant};
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
@@ -38,14 +38,17 @@ fn main() {
     if let (Some(h264s), _h265s) = prepare_h26x(ctx, &yuvs) {
         log::info!("yuv len:{}", yuvs.len());
         let mut cnt = 0;
+        let start = Instant::now();
         for h264 in h264s {
-            muxer.write_video(&h264.data).unwrap();
+            muxer
+                .write_video(&h264.data, start.elapsed().as_millis() as _)
+                .unwrap();
             std::thread::sleep(std::time::Duration::from_millis(50));
             cnt = cnt + 1;
             log::info!("cnt:{}", cnt);
         }
         muxer.write_tail().unwrap();
-        log::info!("end");
+        log::info!("end elapsed:{:?}", start.elapsed()); // equal with video time
     }
 }
 

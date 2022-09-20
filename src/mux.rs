@@ -1,10 +1,7 @@
 use log::{error, trace};
 
 use crate::{av_log_get_level, free_muxer, new_muxer, write_tail, write_video_frame, AV_LOG_ERROR};
-use std::{
-    ffi::{c_void, CString},
-    time::Instant,
-};
+use std::ffi::{c_void, CString};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MuxContext {
@@ -18,7 +15,6 @@ pub struct MuxContext {
 pub struct Muxer {
     inner: Box<c_void>,
     pub ctx: MuxContext,
-    start: Instant,
 }
 
 unsafe impl Send for Muxer {}
@@ -43,19 +39,14 @@ impl Muxer {
             Ok(Muxer {
                 inner: Box::from_raw(inner as *mut c_void),
                 ctx,
-                start: Instant::now(),
             })
         }
     }
 
-    pub fn write_video(&mut self, data: &[u8]) -> Result<(), i32> {
+    pub fn write_video(&mut self, data: &[u8], pts: i64) -> Result<(), i32> {
         unsafe {
-            let result = write_video_frame(
-                &mut *self.inner,
-                (*data).as_ptr(),
-                data.len() as _,
-                self.start.elapsed().as_millis() as _,
-            );
+            let result =
+                write_video_frame(&mut *self.inner, (*data).as_ptr(), data.len() as _, pts);
             if result != 0 {
                 if av_log_get_level() >= AV_LOG_ERROR as _ {
                     error!("Error write_video: {}", result);

@@ -21,7 +21,7 @@ typedef struct Muxer {
   OutputStream video_st;
   AVFormatContext *oc;
   int framerate;
-  uint64_t start_ms;
+  int64_t start_ms;
   int64_t last_pts;
 } Muxer;
 
@@ -77,6 +77,8 @@ Muxer *new_muxer(const char *filename, int width, int height, int is265,
 
   muxer->oc = oc;
   muxer->framerate = framerate;
+  muxer->start_ms = 0;
+  muxer->last_pts = 0;
   return muxer;
 
 _exit:
@@ -90,7 +92,7 @@ _exit:
 }
 
 int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
-                      uint64_t elapsed_ms) {
+                      int64_t elapsed_ms) {
   OutputStream *ost = &muxer->video_st;
   AVPacket *pkt = ost->tmp_pkt;
   AVFormatContext *fmt_ctx = muxer->oc;

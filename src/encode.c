@@ -31,6 +31,7 @@ typedef struct Encoder {
   int offset[AV_NUM_DATA_POINTERS];
   char name[32];
   EncodeCallback callback;
+  int64_t first_ms;
 
 #ifdef CFG_PKG_TRACE
   int in;
@@ -319,6 +320,7 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   encoder->frame = frame;
   encoder->pkt = pkt;
   encoder->callback = callback;
+  encoder->first_ms = 0;
   snprintf(encoder->name, sizeof(encoder->name), "%s", name);
 #ifdef CFG_PKG_TRACE
   encoder->in = 0;
@@ -381,7 +383,8 @@ static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
   return 0;
 }
 
-static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj) {
+static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj,
+                     int64_t ms) {
   int ret;
   bool encoded = false;
   AVPacket *pkt = encoder->pkt;
@@ -402,14 +405,16 @@ static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj) {
     encoder->out++;
     fprintf(stdout, "delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
-    encoder->callback(pkt->data, pkt->size, pkt->pts, obj);
+    if (encoder->first_ms == 0) encoder->first_ms = ms;
+    encoder->callback(pkt->data, pkt->size, ms - encoder->first_ms, obj);
   }
 _exit:
   av_packet_unref(pkt);
   return encoded ? 0 : -1;
 }
 
-int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj) {
+int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj,
+           uint64_t ms) {
   int ret;
 
 #ifdef CFG_PKG_TRACE
@@ -424,7 +429,7 @@ int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj) {
                         encoder->offset)) != 0)
     return ret;
 
-  return do_encode(encoder, encoder->frame, obj);
+  return do_encode(encoder, encoder->frame, obj, ms);
 }
 
 void free_encoder(Encoder *encoder) {

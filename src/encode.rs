@@ -51,6 +51,7 @@ pub struct Encoder {
     pub linesize: Vec<i32>,
     pub offset: Vec<i32>,
     pub length: i32,
+    start: Instant,
 }
 
 impl Encoder {
@@ -91,6 +92,7 @@ impl Encoder {
                 linesize,
                 offset,
                 length: length[0],
+                start: Instant::now(),
             })
         }
     }
@@ -103,6 +105,7 @@ impl Encoder {
                 (*data).as_ptr(),
                 data.len() as _,
                 self.frames as *const _ as *const c_void,
+                self.start.elapsed().as_millis() as _,
             );
             if result != 0 {
                 if av_log_get_level() >= AV_LOG_ERROR as _ {
