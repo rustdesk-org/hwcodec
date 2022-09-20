@@ -1,0 +1,14 @@
+prefix=/e/ffmpeg/ffmpeg/../install_release
+exec_prefix=${prefix}
+libdir=/e/ffmpeg/ffmpeg/../install_release/lib
+includedir=/e/ffmpeg/ffmpeg/../install_release/include
+
+Name: libavutil
+Description: FFmpeg utility library
+Version: 57.25.100
+Requires: 
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavutil -libpath:/e/ffmpeg/3rd/mfx/lib/pkgconfig/../../lib mfx.lib ole32.lib Advapi32.lib user32.lib bcrypt.lib
+Libs.private: 
+Cflags: -I${includedir}

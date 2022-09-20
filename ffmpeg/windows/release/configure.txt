@@ -1,0 +1,119 @@
+CC=cl.exe ./configure  \
+--prefix=$PWD/../install_release \
+--toolchain=msvc \
+--disable-everything \
+--disable-shared --enable-small \
+--disable-runtime-cpudetect --disable-swscale-alpha \
+--disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
+--disable-network --disable-dct --disable-dwt --disable-error-resilience --disable-lsp \
+--disable-mdct --disable-rdft --disable-fft --disable-faan \
+--enable-decoder=h264 --enable-decoder=hevc \
+--enable-parser=h264 --enable-parser=hevc \
+--enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb  \
+--disable-appkit --disable-bzlib --disable-coreimage  --disable-metal --disable-sdl2 \
+--disable-securetransport --disable-vulkan --disable-audiotoolbox --disable-v4l2-m2m \
+--disable-debug --disable-valgrind-backtrace --disable-large-tests \
+--enable-avformat --disable-swresample --disable-swscale --disable-postproc \
+--disable-programs --disable-ffmpeg --disable-ffplay --disable-ffprobe \
+--enable-cuda-nvcc --enable-nonfree --enable-libnpp \
+--enable-encoder=h264_nvenc --enable-encoder=hevc_nvenc \
+--enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid \
+--enable-hwaccel=h264_nvdec --enable-hwaccel=hevc_nvdec \
+--extra-cflags="-I../3rd/nv_sdk/include" \
+--extra-ldflags="-libpath:../3rd/nv_sdk/lib" \
+--enable-amf --enable-encoder=h264_amf --enable-encoder=hevc_amf \
+--extra-cflags="-I../3rd/amf" \
+--enable-libmfx \
+--enable-encoder=h264_qsv --enable-encoder=hevc_qsv \
+--enable-decoder=h264_qsv --enable-decoder=hevc_qsv \
+--enable-dxva2 \
+--enable-hwaccel=h264_dxva2 --enable-hwaccel=hevc_dxva2 \
+--enable-d3d11va \
+--enable-hwaccel=h264_d3d11va --enable-hwaccel=hevc_d3d11va \
+--enable-hwaccel=h264_d3d11va2 --enable-hwaccel=hevc_d3d11va2 \
+--enable-muxer=mp4 \
+--enable-protocol=file
+install prefix            /e/ffmpeg/ffmpeg/../install_release
+source path               .
+C compiler                cl.exe
+C library                 msvcrt
+ARCH                      x86 (generic)
+big-endian                no
+runtime cpu detection     no
+standalone assembly       yes
+x86 assembler             nasm
+MMX enabled               yes
+MMXEXT enabled            yes
+3DNow! enabled            yes
+3DNow! extended enabled   yes
+SSE enabled               yes
+SSSE3 enabled             yes
+AESNI enabled             yes
+AVX enabled               yes
+AVX2 enabled              yes
+AVX-512 enabled           yes
+AVX-512ICL enabled        yes
+XOP enabled               yes
+FMA3 enabled              yes
+FMA4 enabled              yes
+i686 features enabled     yes
+CMOV is fast              yes
+EBX available             no
+EBP available             no
+debug symbols             no
+strip symbols             no
+optimize for size         yes
+optimizations             yes
+static                    yes
+shared                    no
+postprocessing support    no
+network support           no
+threading support         w32threads
+safe bitstream reader     yes
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          no
+makeinfo supports HTML    no
+xmllint enabled           yes
+
+External libraries:
+mediafoundation         schannel
+
+External libraries providing hardware acceleration:
+amf                     cuda_llvm               cuvid                   dxva2                   libmfx                  nvdec
+cuda                    cuda_nvcc               d3d11va                 ffnvcodec               libnpp                  nvenc
+
+Libraries:
+avcodec                 avdevice                avfilter                avformat                avutil
+
+Programs:
+
+Enabled decoders:
+h264                    h264_cuvid              h264_qsv                hevc                    hevc_cuvid              hevc_qsv
+
+Enabled encoders:
+h264_amf                h264_nvenc              h264_qsv                hevc_amf                hevc_nvenc              hevc_qsv
+
+Enabled hwaccels:
+h264_d3d11va            h264_d3d11va2           h264_dxva2              h264_nvdec              hevc_d3d11va            hevc_d3d11va2           hevc_dxva2              hevc_nvdec
+
+Enabled parsers:
+h264                    hevc
+
+Enabled demuxers:
+
+Enabled muxers:
+mov                     mp4
+
+Enabled protocols:
+file
+
+Enabled filters:
+
+Enabled bsfs:
+aac_adtstoasc           h264_mp4toannexb        hevc_mp4toannexb        vp9_superframe
+
+Enabled indevs:
+
+Enabled outdevs:
