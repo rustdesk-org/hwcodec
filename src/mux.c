@@ -15,13 +15,14 @@ extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
 typedef struct OutputStream {
   AVStream *st;
   AVPacket *tmp_pkt;
-  int64_t next_pts;
 } OutputStream;
 
 typedef struct Muxer {
   OutputStream video_st;
   AVFormatContext *oc;
   int framerate;
+  uint64_t start_ms;
+  int64_t last_pts;
 } Muxer;
 
 Muxer *new_muxer(const char *filename, int width, int height, int is265,
@@ -88,33 +89,32 @@ _exit:
   return NULL;
 }
 
-int write_video_frame(Muxer *muxer, const uint8_t *data, int len) {
+int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
+                      uint64_t elapsed_ms) {
   OutputStream *ost = &muxer->video_st;
   AVPacket *pkt = ost->tmp_pkt;
   AVFormatContext *fmt_ctx = muxer->oc;
   int ret;
 
+  if (muxer->start_ms == 0) muxer->start_ms = elapsed_ms;
+  int64_t pts = (elapsed_ms - muxer->start_ms);  // use write timestamp
+
   pkt->data = (uint8_t *)data;
   pkt->size = len;
-  pkt->pts = ost->next_pts++ * muxer->framerate;
-  pkt->dts = pkt->pts;
-  pkt->duration = muxer->framerate;
+  pkt->pts = pts;
+  pkt->dts = pkt->pts;  // no B-frame
+  int64_t duration = pkt->pts - muxer->last_pts;
+  muxer->last_pts = pkt->pts;
+  pkt->duration = duration > 0 ? duration : muxer->framerate;  // predict
+  av_packet_rescale_ts(pkt, (AVRational){1, 1000},
+                       ost->st->time_base);  // ms -> stream timebase
   pkt->stream_index = ost->st->index;
 
-  // ret = av_interleaved_write_frame(fmt_ctx, pkt);
   ret = av_write_frame(fmt_ctx, pkt);
   if (ret < 0) {
     fprintf(stderr, "Error while writing output packet: %s\n", av_err2str(ret));
     return -1;
   }
-  // if (ost->next_pts % 100 == 0) {
-  //   ret = av_write_frame(fmt_ctx, NULL);
-  //   if (ret < 0) {
-  //     fprintf(stderr, "Error while flushing output packet: %s\n",
-  //             av_err2str(ret));
-  //     return -1;
-  //   }
-  // }
   return 0;
 }
 

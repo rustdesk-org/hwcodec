@@ -43,7 +43,8 @@ void *new_muxer(const char *filename, int width, int height, int is265,
                 int framerate);
 int encode(void *encoder, const uint8_t *data, int length, const void *obj);
 int decode(void *decoder, const uint8_t *data, int length, const void *obj);
-int write_video_frame(void *muxer, const uint8_t *data, int len);
+int write_video_frame(void *muxer, const uint8_t *data, int len,
+                      uint64_t elapsed_ms);
 int write_tail(void *muxer);
 void free_encoder(void *encoder);
 void free_decoder(void *decoder);
