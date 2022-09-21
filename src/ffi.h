@@ -31,7 +31,7 @@ enum RateContorl {
 typedef void (*DecodeCallback)(const void *obj, int width, int height,
                                int pixfmt, int linesize[AV_NUM_DATA_POINTERS],
                                uint8_t *data[AV_NUM_DATA_POINTERS], int key);
-typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
+typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,int key,
                                const void *obj);
 
 void *new_encoder(const char *name, int width, int height, int pixfmt,

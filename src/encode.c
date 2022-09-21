@@ -21,7 +21,7 @@ enum RateContorl {
   RC_VBR,
 };
 
-typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
+typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts, int key,
                                const void *obj);
 
 typedef struct Encoder {
@@ -406,7 +406,7 @@ static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj,
     fprintf(stdout, "delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
     if (encoder->first_ms == 0) encoder->first_ms = ms;
-    encoder->callback(pkt->data, pkt->size, ms - encoder->first_ms, obj);
+    encoder->callback(pkt->data, pkt->size, ms - encoder->first_ms, pkt->flags &  AV_PKT_FLAG_KEY, obj);
   }
 _exit:
   av_packet_unref(pkt);

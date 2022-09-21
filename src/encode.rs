@@ -36,6 +36,7 @@ pub struct EncodeContext {
 pub struct EncodeFrame {
     pub data: Vec<u8>,
     pub pts: i64,
+    pub key:i32,
 }
 
 impl Display for EncodeFrame {
@@ -117,12 +118,13 @@ impl Encoder {
         }
     }
 
-    extern "C" fn callback(data: *const u8, size: c_int, pts: i64, obj: *const c_void) {
+    extern "C" fn callback(data: *const u8, size: c_int, pts: i64, key: i32, obj: *const c_void) {
         unsafe {
             let frames = &mut *(obj as *mut Vec<EncodeFrame>);
             frames.push(EncodeFrame {
                 data: slice::from_raw_parts(data, size as _).to_vec(),
                 pts,
+                key,
             });
         }
     }
