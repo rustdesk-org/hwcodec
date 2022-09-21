@@ -12,11 +12,13 @@ use std::{fs::File, io::Read, time::Instant};
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 
+    let  test265 = false;
+
     let mut muxer = Muxer::new(MuxContext {
         filename: "output/mux.mp4".to_owned(),
         width: 1920,
         height: 1080,
-        is265: false,
+        is265: test265,
         framerate: 30,
     })
     .unwrap();
@@ -34,22 +36,26 @@ fn main() {
         rc: RC_DEFAULT,
     };
 
-    let yuvs = prepare_yuv(ctx.clone(), "input/1920_1080.yuv").unwrap();
-    if let (Some(h264s), _h265s) = prepare_h26x(ctx, &yuvs) {
-        log::info!("yuv len:{}", yuvs.len());
-        let mut cnt = 0;
-        let start = Instant::now();
-        for h264 in h264s {
-            muxer
-                .write_video(&h264.data, start.elapsed().as_millis() as _)
-                .unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            cnt = cnt + 1;
-            log::info!("cnt:{}", cnt);
-        }
-        muxer.write_tail().unwrap();
-        log::info!("end elapsed:{:?}", start.elapsed()); // equal with video time
+    let yuvs = prepare_yuv(ctx.clone(), "input/test.yuv").unwrap();
+    let (h264s, h265s) = prepare_h26x(ctx, &yuvs) ;
+    let h26xs = if test265 {
+        h265s.unwrap()
+    } else {
+        h264s.unwrap()
+    };
+    log::info!("yuv len:{}", yuvs.len());
+    let mut cnt = 0;
+    let start = Instant::now();
+    for h26x in h26xs {
+        muxer
+            .write_video(&h26x.data, h26x.key == 1)
+            .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        cnt = cnt + 1;
+        log::info!("cnt:{}", cnt);
     }
+    muxer.write_tail().unwrap();
+    log::info!("end elapsed:{:?}", start.elapsed()); // equal with video time
 }
 
 fn prepare_h26x(

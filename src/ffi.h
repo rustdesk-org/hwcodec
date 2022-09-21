@@ -45,7 +45,7 @@ int encode(void *encoder, const uint8_t *data, int length, const void *obj,
            int64_t ms);
 int decode(void *decoder, const uint8_t *data, int length, const void *obj);
 int write_video_frame(void *muxer, const uint8_t *data, int len,
-                      int64_t elapsed_ms);
+                      int64_t pts_ms, int key);
 int write_tail(void *muxer);
 void free_encoder(void *encoder);
 void free_decoder(void *decoder);

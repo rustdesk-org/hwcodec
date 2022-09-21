@@ -23,6 +23,7 @@ typedef struct Muxer {
   int framerate;
   int64_t start_ms;
   int64_t last_pts;
+  int got_first;
 } Muxer;
 
 Muxer *new_muxer(const char *filename, int width, int height, int is265,
@@ -79,6 +80,7 @@ Muxer *new_muxer(const char *filename, int width, int height, int is265,
   muxer->framerate = framerate;
   muxer->start_ms = 0;
   muxer->last_pts = 0;
+  muxer->got_first = 0;
   return muxer;
 
 _exit:
@@ -92,14 +94,22 @@ _exit:
 }
 
 int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
-                      int64_t elapsed_ms) {
+                      int64_t pts_ms, int key) {
   OutputStream *ost = &muxer->video_st;
   AVPacket *pkt = ost->tmp_pkt;
   AVFormatContext *fmt_ctx = muxer->oc;
   int ret;
 
-  if (muxer->start_ms == 0) muxer->start_ms = elapsed_ms;
-  int64_t pts = (elapsed_ms - muxer->start_ms);  // use write timestamp
+  if (muxer->framerate <= 0) return -3;
+  if (!muxer->got_first) {
+    if (key != 1) return -2;
+    muxer->start_ms = pts_ms;
+  } 
+  int64_t pts = (pts_ms - muxer->start_ms);  // use write timestamp
+  if (pts <= muxer->last_pts && muxer->got_first) {
+    pts = muxer->last_pts + 1000 / muxer->framerate;
+  }
+  muxer->got_first = 1;
 
   pkt->data = (uint8_t *)data;
   pkt->size = len;
@@ -107,11 +117,15 @@ int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
   pkt->dts = pkt->pts;  // no B-frame
   int64_t duration = pkt->pts - muxer->last_pts;
   muxer->last_pts = pkt->pts;
-  pkt->duration = duration > 0 ? duration : muxer->framerate;  // predict
+  pkt->duration = duration > 0 ? duration : 1000 / muxer->framerate;  // predict
   av_packet_rescale_ts(pkt, (AVRational){1, 1000},
                        ost->st->time_base);  // ms -> stream timebase
   pkt->stream_index = ost->st->index;
-
+  if (key == 1) {
+    pkt->flags |= AV_PKT_FLAG_KEY;
+  } else {
+    pkt->flags &= ~AV_PKT_FLAG_KEY;
+  }
   ret = av_write_frame(fmt_ctx, pkt);
   if (ret < 0) {
     fprintf(stderr, "Error while writing output packet: %s\n", av_err2str(ret));
