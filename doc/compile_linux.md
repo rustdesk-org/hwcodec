@@ -139,7 +139,7 @@ CC=gcc ./configure  \
 
 #### mux
 ```shell
---enable-muxer=flv \
+--enable-muxer=mp4 \
 --enable-protocol=file \
 ```
 

@@ -1,4 +1,4 @@
-# A real-time hardware codec library for [Rustdesk](https://github.com/rustdesk/rustdesk) based on FFmpeg
+# A real-time hardware codec library for [RustDesk](https://github.com/rustdesk/rustdesk) based on FFmpeg
 
 ### Platforms
 
@@ -28,11 +28,11 @@
 
 ### Notice
 
-#### "Unable to update https://github.com/21pages/hwcodec#890204e0"
+#### "Unable to update https://github.com/21pages/hwcodec#xxxxxx"
 
 `cargo update -p hwcodec`
 
-#### Drive installation
+#### Driver installation
 
 For linux, it may be necessary to install the driver. See compile [doc](https://github.com/21pages/hwcodec/tree/main/doc)
 
