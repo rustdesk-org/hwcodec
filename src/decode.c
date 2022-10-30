@@ -230,6 +230,6 @@ void free_decoder(Decoder *decoder) {
   if (decoder->sw_parser_ctx) av_parser_close(decoder->sw_parser_ctx);
   if (decoder->c)
     avcodec_free_context(&decoder->c);
-  else if (!decoder->hw_device_ctx)
+  else if (decoder->hw_device_ctx)
     av_buffer_unref(&decoder->hw_device_ctx);
 }
