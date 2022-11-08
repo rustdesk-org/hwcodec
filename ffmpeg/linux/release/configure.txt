@@ -1,0 +1,114 @@
+CC=gcc ./configure  \
+--prefix=$PWD/../install \
+--disable-everything \
+--pkg-config-flags="--static" \
+--disable-shared --enable-small \
+--disable-runtime-cpudetect --disable-swscale-alpha \
+--disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
+--disable-network --disable-dct --disable-dwt --disable-error-resilience --disable-lsp \
+--disable-mdct --disable-rdft --disable-fft --disable-faan \
+--enable-decoder=h264 --enable-decoder=hevc \
+--enable-parser=h264 --enable-parser=hevc \
+--enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb  \
+--disable-appkit --disable-bzlib --disable-coreimage  --disable-metal --disable-sdl2 \
+--disable-securetransport --disable-vulkan --disable-audiotoolbox --disable-v4l2-m2m \
+--disable-debug --disable-valgrind-backtrace --disable-large-tests \
+--enable-avformat --disable-swresample --disable-swscale --disable-postproc \
+--disable-programs --disable-ffmpeg --disable-ffplay --disable-ffprobe \
+--enable-cuda-nvcc --enable-nonfree --enable-libnpp \
+--enable-encoder=h264_nvenc --enable-encoder=hevc_nvenc \
+--enable-decoder=h264_cuvid --enable-decoder=hevc_cuvid \
+--enable-hwaccel=h264_nvdec --enable-hwaccel=hevc_nvdec \
+--extra-cflags="-I/usr/local/cuda/include" \
+--extra-ldflags="-L/usr/local/cuda/lib64" \
+--enable-amf --enable-encoder=h264_amf --enable-encoder=hevc_amf \
+--extra-cflags="-I/usr/local/include" \
+--enable-hwaccel=h264_vaapi --enable-hwaccel=hevc_vaapi \
+--enable-hwaccel=h264_vdpau --enable-hwaccel=hevc_vdpau \
+--enable-muxer=mp4 \
+--enable-protocol=file
+install prefix            /home/sun/ffmpeg/FFmpeg/../install
+source path               .
+C compiler                gcc
+C library                 glibc
+ARCH                      x86 (generic)
+big-endian                no
+runtime cpu detection     no
+standalone assembly       yes
+x86 assembler             yasm
+MMX enabled               yes
+MMXEXT enabled            yes
+3DNow! enabled            yes
+3DNow! extended enabled   yes
+SSE enabled               yes
+SSSE3 enabled             yes
+AESNI enabled             yes
+AVX enabled               yes
+AVX2 enabled              yes
+AVX-512 enabled           yes
+AVX-512ICL enabled        yes
+XOP enabled               yes
+FMA3 enabled              yes
+FMA4 enabled              yes
+i686 features enabled     yes
+CMOV is fast              yes
+EBX available             yes
+EBP available             yes
+debug symbols             no
+strip symbols             yes
+optimize for size         yes
+optimizations             yes
+static                    yes
+shared                    no
+postprocessing support    no
+network support           no
+threading support         pthreads
+safe bitstream reader     yes
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          no
+makeinfo supports HTML    no
+xmllint enabled           no
+
+External libraries:
+iconv                   libxcb                  libxcb_shape            libxcb_xfixes
+
+External libraries providing hardware acceleration:
+amf                     cuda_llvm               cuvid                   libnpp                  nvenc                   vdpau
+cuda                    cuda_nvcc               ffnvcodec               nvdec                   vaapi
+
+Libraries:
+avcodec                 avdevice                avfilter                avformat                avutil
+
+Programs:
+
+Enabled decoders:
+h264                    h264_cuvid              hevc                    hevc_cuvid
+
+Enabled encoders:
+h264_amf                h264_nvenc              hevc_amf                hevc_nvenc
+
+Enabled hwaccels:
+h264_nvdec              h264_vaapi              h264_vdpau              hevc_nvdec              hevc_vaapi              hevc_vdpau
+
+Enabled parsers:
+h264                    hevc
+
+Enabled demuxers:
+
+Enabled muxers:
+mov                     mp4
+
+Enabled protocols:
+file
+
+Enabled filters:
+
+Enabled bsfs:
+aac_adtstoasc           h264_mp4toannexb        hevc_mp4toannexb        vp9_superframe
+
+Enabled indevs:
+
+Enabled outdevs:
+
