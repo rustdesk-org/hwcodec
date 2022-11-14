@@ -32,21 +32,21 @@
 
 `cargo update -p hwcodec`
 
-#### Driver installation
+### Driver installation
 
-##### Nvidia
-[drivers]((https://developer.nvidia.com/nvidia-video-codec-sdk/download)) or install by `Software&Update/Additional Drivers`
+#### Nvidia
+[drivers](https://developer.nvidia.com/nvidia-video-codec-sdk/download) or install by `Software&Update/Additional Drivers`
 
-##### AMD
+#### AMD
 * Install the drive tool according to [official document](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，install `amdgpu-install` of your own system.
-* **disable desktop (ref `NOTICE 2`)** , Run：`amdgpu-install -y --usecase=amf`
+* [disable desktop](https://github.com/21pages/hwcodec/blob/main/doc/compile_linux.md#notice) , Run：`amdgpu-install -y --usecase=amf`
 * If the driver is not installed properly, an error may be reported：`DLL libamfrt64.so.1 failed to open`.
 
 
 
-#### Library dependency
+### Library dependency
 
-##### linux
+#### linux
 `sudo apt-get install libva-dev libvdpau-dev`
 
 

@@ -4,6 +4,8 @@
 * graphics cards: nvidia, amd; intel not yet
 * codec: h264, h265
 
+<div id="notice"></div>
+
 **NOTICE 1: Once you have installed the official drivers from nvidia / amd. Whenever the operating system upgrades the kernel, it may not be able to enter the desktop session. You need to manually install the drivers again. Keep the driver installer so you can manually install it again from the command line at any time.**
 
 
