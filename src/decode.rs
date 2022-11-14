@@ -6,15 +6,14 @@ use crate::{
         DataFormat::*,
         Vendor::*,
     },
-    free_decoder, new_decoder, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC, AV_NUM_DATA_POINTERS,
+    free_decoder, get_bin_file, new_decoder, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
+    AV_NUM_DATA_POINTERS,
 };
+use core::slice;
 use log::{error, trace};
 use std::{
     ffi::{c_void, CString},
-    fs::File,
-    io::Read,
     os::raw::c_int,
-    path::PathBuf,
     slice::from_raw_parts,
     sync::{Arc, Mutex},
     thread,
@@ -295,82 +294,81 @@ impl Decoder {
         }
 
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
-        let mut res = vec![];
 
-        let mut cur_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cur_path.push("res");
-        let mut filepath_264 = cur_path.clone();
-        filepath_264.push("1920_1080.264");
-        let mut filepath_265 = cur_path.clone();
-        filepath_265.push("1920_1080.265");
-
-        if let Ok(mut file264) = File::open(filepath_264) {
-            let mut buf264 = vec![0u8; 36 * 1024];
-            if let Ok(sz264) = file264.read(&mut buf264) {
-                let buf264 = Arc::new(buf264);
-                if let Ok(mut file265) = File::open(filepath_265) {
-                    let mut buf265 = vec![0u8; 36 * 1024];
-                    if let Ok(sz265) = file265.read(&mut buf265) {
-                        let buf265 = Arc::new(buf265);
-                        let mut handles = vec![];
-                        for codec in codecs {
-                            let infos = infos.clone();
-                            let buf264 = buf264.clone();
-                            let buf265 = buf265.clone();
-                            let handle = thread::spawn(move || {
-                                let c = DecodeContext {
-                                    name: codec.name.clone(),
-                                    device_type: codec.hwdevice,
-                                };
-                                let start = Instant::now();
-                                if let Ok(mut decoder) = Decoder::new(c) {
-                                    log::debug!(
-                                        "name:{} device:{:?} new:{:?}",
-                                        codec.name.clone(),
-                                        codec.hwdevice,
-                                        start.elapsed()
-                                    );
-                                    let data = match codec.format {
-                                        H264 => &buf264[..sz264],
-                                        H265 => &buf265[..sz265],
-                                    };
-                                    let start = Instant::now();
-                                    if let Ok(_) = decoder.decode(data) {
-                                        log::debug!(
-                                            "name:{} device:{:?} decode:{:?}",
-                                            codec.name,
-                                            codec.hwdevice,
-                                            start.elapsed()
-                                        );
-                                        infos.lock().unwrap().push(codec);
-                                    } else {
-                                        log::debug!(
-                                            "name:{} device:{:?} decode failed:{:?}",
-                                            codec.name,
-                                            codec.hwdevice,
-                                            start.elapsed()
-                                        );
-                                    }
-                                } else {
-                                    log::debug!(
-                                        "name:{} device:{:?} new failed:{:?}",
-                                        codec.name.clone(),
-                                        codec.hwdevice,
-                                        start.elapsed()
-                                    );
-                                }
-                            });
-
-                            handles.push(handle);
-                        }
-                        for handle in handles {
-                            handle.join().ok();
-                        }
-                        res = infos.lock().unwrap().clone();
-                    }
-                }
-            }
+        let mut p_bin_264: *mut u8 = std::ptr::null_mut();
+        let mut len_bin_264: c_int = 0;
+        let buf264;
+        let mut p_bin_265: *mut u8 = std::ptr::null_mut();
+        let mut len_bin_265: c_int = 0;
+        let buf265;
+        unsafe {
+            get_bin_file(0, &mut p_bin_264 as _, &mut len_bin_264 as _);
+            get_bin_file(1, &mut p_bin_265 as _, &mut len_bin_265 as _);
+            buf264 = slice::from_raw_parts(p_bin_264, len_bin_264 as _);
+            buf265 = slice::from_raw_parts(p_bin_265, len_bin_265 as _);
         }
+
+        let buf264 = Arc::new(buf264);
+        let buf265 = Arc::new(buf265);
+        let mut handles = vec![];
+        for codec in codecs {
+            let infos = infos.clone();
+            let buf264 = buf264.clone();
+            let buf265 = buf265.clone();
+            let handle = thread::spawn(move || {
+                let c = DecodeContext {
+                    name: codec.name.clone(),
+                    device_type: codec.hwdevice,
+                };
+                let start = Instant::now();
+                if let Ok(mut decoder) = Decoder::new(c) {
+                    log::debug!(
+                        "name:{} device:{:?} new:{:?}",
+                        codec.name.clone(),
+                        codec.hwdevice,
+                        start.elapsed()
+                    );
+                    let data = match codec.format {
+                        H264 => &buf264[..],
+                        H265 => &buf265[..],
+                    };
+                    let start = Instant::now();
+                    if let Ok(_) = decoder.decode(data) {
+                        log::debug!(
+                            "name:{} device:{:?} decode:{:?}",
+                            codec.name,
+                            codec.hwdevice,
+                            start.elapsed()
+                        );
+                        infos.lock().unwrap().push(codec);
+                    } else {
+                        log::debug!(
+                            "name:{} device:{:?} decode failed:{:?}",
+                            codec.name,
+                            codec.hwdevice,
+                            start.elapsed()
+                        );
+                    }
+                } else {
+                    log::debug!(
+                        "name:{} device:{:?} new failed:{:?}",
+                        codec.name.clone(),
+                        codec.hwdevice,
+                        start.elapsed()
+                    );
+                }
+            });
+
+            handles.push(handle);
+        }
+        for handle in handles {
+            handle.join().ok();
+        }
+        #[cfg(windows)]
+        let res = infos.lock().unwrap().clone();
+        #[cfg(target_os = "linux")]
+        let mut res = infos.lock().unwrap().clone();
+
         #[cfg(target_os = "linux")]
         {
             // VAAPI is slow on nvidia, but fast on amd

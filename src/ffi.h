@@ -55,5 +55,6 @@ int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
 int set_bitrate(void *encoder, int bitrate);
 int av_log_get_level(void);
 void av_log_set_level(int level);
+void get_bin_file(int is265, uint8_t **p, int *len);
 
 #endif  // FFI_H

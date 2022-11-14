@@ -233,3 +233,18 @@ void free_decoder(Decoder *decoder) {
   else if (decoder->hw_device_ctx)
     av_buffer_unref(&decoder->hw_device_ctx);
 }
+
+#include "incbin.h"
+
+INCBIN_EXTERN(BinFile264);
+INCBIN_EXTERN(BinFile265);
+
+void get_bin_file(int is265, uint8_t **p, /*int maxlen,*/ int *len) {
+    if (is265 == 0) {
+      *p = (uint8_t*)gBinFile264Data;
+      *len = gBinFile264Size;
+    } else {
+      *p = (uint8_t*)gBinFile265Data;
+      *len = gBinFile265Size;
+    }
+}

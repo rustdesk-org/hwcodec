@@ -41,5 +41,6 @@ fn main() {
         .file("src/decode.c")
         .file("src/mux.c")
         .file("src/common.c")
+        .file("src/data.c")
         .compile("hwcodec");
 }
