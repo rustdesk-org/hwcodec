@@ -31,7 +31,8 @@ git clone git@github.com:21pages/FFmpeg.git
 ```
 ### 1.2 nvidia
 
-* 更新驱动, 安装`cuda`, 安装 `Video Codec SDK`,都在[这里](https://developer.nvidia.com/nvidia-video-codec-sdk/download)
+* 更新[驱动](https://developer.nvidia.com/nvidia-video-codec-sdk/download)
+* 安装`cuda`, `sudo apt install nvidia-cuda-toolkit`
 * 安装 `nv-codec-headers`:
 ```shell
 git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git

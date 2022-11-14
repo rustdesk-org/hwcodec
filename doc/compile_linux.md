@@ -32,7 +32,8 @@ git clone git@github.com:21pages/FFmpeg.git
 
 ### 1.2 nvidia
 
-* Update drivers, install`cuda`, install `Video Codec SDK`,all [here](https://developer.nvidia.com/nvidia-video-codec-sdk/download)
+* Update [drivers]((https://developer.nvidia.com/nvidia-video-codec-sdk/download))
+* install`cuda`, `sudo apt install nvidia-cuda-toolkit`
 * Install `nv-codec-headers`:
 ```shell
 git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git

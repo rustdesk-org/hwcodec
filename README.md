@@ -34,17 +34,24 @@
 
 #### Driver installation
 
-For linux, it may be necessary to install the driver. See compile [doc](https://github.com/21pages/hwcodec/tree/main/doc)
+##### Nvidia
+[drivers]((https://developer.nvidia.com/nvidia-video-codec-sdk/download)) or install by `Software&Update/Additional Drivers`
+
+##### AMD
+* Install the drive tool according to [official document](https://amdgpu-install.readthedocs.io/en/latest/install-prereq.html#downloading-the-installer-package)，install `amdgpu-install` of your own system.
+* **disable desktop (ref `NOTICE 2`)** , Run：`amdgpu-install -y --usecase=amf`
+* If the driver is not installed properly, an error may be reported：`DLL libamfrt64.so.1 failed to open`.
+
+
 
 #### Library dependency
 
-see [build.rs](https://github.com/21pages/hwcodec/blob/main/build.rs)
+##### linux
+`sudo apt-get install libva-dev libvdpau-dev`
 
-#### compile it yourself
-
-see [doc](https://github.com/21pages/hwcodec/tree/main/doc)
 
 ### TODO
+- [ ] Support qsv in RustDesk
 - [ ] Scoring and automatic selection of codecs
 - [ ] Support for more platforms
 
