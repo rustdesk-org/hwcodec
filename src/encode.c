@@ -62,7 +62,8 @@ static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
 int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
                                int *linesize, int *offset, int *length) {
   AVFrame *frame = NULL;
-  int ilength;
+  int ioffset[AV_NUM_DATA_POINTERS] = {0};
+  int ilength = 0;
   int ret = -1;
 
   if (!(frame = av_frame_alloc())) {
@@ -82,10 +83,16 @@ int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
     for (int i = 0; i < AV_NUM_DATA_POINTERS; i++)
       linesize[i] = frame->linesize[i];
   }
-  if (offset) {
-    ret = calculate_offset_length(pix_fmt, height, frame->linesize, offset,
+  if (offset || length) {
+    ret = calculate_offset_length(pix_fmt, height, frame->linesize, ioffset,
                                   &ilength);
     if (ret < 0) goto _exit;
+  }
+  if (offset) {
+    for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
+      if (ioffset[i] == 0) break;
+      offset[i] = ioffset[i];
+    }
   }
   if (length) *length = ilength;
 

@@ -185,7 +185,7 @@ _exit:
 }
 
 int decode(Decoder *decoder, const uint8_t *data, int length, const void *obj) {
-  int ret;
+  int ret = -1;
 #ifdef CFG_PKG_TRACE
   decoder->in++;
   fprintf(stdout, "delay DI: in:%d, out:%d\n", decoder->in, decoder->out);

@@ -32,7 +32,7 @@
 
 `cargo update -p hwcodec`
 
-### Driver installation
+### Linux Driver installation
 
 #### Nvidia
 [drivers](https://developer.nvidia.com/nvidia-video-codec-sdk/download) or install by `Software&Update/Additional Drivers`
@@ -44,9 +44,8 @@
 
 
 
-### Library dependency
+### Linux library dependency
 
-#### linux
 `sudo apt-get install libva-dev libvdpau-dev`
 
 
