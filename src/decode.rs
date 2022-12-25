@@ -158,19 +158,19 @@ impl Decoder {
         }
     }
 
-    pub fn avaliable_decoders() -> Vec<CodecInfo> {
+    pub fn available_decoders() -> Vec<CodecInfo> {
         use std::{mem::MaybeUninit, sync::Once};
 
         static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
         static ONCE: Once = Once::new();
 
         ONCE.call_once(|| unsafe {
-            INSTANCE.as_mut_ptr().write(Decoder::avaliable_decoders_());
+            INSTANCE.as_mut_ptr().write(Decoder::available_decoders_());
         });
         unsafe { (&*INSTANCE.as_ptr()).clone() }
     }
 
-    fn avaliable_decoders_() -> Vec<CodecInfo> {
+    fn available_decoders_() -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();

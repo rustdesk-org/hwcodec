@@ -370,7 +370,7 @@ typedef struct AVOptionRanges {
      */
     int nb_ranges;
     /**
-     * Number of componentes.
+     * Number of components.
      */
     int nb_components;
 } AVOptionRanges;
@@ -875,7 +875,7 @@ int av_opt_is_set_to_default_by_name(void *obj, const char *name, int search_fla
  * @param[in]  obj           AVClass object to serialize
  * @param[in]  opt_flags     serialize options with all the specified flags set (AV_OPT_FLAG)
  * @param[in]  flags         combination of AV_OPT_SERIALIZE_* flags
- * @param[out] buffer        Pointer to buffer that will be allocated with string containg serialized options.
+ * @param[out] buffer        Pointer to buffer that will be allocated with string containing serialized options.
  *                           Buffer must be freed by the caller when is no longer needed.
  * @param[in]  key_val_sep   character used to separate key from value
  * @param[in]  pairs_sep     character used to separate two pairs from each other

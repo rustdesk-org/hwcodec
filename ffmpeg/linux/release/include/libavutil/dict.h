@@ -181,7 +181,7 @@ void av_dict_free(AVDictionary **m);
  * @note String is escaped with backslashes ('\').
  *
  * @param[in]  m             dictionary
- * @param[out] buffer        Pointer to buffer that will be allocated with string containg entries.
+ * @param[out] buffer        Pointer to buffer that will be allocated with string containing entries.
  *                           Buffer must be freed by the caller when is no longer needed.
  * @param[in]  key_val_sep   character used to separate key from value
  * @param[in]  pairs_sep     character used to separate two pairs from each other

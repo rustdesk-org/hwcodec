@@ -147,21 +147,21 @@ impl Encoder {
         Err(())
     }
 
-    pub fn avaliable_encoders(ctx: EncodeContext) -> Vec<CodecInfo> {
+    pub fn available_encoders(ctx: EncodeContext) -> Vec<CodecInfo> {
         static mut INSTANCE: Vec<CodecInfo> = vec![];
         static mut CACHED_CTX: Option<EncodeContext> = None;
 
         unsafe {
             if CACHED_CTX.clone().take() != Some(ctx.clone()) {
                 CACHED_CTX = Some(ctx.clone());
-                INSTANCE = Encoder::avaliable_encoders_(ctx);
+                INSTANCE = Encoder::available_encoders_(ctx);
             }
             INSTANCE.clone()
         }
     }
 
     // TODO
-    fn avaliable_encoders_(ctx: EncodeContext) -> Vec<CodecInfo> {
+    fn available_encoders_(ctx: EncodeContext) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
