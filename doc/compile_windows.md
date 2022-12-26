@@ -92,7 +92,7 @@ The revised commit has not been merged into the official repository, you can reb
 
 * Install `msvc`, `msys2`
 * Enable setting `set MSYS2_PATH_TYPE=inherit` in file `msys2_shell.cmd` to inherit environment variables
-* pen vs64-bit command line tools, such as vs2019:`x64 Native Tools Commmand Prompt for vs2019`, `cd` to the `msys2` installation directory
+* pen vs64-bit command line tools, such as vs2019:`x64 Native Tools Command Prompt for vs2019`, `cd` to the `msys2` installation directory
 * Run `msys2_shell.cmd -mingw64`  for open the msys2 command line tool
 * Install toolchain
   `pacman -S diffutils make cmake pkg-config yasm nasm git`

@@ -62,7 +62,7 @@ fn prepare_h26x(
     ctx: EncodeContext,
     yuvs: &Vec<Vec<u8>>,
 ) -> (Option<Vec<EncodeFrame>>, Option<Vec<EncodeFrame>>) {
-    let best = CodecInfo::score(Encoder::avaliable_encoders(ctx.clone()));
+    let best = CodecInfo::score(Encoder::available_encoders(ctx.clone()));
 
     let f = |h26x: Option<CodecInfo>| {
         if let Some(h26x) = h26x {

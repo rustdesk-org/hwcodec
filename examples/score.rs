@@ -119,7 +119,7 @@ fn test(
     };
     let yuvs = prepare_yuv(ctx.clone(), "input/1920_1080.yuv").unwrap();
 
-    let encoder_infos = Encoder::avaliable_encoders(ctx.clone());
+    let encoder_infos = Encoder::available_encoders(ctx.clone());
     for info in encoder_infos {
         let mut encode = Encoder::new(EncodeContext {
             name: info.name.clone(),
@@ -149,7 +149,7 @@ fn test(
     }
 
     let (data_h264, data_h265) = prepare_h26x(ctx, &yuvs);
-    let decoder_infos = Decoder::avaliable_decoders();
+    let decoder_infos = Decoder::available_decoders();
     for info in decoder_infos.iter() {
         let decode_ctx = DecodeContext {
             name: info.name.clone(),
@@ -197,7 +197,7 @@ fn prepare_h26x(
     ctx: EncodeContext,
     yuvs: &Vec<Vec<u8>>,
 ) -> (Option<Vec<EncodeFrame>>, Option<Vec<EncodeFrame>>) {
-    let best = CodecInfo::score(Encoder::avaliable_encoders(ctx.clone()));
+    let best = CodecInfo::score(Encoder::available_encoders(ctx.clone()));
 
     let f = |h26x: Option<CodecInfo>| {
         if let Some(h26x) = h26x {

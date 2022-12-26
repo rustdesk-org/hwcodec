@@ -92,7 +92,7 @@ git clone git@github.com:21pages/FFmpeg.git
 
 * 安装msvc, msys2
 * 打开`msys2_shell.cmd`里的`set MSYS2_PATH_TYPE=inherit`, 用来继承环境变量
-* 打开vs64位命令行工具, 例如vs2019:`x64 Native Tools Commmand Prompt for vs2019`, `cd`到`msys2`的安装目录
+* 打开vs64位命令行工具, 例如vs2019:`x64 Native Tools Command Prompt for vs2019`, `cd`到`msys2`的安装目录
 * `msys2_shell.cmd -mingw64` 打开msys2命令行工具
 * 安装工具链
   `pacman -S diffutils make cmake pkg-config yasm nasm git`

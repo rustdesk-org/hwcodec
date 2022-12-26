@@ -25,14 +25,14 @@ fn main() {
         rc: RC_DEFAULT,
     };
     let start = Instant::now();
-    let encoders = Encoder::avaliable_encoders(ctx.clone());
-    log::info!("avaliable_encoders:{:?}", start.elapsed());
+    let encoders = Encoder::available_encoders(ctx.clone());
+    log::info!("available_encoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", encoders.len(), encoders);
     log::info!("best encoders:{:?}", CodecInfo::score(encoders));
 
     let start = Instant::now();
-    let decoders = Decoder::avaliable_decoders();
-    log::info!("avaliable_decoders:{:?}", start.elapsed());
+    let decoders = Decoder::available_decoders();
+    log::info!("available_decoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", decoders.len(), decoders);
     log::info!("best decoders:{:?}", CodecInfo::score(decoders));
 }
