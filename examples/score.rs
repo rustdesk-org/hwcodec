@@ -7,7 +7,7 @@ use hwcodec::{
     ffmpeg::*,
     AVPixelFormat,
     Quality::*,
-    RateContorl::*,
+    RateControl::*,
 };
 
 #[derive(Debug)]

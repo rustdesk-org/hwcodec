@@ -399,7 +399,7 @@ impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
             free_decoder(self.codec.as_mut());
-            Box::from_raw(self.frames);
+            let _ = Box::from_raw(self.frames);
             trace!("Decoder dropped");
         }
     }

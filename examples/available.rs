@@ -5,7 +5,7 @@ use hwcodec::{
     ffmpeg::CodecInfo,
     AVPixelFormat,
     Quality::*,
-    RateContorl::*,
+    RateControl::*,
 };
 use std::time::Instant;
 

@@ -5,7 +5,7 @@ use crate::{
         DataFormat::{self, *},
         Vendor::*,
     },
-    free_encoder, new_encoder, AVPixelFormat, Quality, RateContorl, AV_LOG_ERROR, AV_LOG_PANIC,
+    free_encoder, new_encoder, AVPixelFormat, Quality, RateControl, AV_LOG_ERROR, AV_LOG_PANIC,
     AV_NUM_DATA_POINTERS,
 };
 use log::{error, trace};
@@ -30,13 +30,13 @@ pub struct EncodeContext {
     pub timebase: [i32; 2],
     pub gop: i32,
     pub quality: Quality,
-    pub rc: RateContorl,
+    pub rc: RateControl,
 }
 
 pub struct EncodeFrame {
     pub data: Vec<u8>,
     pub pts: i64,
-    pub key:i32,
+    pub key: i32,
 }
 
 impl Display for EncodeFrame {
@@ -288,7 +288,7 @@ impl Drop for Encoder {
     fn drop(&mut self) {
         unsafe {
             free_encoder(self.codec.as_mut());
-            Box::from_raw(self.frames);
+            let _ = Box::from_raw(self.frames);
             trace!("Encoder dropped");
         }
     }

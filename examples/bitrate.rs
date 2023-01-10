@@ -6,7 +6,7 @@ use hwcodec::{
     ffmpeg::AVHWDeviceType,
     AVPixelFormat::*,
     Quality::*,
-    RateContorl::*,
+    RateControl::*,
 };
 use std::{
     fs::File,

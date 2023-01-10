@@ -5,7 +5,7 @@ use hwcodec::{
     mux::{MuxContext, Muxer},
     AVPixelFormat,
     Quality::*,
-    RateContorl::*,
+    RateControl::*,
 };
 use std::{fs::File, io::Read, time::Instant};
 

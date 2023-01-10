@@ -4,7 +4,7 @@ use hwcodec::{
     ffmpeg::ffmpeg_linesize_offset_length,
     AVPixelFormat::*,
     Quality::*,
-    RateContorl::*,
+    RateControl::*,
 };
 use std::{
     fs::File,

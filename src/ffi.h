@@ -22,7 +22,7 @@ enum AVPixelFormat {
 
 enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
 
-enum RateContorl {
+enum RateControl {
   RC_DEFAULT,
   RC_CBR,
   RC_VBR,
