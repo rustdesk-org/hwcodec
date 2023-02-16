@@ -128,6 +128,16 @@ static int set_lantency_free(void *priv_data, const char *name) {
       return -1;
     }
   }
+  if (strcmp(name, "h264_videotoolbox") == 0 || strcmp(name, "hevc_videotoolbox") == 0) {
+    // if ((ret = av_opt_set(priv_data, "allow_sw", "true", 0)) < 0) {
+    //   fprintf(stderr, "amf set opt allow_sw true failed: %s\n", av_err2str(ret));
+    //   return -1;
+    // }
+    if ((ret = av_opt_set(priv_data, "realtime", "true", 0)) < 0) {
+      fprintf(stderr, "amf set opt realtime true failed: %s\n", av_err2str(ret));
+      return -1;
+    }
+  }
   return 0;
 }
 
@@ -269,7 +279,7 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   int ret;
 
   if (!(codec = avcodec_find_encoder_by_name(name))) {
-    fprintf(stderr, "Codec %s not found\n", codec);
+    fprintf(stderr, "Codec %s not found\n", name);
     goto _exit;
   }
 

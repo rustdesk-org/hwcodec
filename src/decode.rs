@@ -295,6 +295,26 @@ impl Decoder {
             ]);
         }
 
+        #[cfg(target_os = "macos")]
+        {
+            codecs.append(&mut vec![
+                CodecInfo {
+                    name: "h264".to_owned(),
+                    format: H264,
+                    vendor: OTHER,
+                    hwdevice: AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+                    score: 94,
+                },
+                CodecInfo {
+                    name: "hevc".to_owned(),
+                    format: H265,
+                    vendor: OTHER,
+                    hwdevice: AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+                    score: 95,
+                },
+            ]);
+        }
+
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
 
         let mut p_bin_264: *mut u8 = std::ptr::null_mut();

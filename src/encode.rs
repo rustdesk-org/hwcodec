@@ -229,6 +229,13 @@ impl Encoder {
                 score: 92,
                 ..Default::default()
             });
+            codecs.push(CodecInfo {
+                name: "hevc_videotoolbox".to_owned(),
+                format: H265,
+                vendor: OTHER,
+                score: 94,
+                ..Default::default()
+            });
         }
 
         // qsv doesn't support yuv420p
