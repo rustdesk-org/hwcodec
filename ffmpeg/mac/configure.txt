@@ -1,0 +1,83 @@
+install prefix            /Users/sun/ffmpeg/FFmpeg/../install
+source path               .
+C compiler                gcc
+C library                 
+ARCH                      x86 (generic)
+big-endian                no
+runtime cpu detection     no
+standalone assembly       yes
+x86 assembler             yasm
+MMX enabled               yes
+MMXEXT enabled            yes
+3DNow! enabled            yes
+3DNow! extended enabled   yes
+SSE enabled               yes
+SSSE3 enabled             yes
+AESNI enabled             yes
+AVX enabled               yes
+AVX2 enabled              yes
+AVX-512 enabled           yes
+AVX-512ICL enabled        yes
+XOP enabled               yes
+FMA3 enabled              yes
+FMA4 enabled              yes
+i686 features enabled     yes
+CMOV is fast              yes
+EBX available             yes
+EBP available             yes
+debug symbols             no
+strip symbols             yes
+optimize for size         yes
+optimizations             yes
+static                    yes
+shared                    no
+postprocessing support    no
+network support           no
+threading support         pthreads
+safe bitstream reader     yes
+texi2html enabled         no
+perl enabled              yes
+pod2man enabled           yes
+makeinfo enabled          yes
+makeinfo supports HTML    no
+xmllint enabled           yes
+
+External libraries:
+avfoundation            iconv                   zlib
+
+External libraries providing hardware acceleration:
+videotoolbox
+
+Libraries:
+avcodec                 avdevice                avfilter                avformat                avutil
+
+Programs:
+
+Enabled decoders:
+h264                    hevc
+
+Enabled encoders:
+h264_videotoolbox       hevc_videotoolbox
+
+Enabled hwaccels:
+h264_videotoolbox       hevc_videotoolbox
+
+Enabled parsers:
+h264                    hevc
+
+Enabled demuxers:
+
+Enabled muxers:
+mov                     mp4
+
+Enabled protocols:
+file
+
+Enabled filters:
+
+Enabled bsfs:
+aac_adtstoasc           h264_mp4toannexb        hevc_mp4toannexb        vp9_superframe
+
+Enabled indevs:
+
+Enabled outdevs:

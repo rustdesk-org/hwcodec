@@ -1,0 +1,14 @@
+prefix=/Users/sun/ffmpeg/FFmpeg/../install
+exec_prefix=${prefix}
+libdir=/Users/sun/ffmpeg/FFmpeg/../install/lib
+includedir=/Users/sun/ffmpeg/FFmpeg/../install/include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 59.28.101
+Requires: libavutil >= 57.25.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavcodec -liconv -lm -pthread -framework VideoToolbox -framework CoreFoundation -framework CoreMedia -framework CoreVideo -framework CoreServices
+Libs.private: 
+Cflags: -I${includedir}
