@@ -37,6 +37,27 @@ fn main() {
         builder.include("ffmpeg/linux/release/include");
     }
 
+    #[cfg(target_os = "macos")]
+    {
+        println!("cargo:rustc-link-search=native=ffmpeg/mac/release/lib");
+        println!("cargo:rustc-link-search=native=/System/Library/Frameworks/Foundation.framework/Versions/C");
+        let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
+        static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
+        //let dyn_libs = [ "Foundation", "iconv", "z"];
+        //dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
+        println!("cargo:rustc-link-lib=framework=CoreVideo");
+        println!("cargo:rustc-link-lib=framework=CoreMedia");
+        println!("cargo:rustc-link-lib=framework=AVFoundation");
+        println!("cargo:rustc-link-lib=framework=VideoToolbox");
+        println!("cargo:rustc-link-lib=framework=ImageIO");
+        println!("cargo:rustc-link-lib=framework=CoreServices");
+        println!("cargo:rustc-link-lib=framework=AppKit");
+        println!("cargo:rustc-link-lib=framework=IOSurface");
+        println!("cargo:rustc-link-lib=c++");
+        builder.include("ffmpeg/mac/release/include");
+    }
+
+
     builder
         .file("src/encode.c")
         .file("src/decode.c")

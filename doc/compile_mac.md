@@ -1,0 +1,22 @@
+CC=clang ./configure  \
+--prefix=$PWD/../install \
+--pkg-config-flags="--static" \
+--disable-everything \
+--disable-shared --enable-small \
+--disable-runtime-cpudetect --disable-swscale-alpha \
+--disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
+--disable-network --disable-dct --disable-dwt --disable-error-resilience --disable-lsp \
+--disable-mdct --disable-rdft --disable-fft --disable-faan \
+--enable-decoder=h264 --enable-decoder=hevc \
+--enable-parser=h264 --enable-parser=hevc \
+--enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb  \
+--disable-appkit --disable-bzlib --disable-coreimage  --disable-metal --disable-sdl2 \
+--disable-securetransport --disable-vulkan --disable-audiotoolbox --disable-v4l2-m2m \
+--disable-debug --disable-valgrind-backtrace --disable-large-tests \
+--enable-avformat --disable-swresample --disable-swscale --disable-postproc \
+--disable-programs --disable-ffmpeg --disable-ffplay --disable-ffprobe \
+--enable-videotoolbox --enable-avfoundation \
+--enable-encoder=h264_videotoolbox --enable-encoder=hevc_videotoolbox \
+--enable-hwaccel=h264_videotoolbox --enable-hwaccel=hevc_videotoolbox \
+--enable-muxer=mp4 \
+--enable-protocol=file

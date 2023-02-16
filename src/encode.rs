@@ -220,6 +220,16 @@ impl Encoder {
                 ..Default::default()
             },
         ];
+        #[cfg(target_os = "macos")]
+        {
+            codecs.push(CodecInfo {
+                name: "h264_videotoolbox".to_owned(),
+                format: H264,
+                vendor: OTHER,
+                score: 92,
+                ..Default::default()
+            });
+        }
 
         // qsv doesn't support yuv420p
         codecs.retain(|c| {

@@ -369,6 +369,8 @@ impl Decoder {
         }
         #[cfg(windows)]
         let res = infos.lock().unwrap().clone();
+        #[cfg(target_os = "macos")]
+        let res = infos.lock().unwrap().clone();
         #[cfg(target_os = "linux")]
         let mut res = infos.lock().unwrap().clone();
 
