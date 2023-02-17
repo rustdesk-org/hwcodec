@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #define CFG_PKG_TRACE
+#define CFG_PKG_TRACE
 
 extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
 #define fprintf my_fprintf
@@ -135,6 +135,10 @@ static int set_lantency_free(void *priv_data, const char *name) {
     // }
     if ((ret = av_opt_set(priv_data, "realtime", "true", 0)) < 0) {
       fprintf(stderr, "amf set opt realtime true failed: %s\n", av_err2str(ret));
+      return -1;
+    }
+    if ((ret = av_opt_set(priv_data, "max_frame_delay_count", "0", 0)) < 0) {
+      fprintf(stderr, "videotoolbox set opt max_frame_delay_count 0 failed: %s\n", av_err2str(ret));
       return -1;
     }
   }

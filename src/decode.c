@@ -6,7 +6,7 @@
 #include <libavutil/pixdesc.h>
 #include <stdbool.h>
 
-// #define CFG_PKG_TRACE
+#define CFG_PKG_TRACE
 
 extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
 #define fprintf my_fprintf
