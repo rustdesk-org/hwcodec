@@ -17,3 +17,4 @@ bindgen = "0.59"
 
 [dev-dependencies]
 env_logger = "0.9"
+rand = "0.8"
