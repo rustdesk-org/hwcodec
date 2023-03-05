@@ -2,8 +2,12 @@ use cc::Build;
 use std::{env, path::Path};
 
 fn main() {
+    for entry in std::fs::read_dir("src").unwrap() {
+        if let Ok(entry) = entry {
+            println!("rerun-if-changed={}", entry.path().display());
+        }
+    }
     let ffi_header = "src/ffi.h";
-    println!("rerun-if-changed={}", ffi_header);
     bindgen::builder()
         .header(ffi_header)
         .rustified_enum("*")
