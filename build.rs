@@ -2,11 +2,8 @@ use cc::Build;
 use std::{env, path::Path};
 
 fn main() {
-    for entry in std::fs::read_dir("src").unwrap() {
-        if let Ok(entry) = entry {
-            println!("rerun-if-changed={}", entry.path().display());
-        }
-    }
+    println!("cargo:rerun-if-changed=src");
+    println!("cargo:rerun-if-changed=ffmpeg");
     let ffi_header = "src/ffi.h";
     bindgen::builder()
         .header(ffi_header)
