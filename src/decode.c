@@ -24,6 +24,7 @@ typedef struct Decoder {
   AVFrame *frame;
   AVPacket *pkt;
   bool hwaccel;
+  int hw_pix_fmt;
   DecodeCallback callback;
 
 #ifdef CFG_PKG_TRACE
@@ -31,6 +32,19 @@ typedef struct Decoder {
   int out;
 #endif
 } Decoder;
+
+static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
+                                        const enum AVPixelFormat *pix_fmts)
+{
+    int hw_pix_fmt = *((int*)ctx->extradata);
+    const enum AVPixelFormat *p;
+    for (p = pix_fmts; *p != -1; p++) {
+        if (*p == hw_pix_fmt)
+            return *p;
+    }
+    fprintf(stderr, "Failed to get HW surface format.\n");
+    return AV_PIX_FMT_NONE;
+}
 
 Decoder *new_decoder(const char *name, int device_type,
                      DecodeCallback callback) {
@@ -43,6 +57,7 @@ Decoder *new_decoder(const char *name, int device_type,
   const AVCodec *codec = NULL;
   Decoder *decoder = NULL;
   bool hwaccel = device_type != AV_HWDEVICE_TYPE_NONE;
+  enum AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
   int ret;
 
   if (!(codec = avcodec_find_decoder_by_name(name))) {
@@ -50,12 +65,27 @@ Decoder *new_decoder(const char *name, int device_type,
     goto _exit;
   }
 
+  if (hwaccel) {
+    bool support_device = false;
+    enum AVHWDeviceType iter_type = AV_HWDEVICE_TYPE_NONE;
+    while((iter_type = av_hwdevice_iterate_types(iter_type)) != AV_HWDEVICE_TYPE_NONE) {
+      if (iter_type == device_type) {
+        support_device = true;
+        break;
+      }
+    }
+    if (!support_device) {
+      fprintf(stderr, "not support device type %s.\n", av_hwdevice_get_type_name(device_type));
+      goto _exit;
+    }
+  }
+
   if (!(c = avcodec_alloc_context3(codec))) {
     fprintf(stderr, "Could not allocate video codec context\n");
     goto _exit;
   }
 
-  c->flags |= AV_CODEC_CAP_TRUNCATED;
+  c->get_format  = get_hw_format;
   c->flags |= AV_CODEC_FLAG_LOW_DELAY;
   c->thread_count = 4;
   c->thread_type = FF_THREAD_SLICE;
@@ -105,6 +135,27 @@ Decoder *new_decoder(const char *name, int device_type,
     goto _exit;
   }
 
+  if (hwaccel) {
+    // todo: find or specific
+    for (int i = 0;; i++) {
+      const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
+      if (!config) {
+          fprintf(stderr, "Decoder %s does not support device type %s.\n",
+                  codec->name, av_hwdevice_get_type_name(device_type));
+          goto _exit;
+      }
+      if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+          config->device_type == device_type) {
+          hw_pix_fmt = config->pix_fmt;
+          break;
+      }
+    }
+    if (hw_pix_fmt == AV_PIX_FMT_NONE) {
+      fprintf(stderr, "failed to set hw_pix_fmt\n");
+      goto _exit;
+    }
+  }
+
   if (!(decoder = calloc(1, sizeof(Decoder)))) {
     fprintf(stderr, "calloc failed\n");
     goto _exit;
@@ -117,6 +168,8 @@ Decoder *new_decoder(const char *name, int device_type,
   decoder->pkt = pkt;
   decoder->hwaccel = hwaccel;
   decoder->callback = callback;
+  decoder->hw_pix_fmt = hw_pix_fmt;
+  c->extradata = (uint8_t*)&decoder->hw_pix_fmt;
 #ifdef CFG_PKG_TRACE
   decoder->in = 0;
   decoder->out = 0;

@@ -62,7 +62,6 @@ fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
     let mut f = |data: &[u8]| {
         let now = std::time::Instant::now();
         if let Ok(encode_frames) = video_encoder.encode(data) {
-            log::info!("encode:{:?}", now.elapsed());
             encode_sum += now.elapsed().as_micros();
             for encode_frame in encode_frames.iter() {
                 encode_size += encode_frame.data.len();
@@ -71,11 +70,9 @@ fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
 
                 let now = std::time::Instant::now();
                 if let Ok(docode_frames) = video_decoder.decode(&encode_frame.data) {
-                    log::info!("decode:{:?}", now.elapsed());
                     decode_sum += now.elapsed().as_micros();
                     counter += 1;
                     for decode_frame in docode_frames {
-                        log::info!("decode_frame:{}", decode_frame);
                         for data in decode_frame.data.iter() {
                             decode_file.write_all(data).unwrap();
                             decode_file.flush().unwrap();
