@@ -18,6 +18,16 @@
 enum AVPixelFormat {
   AV_PIX_FMT_YUV420P = 0,
   AV_PIX_FMT_NV12 = 23,
+  AV_PIX_FMT_VAAPI = 44,
+  AV_PIX_FMT_VDPAU = 98,
+  AV_PIX_FMT_QSV = 114,
+  AV_PIX_FMT_D3D11VA_VLD = 116,
+  AV_PIX_FMT_CUDA = 117,
+  AV_PIX_FMT_VIDEOTOOLBOX = 158,
+  AV_PIX_FMT_MEDIACODEC = 165,
+  AV_PIX_FMT_D3D11 = 172,
+  AV_PIX_FMT_OPENCL = 180,
+  AV_PIX_FMT_VULKAN = 191,
 };
 
 enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
@@ -38,7 +48,7 @@ void *new_encoder(const char *name, int width, int height, int pixfmt,
                   int align, int bit_rate, int time_base_num, int time_base_den,
                   int gop, int quality, int rc, int *linesize, int *offset,
                   int *length, EncodeCallback callback);
-void *new_decoder(const char *name, int device_type, DecodeCallback callback);
+void *new_decoder(const char *name, int device_type, int output_surface, DecodeCallback callback);
 void *new_muxer(const char *filename, int width, int height, int is265,
                 int framerate);
 int encode(void *encoder, const uint8_t *data, int length, const void *obj,

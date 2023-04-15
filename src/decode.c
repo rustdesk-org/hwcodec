@@ -25,6 +25,7 @@ typedef struct Decoder {
   AVPacket *pkt;
   bool hwaccel;
   int hw_pix_fmt;
+  int output_surface;
   DecodeCallback callback;
 
 #ifdef CFG_PKG_TRACE
@@ -46,7 +47,7 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
     return AV_PIX_FMT_NONE;
 }
 
-Decoder *new_decoder(const char *name, int device_type,
+Decoder *new_decoder(const char *name, int device_type, int output_surface,
                      DecodeCallback callback) {
   AVCodecContext *c = NULL;
   AVBufferRef *hw_device_ctx = NULL;
@@ -168,6 +169,7 @@ Decoder *new_decoder(const char *name, int device_type,
   decoder->pkt = pkt;
   decoder->hwaccel = hwaccel;
   decoder->callback = callback;
+  decoder->output_surface = output_surface;
   decoder->hw_pix_fmt = hw_pix_fmt;
   c->extradata = (uint8_t*)&decoder->hw_pix_fmt;
 #ifdef CFG_PKG_TRACE
@@ -213,13 +215,15 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
         fprintf(stderr, "hw_frames_ctx is NULL\n");
         goto _exit;
       }
-      if ((ret = av_hwframe_transfer_data(decoder->sw_frame, decoder->frame,
-                                          0)) < 0) {
-        fprintf(stderr, "av_hwframe_transfer_data: %s\n", av_err2str(ret));
-        goto _exit;
+      if (decoder->output_surface) {
+        tmp_frame = decoder->frame;
+      } else {
+        if ((ret = av_hwframe_transfer_data(decoder->sw_frame, decoder->frame, 0)) < 0) {
+          fprintf(stderr, "av_hwframe_transfer_data: %s\n", av_err2str(ret));
+          goto _exit;
+        }
+        tmp_frame = decoder->sw_frame;
       }
-
-      tmp_frame = decoder->sw_frame;
     } else {
       tmp_frame = decoder->frame;
     }
