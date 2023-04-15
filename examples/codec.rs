@@ -30,6 +30,7 @@ fn main() {
     let decode_ctx = DecodeContext {
         name: String::from("hevc"),
         device_type: AV_HWDEVICE_TYPE_D3D11VA,
+        output_surface: true,
     };
     let _ = std::thread::spawn(move || test_encode_decode(encode_ctx, decode_ctx)).join();
 }

@@ -25,6 +25,7 @@ use std::{
 pub struct DecodeContext {
     pub name: String,
     pub device_type: AVHWDeviceType,
+    pub output_surface: bool,
 }
 
 pub struct DecodeFrame {
@@ -32,6 +33,7 @@ pub struct DecodeFrame {
     pub width: i32,
     pub height: i32,
     pub data: Vec<Vec<u8>>,
+    pub surface: Vec<*const c_void>,
     pub linesize: Vec<i32>,
     pub key: bool,
 }
@@ -70,6 +72,7 @@ impl Decoder {
             let codec = new_decoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.device_type as _,
+                if ctx.output_surface { 1 } else { 0 },
                 Some(Decoder::callback),
             );
 
@@ -124,6 +127,7 @@ impl Decoder {
             width,
             height,
             data: vec![],
+            surface: vec![],
             linesize: vec![],
             key: key != 0,
         };
@@ -153,6 +157,8 @@ impl Decoder {
             frame.linesize.push(linesizes[1]);
 
             frames.push(frame);
+        } else if pixfmt == AVPixelFormat::AV_PIX_FMT_D3D11 as c_int {
+            frame.surface = datas.iter().map(|u_8| *u_8 as *const c_void).collect();
         } else {
             error!("unsupported pixfmt {}", pixfmt as i32);
         }
@@ -319,6 +325,7 @@ impl Decoder {
                 let c = DecodeContext {
                     name: codec.name.clone(),
                     device_type: codec.hwdevice,
+                    output_surface: true,
                 };
                 let start = Instant::now();
                 if let Ok(mut decoder) = Decoder::new(c) {
