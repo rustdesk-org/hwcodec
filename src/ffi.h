@@ -2,6 +2,27 @@
 #define FFI_H
 
 #include <stdint.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#if defined(__clang__) || defined(__GNUC__)
+__attribute__((__format__ (__printf__, 1, 2)))
+void log_error(const char* fmt, ...);
+__attribute__((__format__ (__printf__, 1, 2)))
+void log_debug(const char* fmt, ...);
+__attribute__((__format__ (__printf__, 1, 2)))
+void log_info(const char* fmt, ...);
+__attribute__((__format__ (__printf__, 1, 2)))
+void log_trace(const char* fmt, ...);
+__attribute__((__format__ (__printf__, 1, 2)))
+void log_warn(const char* fmt, ...);
+#else
+void log_error(const char* fmt, ...);
+void log_debug(const char* fmt, ...);
+void log_info(const char* fmt, ...);
+void log_trace(const char* fmt, ...);
+void log_warn(const char* fmt, ...);
+#endif
 
 #define AV_NUM_DATA_POINTERS 8
 
@@ -66,5 +87,7 @@ int set_bitrate(void *encoder, int bitrate);
 int av_log_get_level(void);
 void av_log_set_level(int level);
 void get_bin_file(int is265, uint8_t **p, int *len);
+
+void init_ffmpeg_logger();
 
 #endif  // FFI_H

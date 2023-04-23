@@ -43,7 +43,7 @@ static enum AVPixelFormat get_hw_format(AVCodecContext *ctx,
         if (*p == hw_pix_fmt)
             return *p;
     }
-    fprintf(stderr, "Failed to get HW surface format.\n");
+    av_log(NULL, AV_LOG_ERROR, "Failed to get HW surface format.\n");
     return AV_PIX_FMT_NONE;
 }
 
@@ -62,7 +62,8 @@ Decoder *new_decoder(const char *name, int device_type, int output_surface,
   int ret;
 
   if (!(codec = avcodec_find_decoder_by_name(name))) {
-    fprintf(stderr, "Codec %s not found\n", name);
+    av_log(NULL, AV_LOG_ERROR, "Codec %s not found\n", name);
+    av_log(NULL, AV_LOG_ERROR, "Codec %s not found\n", name);
     goto _exit;
   }
 
@@ -76,13 +77,13 @@ Decoder *new_decoder(const char *name, int device_type, int output_surface,
       }
     }
     if (!support_device) {
-      fprintf(stderr, "not support device type %s.\n", av_hwdevice_get_type_name(device_type));
+      av_log(NULL, AV_LOG_ERROR, "not support device type %s.\n", av_hwdevice_get_type_name(device_type));
       goto _exit;
     }
   }
 
   if (!(c = avcodec_alloc_context3(codec))) {
-    fprintf(stderr, "Could not allocate video codec context\n");
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate video codec context\n");
     goto _exit;
   }
 
@@ -93,7 +94,7 @@ Decoder *new_decoder(const char *name, int device_type, int output_surface,
 
   if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
     if ((ret = av_opt_set(c->priv_data, "async_depth", "1", 0)) < 0) {
-      fprintf(stderr, "qsv set opt failed %s\n", av_err2str(ret));
+      av_log(NULL, AV_LOG_ERROR, "qsv set opt failed %s\n", av_err2str(ret));
       goto _exit;
     }
     // https://github.com/FFmpeg/FFmpeg/blob/c6364b711bad1fe2fbd90e5b2798f87080ddf5ea/libavcodec/qsvdec.c#L932
@@ -104,35 +105,35 @@ Decoder *new_decoder(const char *name, int device_type, int output_surface,
   if (hwaccel) {
     ret = av_hwdevice_ctx_create(&hw_device_ctx, device_type, NULL, NULL, 0);
     if (ret < 0) {
-      fprintf(stderr, "Failed to create specified HW device:%s\n",
+      av_log(NULL, AV_LOG_ERROR, "Failed to create specified HW device:%s\n",
               av_err2str(ret));
       goto _exit;
     }
     c->hw_device_ctx = hw_device_ctx;
     if (!(sw_frame = av_frame_alloc())) {
-      fprintf(stderr, "Can not alloc frame\n");
+      av_log(NULL, AV_LOG_ERROR, "Can not alloc frame\n");
       goto _exit;
     }
   } else {
     if (!(sw_parse_ctx = av_parser_init(codec->id))) {
-      fprintf(stderr, "parser not found\n");
+      av_log(NULL, AV_LOG_ERROR, "parser not found\n");
       goto _exit;
     }
     sw_parse_ctx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
   }
 
   if (!(pkt = av_packet_alloc())) {
-    fprintf(stderr, "Failed to allocate AVPacket\n");
+    av_log(NULL, AV_LOG_ERROR, "Failed to allocate AVPacket\n");
     goto _exit;
   }
 
   if (!(frame = av_frame_alloc())) {
-    fprintf(stderr, "Can not alloc frame\n");
+    av_log(NULL, AV_LOG_ERROR, "Can not alloc frame\n");
     goto _exit;
   }
 
   if ((ret = avcodec_open2(c, codec, NULL)) != 0) {
-    fprintf(stderr, "avcodec_open2: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "avcodec_open2: %s\n", av_err2str(ret));
     goto _exit;
   }
 
@@ -141,7 +142,7 @@ Decoder *new_decoder(const char *name, int device_type, int output_surface,
     for (int i = 0;; i++) {
       const AVCodecHWConfig *config = avcodec_get_hw_config(codec, i);
       if (!config) {
-          fprintf(stderr, "Decoder %s does not support device type %s.\n",
+          av_log(NULL, AV_LOG_ERROR, "Decoder %s does not support device type %s.\n",
                   codec->name, av_hwdevice_get_type_name(device_type));
           goto _exit;
       }
@@ -152,13 +153,13 @@ Decoder *new_decoder(const char *name, int device_type, int output_surface,
       }
     }
     if (hw_pix_fmt == AV_PIX_FMT_NONE) {
-      fprintf(stderr, "failed to set hw_pix_fmt\n");
+      av_log(NULL, AV_LOG_ERROR, "failed to set hw_pix_fmt\n");
       goto _exit;
     }
   }
 
   if (!(decoder = calloc(1, sizeof(Decoder)))) {
-    fprintf(stderr, "calloc failed\n");
+    av_log(NULL, AV_LOG_ERROR, "calloc failed\n");
     goto _exit;
   }
   decoder->c = c;
@@ -199,27 +200,27 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
 
   ret = avcodec_send_packet(decoder->c, pkt);
   if (ret < 0) {
-    fprintf(stderr, "avcodec_send_packet: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "avcodec_send_packet: %s\n", av_err2str(ret));
     return ret;
   }
 
   while (ret >= 0) {
     if ((ret = avcodec_receive_frame(decoder->c, decoder->frame)) != 0) {
       if (ret != AVERROR(EAGAIN))
-        fprintf(stderr, "avcodec_receive_frame: %s\n", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "avcodec_receive_frame: %s\n", av_err2str(ret));
       goto _exit;
     }
 
     if (decoder->hwaccel) {
       if (!decoder->frame->hw_frames_ctx) {
-        fprintf(stderr, "hw_frames_ctx is NULL\n");
+        av_log(NULL, AV_LOG_ERROR, "hw_frames_ctx is NULL\n");
         goto _exit;
       }
       if (decoder->output_surface) {
         tmp_frame = decoder->frame;
       } else {
         if ((ret = av_hwframe_transfer_data(decoder->sw_frame, decoder->frame, 0)) < 0) {
-          fprintf(stderr, "av_hwframe_transfer_data: %s\n", av_err2str(ret));
+          av_log(NULL, AV_LOG_ERROR, "av_hwframe_transfer_data: %s\n", av_err2str(ret));
           goto _exit;
         }
         tmp_frame = decoder->sw_frame;
@@ -230,7 +231,7 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
     decoded = true;
 #ifdef CFG_PKG_TRACE
     decoder->out++;
-    fprintf(stdout, "delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
+    av_log(NULL, AV_LOG_VERBOSE, "delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
 #endif
     decoder->callback(obj, tmp_frame->width, tmp_frame->height,
                       tmp_frame->format, tmp_frame->linesize, tmp_frame->data,
@@ -245,11 +246,11 @@ int decode(Decoder *decoder, const uint8_t *data, int length, const void *obj) {
   int ret = -1;
 #ifdef CFG_PKG_TRACE
   decoder->in++;
-  fprintf(stdout, "delay DI: in:%d, out:%d\n", decoder->in, decoder->out);
+  av_log(NULL, AV_LOG_VERBOSE, "delay DI: in:%d, out:%d\n", decoder->in, decoder->out);
 #endif
 
   if (!data || !length) {
-    fprintf(stderr, "illegal decode parameter\n");
+    av_log(NULL, AV_LOG_ERROR, "illegal decode parameter\n");
     return -1;
   }
 
@@ -263,7 +264,7 @@ int decode(Decoder *decoder, const uint8_t *data, int length, const void *obj) {
                              &decoder->pkt->data, &decoder->pkt->size, data,
                              length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
       if (ret < 0) {
-        fprintf(stderr, "av_parser_parse2: %s", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "av_parser_parse2: %s", av_err2str(ret));
         return ret;
       }
       data += ret;

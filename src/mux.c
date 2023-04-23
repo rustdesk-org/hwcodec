@@ -34,19 +34,19 @@ Muxer *new_muxer(const char *filename, int width, int height, int is265,
   int ret;
 
   if (!(muxer = calloc(1, sizeof(Muxer)))) {
-    fprintf(stderr, "Failed to alloc Muxer\n");
+    av_log(NULL, AV_LOG_ERROR, "Failed to alloc Muxer\n");
     return NULL;
   }
   ost = &muxer->video_st;
 
   if ((ret = avformat_alloc_output_context2(&oc, NULL, NULL, filename)) < 0) {
-    fprintf(stderr, "Cannot open output formatContext %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "Cannot open output formatContext %s\n", av_err2str(ret));
     goto _exit;
   }
 
   ost->st = avformat_new_stream(oc, NULL);
   if (!ost->st) {
-    fprintf(stderr, "Could not allocate stream\n");
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate stream\n");
     goto _exit;
   }
   ost->st->id = oc->nb_streams - 1;
@@ -58,20 +58,20 @@ Muxer *new_muxer(const char *filename, int width, int height, int is265,
   if (!(oc->oformat->flags & AVFMT_NOFILE)) {
     ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE);
     if (ret < 0) {
-      fprintf(stderr, "Could not open '%s': %s\n", filename, av_err2str(ret));
+      av_log(NULL, AV_LOG_ERROR, "Could not open '%s': %s\n", filename, av_err2str(ret));
       goto _exit;
     }
   }
 
   ost->tmp_pkt = av_packet_alloc();
   if (!ost->tmp_pkt) {
-    fprintf(stderr, "Could not allocate AVPacket\n");
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate AVPacket\n");
     goto _exit;
   }
 
   ret = avformat_write_header(oc, NULL);
   if (ret < 0) {
-    fprintf(stderr, "Error occurred when opening output file: %s\n",
+    av_log(NULL, AV_LOG_ERROR, "Error occurred when opening output file: %s\n",
             av_err2str(ret));
     goto _exit;
   }
@@ -104,7 +104,7 @@ int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
   if (!muxer->got_first) {
     if (key != 1) return -2;
     muxer->start_ms = pts_ms;
-  } 
+  }
   int64_t pts = (pts_ms - muxer->start_ms);  // use write timestamp
   if (pts <= muxer->last_pts && muxer->got_first) {
     pts = muxer->last_pts + 1000 / muxer->framerate;
@@ -128,7 +128,7 @@ int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
   }
   ret = av_write_frame(fmt_ctx, pkt);
   if (ret < 0) {
-    fprintf(stderr, "Error while writing output packet: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "Error while writing output packet: %s\n", av_err2str(ret));
     return -1;
   }
   return 0;

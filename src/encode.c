@@ -52,7 +52,7 @@ static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
       *length = offset[0] + linesize[1] * height / 2;
       break;
     default:
-      fprintf(stderr, "unsupported pixfmt %d\n", pix_fmt);
+      av_log(NULL, AV_LOG_ERROR, "unsupported pixfmt %d\n", pix_fmt);
       return -1;
   }
 
@@ -67,7 +67,7 @@ int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
   int ret = -1;
 
   if (!(frame = av_frame_alloc())) {
-    fprintf(stderr, "Alloc frame failed");
+    av_log(NULL, AV_LOG_ERROR, "Alloc frame failed");
     goto _exit;
   }
 
@@ -76,7 +76,7 @@ int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
   frame->height = height;
 
   if ((ret = av_frame_get_buffer(frame, align)) < 0) {
-    fprintf(stderr, "av_frame_get_buffer: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "av_frame_get_buffer: %s\n", av_err2str(ret));
     goto _exit;
   }
   if (linesize) {
@@ -107,20 +107,20 @@ static int set_lantency_free(void *priv_data, const char *name) {
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
     if ((ret = av_opt_set(priv_data, "delay", "0", 0)) < 0) {
-      fprintf(stderr, "nvenc set opt delay failed: %s\n", av_err2str(ret));
+      av_log(NULL, AV_LOG_ERROR, "nvenc set opt delay failed: %s\n", av_err2str(ret));
       return -1;
     }
   }
   if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
     if ((ret = av_opt_set(priv_data, "query_timeout", "1000", 0)) < 0) {
-      fprintf(stderr, "amf set opt query_timeout failed: %s\n",
+      av_log(NULL, AV_LOG_ERROR, "amf set opt query_timeout failed: %s\n",
               av_err2str(ret));
       return -1;
     }
   }
   if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
     if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
-      fprintf(stderr, "qsv set opt failed: %s\n", av_err2str(ret));
+      av_log(NULL, AV_LOG_ERROR, "qsv set opt failed: %s\n", av_err2str(ret));
       return -1;
     }
   }
@@ -135,13 +135,13 @@ static int set_quality(void *priv_data, const char *name, int quality) {
       // p7 isn't zero lantency
       case Quality_Medium:
         if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
-          fprintf(stderr, "nvenc set opt preset p4 failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "nvenc set opt preset p4 failed: %s\n",
                   av_err2str(ret));
         }
         break;
       case Quality_Low:
         if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
-          fprintf(stderr, "nvenc set opt preset p1 failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "nvenc set opt preset p1 failed: %s\n",
                   av_err2str(ret));
         }
         break;
@@ -153,19 +153,19 @@ static int set_quality(void *priv_data, const char *name, int quality) {
     switch (quality) {
       case Quality_High:
         if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
-          fprintf(stderr, "amf set opt quality quality failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "amf set opt quality quality failed: %s\n",
                   av_err2str(ret));
         }
         break;
       case Quality_Medium:
         if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
-          fprintf(stderr, "amf set opt quality balanced failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "amf set opt quality balanced failed: %s\n",
                   av_err2str(ret));
         }
         break;
       case Quality_Low:
         if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
-          fprintf(stderr, "amf set opt quality speed failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "amf set opt quality speed failed: %s\n",
                   av_err2str(ret));
         }
         break;
@@ -177,19 +177,19 @@ static int set_quality(void *priv_data, const char *name, int quality) {
     switch (quality) {
       case Quality_High:
         if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
-          fprintf(stderr, "qsv set opt preset veryslow failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "qsv set opt preset veryslow failed: %s\n",
                   av_err2str(ret));
         }
         break;
       case Quality_Medium:
         if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
-          fprintf(stderr, "qsv set opt preset medium failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "qsv set opt preset medium failed: %s\n",
                   av_err2str(ret));
         }
         break;
       case Quality_Low:
         if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
-          fprintf(stderr, "qsv set opt preset veryfast failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "qsv set opt preset veryfast failed: %s\n",
                   av_err2str(ret));
         }
         break;
@@ -207,12 +207,12 @@ static int set_rate_control(void *priv_data, const char *name, int rc) {
     switch (rc) {
       case RC_CBR:
         if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-          fprintf(stderr, "nvenc set opt rc cbr failed: %s\n", av_err2str(ret));
+          av_log(NULL, AV_LOG_ERROR, "nvenc set opt rc cbr failed: %s\n", av_err2str(ret));
         }
         break;
       case RC_VBR:
         if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
-          fprintf(stderr, "nvenc set opt rc vbr failed: %s\n", av_err2str(ret));
+          av_log(NULL, AV_LOG_ERROR, "nvenc set opt rc vbr failed: %s\n", av_err2str(ret));
         }
         break;
       default:
@@ -223,12 +223,12 @@ static int set_rate_control(void *priv_data, const char *name, int rc) {
     switch (rc) {
       case RC_CBR:
         if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-          fprintf(stderr, "amf set opt rc cbr failed: %s\n", av_err2str(ret));
+          av_log(NULL, AV_LOG_ERROR, "amf set opt rc cbr failed: %s\n", av_err2str(ret));
         }
         break;
       case RC_VBR:
         if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
-          fprintf(stderr, "amf set opt rc vbr_latency failed: %s\n",
+          av_log(NULL, AV_LOG_ERROR, "amf set opt rc vbr_latency failed: %s\n",
                   av_err2str(ret));
         }
         break;
@@ -252,17 +252,17 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   int ret;
 
   if (!(codec = avcodec_find_encoder_by_name(name))) {
-    fprintf(stderr, "Codec %s not found\n", codec);
+    av_log(NULL, AV_LOG_ERROR, "Codec %s not found\n", codec);
     goto _exit;
   }
 
   if (!(c = avcodec_alloc_context3(codec))) {
-    fprintf(stderr, "Could not allocate video codec context\n");
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate video codec context\n");
     goto _exit;
   }
 
   if (!(frame = av_frame_alloc())) {
-    fprintf(stderr, "Could not allocate video frame\n");
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate video frame\n");
     goto _exit;
   }
   frame->format = pixfmt;
@@ -270,18 +270,18 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   frame->height = height;
 
   if ((ret = av_frame_get_buffer(frame, align)) < 0) {
-    fprintf(stderr, "av_frame_get_buffer: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "av_frame_get_buffer: %s\n", av_err2str(ret));
     goto _exit;
   }
 
   if (!(pkt = av_packet_alloc())) {
-    fprintf(stderr, "Could not allocate video packet\n");
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate video packet\n");
     goto _exit;
   }
   if ((ret = av_new_packet(
            pkt, av_image_get_buffer_size(frame->format, frame->width,
                                          frame->height, align))) < 0) {
-    fprintf(stderr, "av_new_packet: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "av_new_packet: %s\n", av_err2str(ret));
     goto _exit;
   }
 
@@ -315,12 +315,12 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   set_rate_control(c->priv_data, name, rc);
 
   if ((ret = avcodec_open2(c, codec, NULL)) < 0) {
-    fprintf(stderr, "avcodec_open2: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "avcodec_open2: %s\n", av_err2str(ret));
     goto _exit;
   }
 
   if (!(encoder = calloc(1, sizeof(Encoder)))) {
-    fprintf(stderr, "calloc failed\n");
+    av_log(NULL, AV_LOG_ERROR, "calloc failed\n");
     goto _exit;
   }
   encoder->c = c;
@@ -359,7 +359,7 @@ static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
     case AV_PIX_FMT_NV12:
       if (data_length !=
           frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
-        fprintf(stderr,
+        av_log(NULL, AV_LOG_ERROR,
                 "fill_frame: NV12 data length error. data_length:%d, "
                 "linesize[0]:%d, linesize[1]:%d\n",
                 data_length, frame->linesize[0], frame->linesize[1]);
@@ -372,7 +372,7 @@ static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
       if (data_length !=
           frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
                            frame->linesize[2] / 2)) {
-        fprintf(stderr,
+        av_log(NULL, AV_LOG_ERROR,
                 "fill_frame: 420P data length error. data_length:%d, "
                 "linesize[0]:%d, linesize[1]:%d, linesize[2]:%d\n",
                 data_length, frame->linesize[0], frame->linesize[1],
@@ -384,7 +384,7 @@ static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
       frame->data[2] = data + offset[1];
       break;
     default:
-      fprintf(stderr, "fill_frame: unsupported format:%d\n", frame->format);
+      av_log(NULL, AV_LOG_ERROR, "fill_frame: unsupported format:%d\n", frame->format);
       return -1;
   }
   return 0;
@@ -397,20 +397,20 @@ static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj,
   AVPacket *pkt = encoder->pkt;
 
   if ((ret = avcodec_send_frame(encoder->c, frame)) < 0) {
-    fprintf(stderr, "avcodec_send_frame:%s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "avcodec_send_frame:%s\n", av_err2str(ret));
     return ret;
   }
 
   while (ret >= 0) {
     if ((ret = avcodec_receive_packet(encoder->c, pkt)) < 0) {
       if (ret != AVERROR(EAGAIN))
-        fprintf(stderr, "avcodec_receive_packet: %s\n", av_err2str(ret));
+        av_log(NULL, AV_LOG_ERROR, "avcodec_receive_packet: %s\n", av_err2str(ret));
       goto _exit;
     }
     encoded = true;
 #ifdef CFG_PKG_TRACE
     encoder->out++;
-    fprintf(stdout, "delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
+    av_log(NULL, AV_LOG_VERBOSE, "delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
     if (encoder->first_ms == 0) encoder->first_ms = ms;
     encoder->callback(pkt->data, pkt->size, ms - encoder->first_ms, pkt->flags &  AV_PKT_FLAG_KEY, obj);
@@ -426,10 +426,10 @@ int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj,
 
 #ifdef CFG_PKG_TRACE
   encoder->in++;
-  fprintf(stdout, "delay EI: in:%d, out:%d\n", encoder->in, encoder->out);
+  av_log(NULL, AV_LOG_VERBOSE, "delay EI: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
   if ((ret = av_frame_make_writable(encoder->frame)) != 0) {
-    fprintf(stderr, "av_frame_make_writable failed: %s\n", av_err2str(ret));
+    av_log(NULL, AV_LOG_ERROR, "av_frame_make_writable failed: %s\n", av_err2str(ret));
     return ret;
   }
   if ((ret = fill_frame(encoder->frame, (uint8_t *)data, length,
@@ -453,6 +453,6 @@ int set_bitrate(Encoder *encoder, int bitrate) {
     encoder->c->bit_rate = bitrate;
     return 0;
   }
-  fprintf(stderr, "%s does not implement bitrate change\n", name);
+  av_log(NULL, AV_LOG_ERROR, "%s does not implement bitrate change\n", name);
   return -1;
 }

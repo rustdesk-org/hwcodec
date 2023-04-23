@@ -8,9 +8,13 @@ use hwcodec::{
     RateControl::*,
 };
 use std::time::Instant;
+use hwcodec::c_logs::init_ffmpeg_logger;
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+    unsafe {
+        init_ffmpeg_logger();
+    }
 
     let ctx = EncodeContext {
         name: String::from(""),

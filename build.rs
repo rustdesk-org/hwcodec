@@ -43,5 +43,6 @@ fn main() {
         .file("src/mux.c")
         .file("src/common.c")
         .file("src/data.c")
+        .file("src/log.c")
         .compile("hwcodec");
 }
