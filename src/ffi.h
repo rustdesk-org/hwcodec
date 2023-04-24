@@ -88,6 +88,6 @@ int av_log_get_level(void);
 void av_log_set_level(int level);
 void get_bin_file(int is265, uint8_t **p, int *len);
 
-void init_ffmpeg_logger();
+void init_ffmpeg_logger_();
 
 #endif  // FFI_H
