@@ -2,13 +2,9 @@ use std::ffi::CStr;
 use std::io::Write;
 use std::os::raw::c_char;
 use std::sync::mpsc;
+use crate::init_ffmpeg_logger_;
 
 use log::{debug, error, info, trace, warn};
-
-extern "C" {
-    // ...
-    fn init_ffmpeg_logger_();
-}
 
 pub fn init_ffmpeg_logger(){
     unsafe {
