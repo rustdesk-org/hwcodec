@@ -154,7 +154,6 @@ fn test(
         let decode_ctx = DecodeContext {
             name: info.name.clone(),
             device_type: info.hwdevice,
-            output_surface: true,
         };
         let start = std::time::Instant::now();
         let mut decoded = false;

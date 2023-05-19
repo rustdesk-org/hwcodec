@@ -25,7 +25,6 @@ use std::{
 pub struct DecodeContext {
     pub name: String,
     pub device_type: AVHWDeviceType,
-    pub output_surface: bool,
 }
 
 pub struct DecodeFrame {
@@ -72,7 +71,7 @@ impl Decoder {
             let codec = new_decoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.device_type as _,
-                if ctx.output_surface { 1 } else { 0 },
+                0,
                 Some(Decoder::callback),
             );
 
@@ -325,7 +324,6 @@ impl Decoder {
                 let c = DecodeContext {
                     name: codec.name.clone(),
                     device_type: codec.hwdevice,
-                    output_surface: true,
                 };
                 let start = Instant::now();
                 if let Ok(mut decoder) = Decoder::new(c) {
