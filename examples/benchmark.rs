@@ -75,6 +75,7 @@ fn test_decoder(info: CodecInfo, h26xs: &Vec<Vec<u8>>, best: bool) {
     let ctx = DecodeContext {
         name: info.name,
         device_type: info.hwdevice,
+        thread_count: 4,
     };
 
     let mut decoder = Decoder::new(ctx.clone()).unwrap();

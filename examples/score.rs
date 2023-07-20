@@ -155,6 +155,7 @@ fn test(
         let decode_ctx = DecodeContext {
             name: info.name.clone(),
             device_type: info.hwdevice,
+            thread_count: 4,
         };
         let start = std::time::Instant::now();
         let mut decoded = false;

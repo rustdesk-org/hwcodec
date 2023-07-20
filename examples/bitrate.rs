@@ -64,6 +64,7 @@ fn encode_decode(
     let decode_ctx = DecodeContext {
         name: String::from("h264"),
         device_type: AVHWDeviceType::AV_HWDEVICE_TYPE_D3D11VA,
+        thread_count: 4,
     };
     let mut video_decoder = Decoder::new(decode_ctx).unwrap();
     let mut decode_file = File::create(format!("output/{}/{}.yuv", para_name, para_value)).unwrap();

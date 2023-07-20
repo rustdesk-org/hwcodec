@@ -38,7 +38,8 @@ void *new_encoder(const char *name, int width, int height, int pixfmt,
                   int align, int bit_rate, int time_base_num, int time_base_den,
                   int gop, int quality, int rc, int thread_count, int *linesize,
                   int *offset, int *length, EncodeCallback callback);
-void *new_decoder(const char *name, int device_type, DecodeCallback callback);
+void *new_decoder(const char *name, int device_type, int thread_count,
+                  DecodeCallback callback);
 void *new_muxer(const char *filename, int width, int height, int is265,
                 int framerate);
 int encode(void *encoder, const uint8_t *data, int length, const void *obj,

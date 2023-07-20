@@ -32,7 +32,7 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-Decoder *new_decoder(const char *name, int device_type,
+Decoder *new_decoder(const char *name, int device_type, int thread_count,
                      DecodeCallback callback) {
   AVCodecContext *c = NULL;
   AVBufferRef *hw_device_ctx = NULL;
@@ -57,7 +57,7 @@ Decoder *new_decoder(const char *name, int device_type,
 
   c->flags |= AV_CODEC_CAP_TRUNCATED;
   c->flags |= AV_CODEC_FLAG_LOW_DELAY;
-  c->thread_count = 4;
+  c->thread_count = thread_count;
   c->thread_type = FF_THREAD_SLICE;
 
   if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
