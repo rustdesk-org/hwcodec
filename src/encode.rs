@@ -31,6 +31,7 @@ pub struct EncodeContext {
     pub gop: i32,
     pub quality: Quality,
     pub rc: RateControl,
+    pub thread_count: i32,
 }
 
 pub struct EncodeFrame {
@@ -76,6 +77,7 @@ impl Encoder {
                 ctx.gop,
                 ctx.quality as _,
                 ctx.rc as _,
+                ctx.thread_count,
                 linesize.as_mut_ptr(),
                 offset.as_mut_ptr(),
                 length.as_mut_ptr(),

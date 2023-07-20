@@ -23,6 +23,7 @@ fn main() {
         gop: 60,
         quality: Quality_Default,
         rc: RC_DEFAULT,
+        thread_count: 4,
     };
     let start = Instant::now();
     let encoders = Encoder::available_encoders(ctx.clone());

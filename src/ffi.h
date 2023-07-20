@@ -31,21 +31,21 @@ enum RateControl {
 typedef void (*DecodeCallback)(const void *obj, int width, int height,
                                int pixfmt, int linesize[AV_NUM_DATA_POINTERS],
                                uint8_t *data[AV_NUM_DATA_POINTERS], int key);
-typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,int key,
-                               const void *obj);
+typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
+                               int key, const void *obj);
 
 void *new_encoder(const char *name, int width, int height, int pixfmt,
                   int align, int bit_rate, int time_base_num, int time_base_den,
-                  int gop, int quality, int rc, int *linesize, int *offset,
-                  int *length, EncodeCallback callback);
+                  int gop, int quality, int rc, int thread_count, int *linesize,
+                  int *offset, int *length, EncodeCallback callback);
 void *new_decoder(const char *name, int device_type, DecodeCallback callback);
 void *new_muxer(const char *filename, int width, int height, int is265,
                 int framerate);
 int encode(void *encoder, const uint8_t *data, int length, const void *obj,
            int64_t ms);
 int decode(void *decoder, const uint8_t *data, int length, const void *obj);
-int write_video_frame(void *muxer, const uint8_t *data, int len,
-                      int64_t pts_ms, int key);
+int write_video_frame(void *muxer, const uint8_t *data, int len, int64_t pts_ms,
+                      int key);
 int write_tail(void *muxer);
 void free_encoder(void *encoder);
 void free_decoder(void *decoder);
@@ -57,4 +57,4 @@ int av_log_get_level(void);
 void av_log_set_level(int level);
 void get_bin_file(int is265, uint8_t **p, int *len);
 
-#endif  // FFI_H
+#endif // FFI_H

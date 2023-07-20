@@ -84,10 +84,12 @@ Muxer *new_muxer(const char *filename, int width, int height, int is265,
   return muxer;
 
 _exit:
-  if (ost && ost->tmp_pkt) av_packet_free(&ost->tmp_pkt);
+  if (ost && ost->tmp_pkt)
+    av_packet_free(&ost->tmp_pkt);
   if (oc && oc->pb && !(oc->oformat->flags & AVFMT_NOFILE))
     avio_closep(&oc->pb);
-  if (oc) avformat_free_context(oc);
+  if (oc)
+    avformat_free_context(oc);
   free(muxer);
 
   return NULL;
@@ -100,12 +102,14 @@ int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
   AVFormatContext *fmt_ctx = muxer->oc;
   int ret;
 
-  if (muxer->framerate <= 0) return -3;
+  if (muxer->framerate <= 0)
+    return -3;
   if (!muxer->got_first) {
-    if (key != 1) return -2;
+    if (key != 1)
+      return -2;
     muxer->start_ms = pts_ms;
-  } 
-  int64_t pts = (pts_ms - muxer->start_ms);  // use write timestamp
+  }
+  int64_t pts = (pts_ms - muxer->start_ms); // use write timestamp
   if (pts <= muxer->last_pts && muxer->got_first) {
     pts = muxer->last_pts + 1000 / muxer->framerate;
   }
@@ -114,12 +118,12 @@ int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
   pkt->data = (uint8_t *)data;
   pkt->size = len;
   pkt->pts = pts;
-  pkt->dts = pkt->pts;  // no B-frame
+  pkt->dts = pkt->pts; // no B-frame
   int64_t duration = pkt->pts - muxer->last_pts;
   muxer->last_pts = pkt->pts;
-  pkt->duration = duration > 0 ? duration : 1000 / muxer->framerate;  // predict
+  pkt->duration = duration > 0 ? duration : 1000 / muxer->framerate; // predict
   av_packet_rescale_ts(pkt, (AVRational){1, 1000},
-                       ost->st->time_base);  // ms -> stream timebase
+                       ost->st->time_base); // ms -> stream timebase
   pkt->stream_index = ost->st->index;
   if (key == 1) {
     pkt->flags |= AV_PKT_FLAG_KEY;
@@ -137,7 +141,8 @@ int write_video_frame(Muxer *muxer, const uint8_t *data, int len,
 int write_tail(Muxer *muxer) { return av_write_trailer(muxer->oc); }
 
 void free_muxer(Muxer *muxer) {
-  if (!muxer) return;
+  if (!muxer)
+    return;
   av_packet_free(&muxer->video_st.tmp_pkt);
   AVFormatContext *oc = muxer->oc;
   if (oc && oc->pb && !(oc->oformat->flags & AVFMT_NOFILE))

@@ -26,6 +26,7 @@ fn main() {
         gop: 60,
         quality: Quality_Default,
         rc: RC_DEFAULT,
+        thread_count: 4,
     };
     let decode_ctx = DecodeContext {
         name: String::from("hevc"),

@@ -12,7 +12,7 @@ use std::{fs::File, io::Read, time::Instant};
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
 
-    let  test265 = false;
+    let test265 = false;
 
     let mut muxer = Muxer::new(MuxContext {
         filename: "output/mux.mp4".to_owned(),
@@ -34,10 +34,11 @@ fn main() {
         gop: 60,
         quality: Quality_Default,
         rc: RC_DEFAULT,
+        thread_count: 4,
     };
 
     let yuvs = prepare_yuv(ctx.clone(), "input/test.yuv").unwrap();
-    let (h264s, h265s) = prepare_h26x(ctx, &yuvs) ;
+    let (h264s, h265s) = prepare_h26x(ctx, &yuvs);
     let h26xs = if test265 {
         h265s.unwrap()
     } else {
@@ -47,9 +48,7 @@ fn main() {
     let mut cnt = 0;
     let start = Instant::now();
     for h26x in h26xs {
-        muxer
-            .write_video(&h26x.data, h26x.key == 1)
-            .unwrap();
+        muxer.write_video(&h26x.data, h26x.key == 1).unwrap();
         std::thread::sleep(std::time::Duration::from_millis(50));
         cnt = cnt + 1;
         log::info!("cnt:{}", cnt);

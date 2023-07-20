@@ -116,6 +116,7 @@ fn test(
         gop: 60,
         quality: Quality_Default,
         rc: RC_DEFAULT,
+        thread_count: 4,
     };
     let yuvs = prepare_yuv(ctx.clone(), "input/1920_1080.yuv").unwrap();
 
