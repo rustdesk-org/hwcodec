@@ -65,6 +65,10 @@ impl Encoder {
             offset.resize(AV_NUM_DATA_POINTERS as _, 0);
             let mut length = Vec::<i32>::new();
             length.resize(1, 0);
+            let gpu = std::env::var("RUSTDESK_HWCODEC_NVENC_GPU")
+                .unwrap_or("-1".to_owned())
+                .parse()
+                .unwrap_or(-1);
             let codec = new_encoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.width,
@@ -78,6 +82,7 @@ impl Encoder {
                 ctx.quality as _,
                 ctx.rc as _,
                 ctx.thread_count,
+                gpu,
                 linesize.as_mut_ptr(),
                 offset.as_mut_ptr(),
                 length.as_mut_ptr(),

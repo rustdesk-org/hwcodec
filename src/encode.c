@@ -243,11 +243,24 @@ static int set_rate_control(void *priv_data, const char *name, int rc) {
   return ret;
 }
 
+static int set_gpu(void *priv_data, const char *name, int gpu) {
+  int ret;
+  if (gpu < 0)
+    return -1;
+  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
+    if ((ret = av_opt_set_int(priv_data, "gpu", gpu, 0)) < 0) {
+      fprintf(stderr, "nvenc set opt gpu %d failed: %s\n", gpu,
+              av_err2str(ret));
+    }
+  }
+  return ret;
+}
+
 Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
                      int align, int bit_rate, int time_base_num,
                      int time_base_den, int gop, int quality, int rc,
-                     int thread_count, int *linesize, int *offset, int *length,
-                     EncodeCallback callback) {
+                     int thread_count, int gpu, int *linesize, int *offset,
+                     int *length, EncodeCallback callback) {
   const AVCodec *codec = NULL;
   AVCodecContext *c = NULL;
   AVFrame *frame = NULL;
@@ -317,6 +330,7 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   }
   set_quality(c->priv_data, name, quality);
   set_rate_control(c->priv_data, name, rc);
+  set_gpu(c->priv_data, name, gpu);
 
   if ((ret = avcodec_open2(c, codec, NULL)) < 0) {
     fprintf(stderr, "avcodec_open2: %s\n", av_err2str(ret));

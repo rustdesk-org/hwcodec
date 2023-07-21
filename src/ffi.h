@@ -36,8 +36,9 @@ typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
 
 void *new_encoder(const char *name, int width, int height, int pixfmt,
                   int align, int bit_rate, int time_base_num, int time_base_den,
-                  int gop, int quality, int rc, int thread_count, int *linesize,
-                  int *offset, int *length, EncodeCallback callback);
+                  int gop, int quality, int rc, int thread_count, int gpu,
+                  int *linesize, int *offset, int *length,
+                  EncodeCallback callback);
 void *new_decoder(const char *name, int device_type, int thread_count,
                   DecodeCallback callback);
 void *new_muxer(const char *filename, int width, int height, int is265,
