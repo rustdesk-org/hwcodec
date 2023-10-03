@@ -133,12 +133,9 @@ static int set_lantency_free(void *priv_data, const char *name) {
     //   fprintf(stderr, "amf set opt allow_sw true failed: %s\n", av_err2str(ret));
     //   return -1;
     // }
+    // not necessary
     if ((ret = av_opt_set(priv_data, "realtime", "true", 0)) < 0) {
       fprintf(stderr, "amf set opt realtime true failed: %s\n", av_err2str(ret));
-      return -1;
-    }
-    if ((ret = av_opt_set(priv_data, "max_frame_delay_count", "0", 0)) < 0) {
-      fprintf(stderr, "videotoolbox set opt max_frame_delay_count 0 failed: %s\n", av_err2str(ret));
       return -1;
     }
   }

@@ -2,7 +2,7 @@ CC=clang ./configure  \
 --prefix=$PWD/../install \
 --pkg-config-flags="--static" \
 --disable-everything \
---disable-shared --enable-small \
+--disable-shared \
 --disable-runtime-cpudetect --disable-swscale-alpha \
 --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
 --disable-network --disable-dct --disable-dwt --disable-error-resilience --disable-lsp \
@@ -10,7 +10,7 @@ CC=clang ./configure  \
 --enable-decoder=h264 --enable-decoder=hevc \
 --enable-parser=h264 --enable-parser=hevc \
 --enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb  \
---disable-appkit --disable-bzlib --disable-coreimage  --disable-metal --disable-sdl2 \
+--disable-bzlib --disable-sdl2 \
 --disable-securetransport --disable-vulkan --disable-audiotoolbox --disable-v4l2-m2m \
 --disable-debug --disable-valgrind-backtrace --disable-large-tests \
 --enable-avformat --disable-swresample --disable-swscale --disable-postproc \

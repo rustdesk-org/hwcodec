@@ -16,7 +16,7 @@ fn main() {
         name: String::from(""),
         width: 1920,
         height: 1080,
-        pixfmt: AVPixelFormat::AV_PIX_FMT_YUV420P,
+        pixfmt: AVPixelFormat::AV_PIX_FMT_NV12,
         align: 0,
         bitrate: 20000000,
         timebase: [1, 30],

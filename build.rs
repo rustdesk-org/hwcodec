@@ -39,7 +39,7 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
-        println!("cargo:rustc-link-search=native=ffmpeg/mac/release/lib");
+        println!("cargo:rustc-link-search=native=ffmpeg/mac_arm64/release/lib");
         println!("cargo:rustc-link-search=native=/System/Library/Frameworks/Foundation.framework/Versions/C");
         let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
@@ -54,7 +54,7 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=AppKit");
         println!("cargo:rustc-link-lib=framework=IOSurface");
         println!("cargo:rustc-link-lib=c++");
-        builder.include("ffmpeg/mac/release/include");
+        builder.include("ffmpeg/mac_arm64/release/include");
     }
 
 
