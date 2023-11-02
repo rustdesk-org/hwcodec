@@ -379,7 +379,7 @@ static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
                       const int *const offset) {
   switch (frame->format) {
   case AV_PIX_FMT_NV12:
-    if (data_length !=
+    if (data_length <
         frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
       fprintf(stderr,
               "fill_frame: NV12 data length error. data_length:%d, "
@@ -391,7 +391,7 @@ static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
     frame->data[1] = data + offset[0];
     break;
   case AV_PIX_FMT_YUV420P:
-    if (data_length !=
+    if (data_length <
         frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
                          frame->linesize[2] / 2)) {
       fprintf(stderr,
