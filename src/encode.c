@@ -42,18 +42,18 @@ typedef struct Encoder {
 static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
                                    int *offset, int *length) {
   switch (pix_fmt) {
-  case AV_PIX_FMT_YUV420P:
-    offset[0] = linesize[0] * height;
-    offset[1] = offset[0] + linesize[1] * height / 2;
-    *length = offset[1] + linesize[2] * height / 2;
-    break;
-  case AV_PIX_FMT_NV12:
-    offset[0] = linesize[0] * height;
-    *length = offset[0] + linesize[1] * height / 2;
-    break;
-  default:
-    fprintf(stderr, "unsupported pixfmt %d\n", pix_fmt);
-    return -1;
+    case AV_PIX_FMT_YUV420P:
+      offset[0] = linesize[0] * height;
+      offset[1] = offset[0] + linesize[1] * height / 2;
+      *length = offset[1] + linesize[2] * height / 2;
+      break;
+    case AV_PIX_FMT_NV12:
+      offset[0] = linesize[0] * height;
+      *length = offset[0] + linesize[1] * height / 2;
+      break;
+    default:
+      fprintf(stderr, "unsupported pixfmt %d\n", pix_fmt);
+      return -1;
   }
 
   return 0;
@@ -86,23 +86,19 @@ int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
   if (offset || length) {
     ret = calculate_offset_length(pix_fmt, height, frame->linesize, ioffset,
                                   &ilength);
-    if (ret < 0)
-      goto _exit;
+    if (ret < 0) goto _exit;
   }
   if (offset) {
     for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
-      if (ioffset[i] == 0)
-        break;
+      if (ioffset[i] == 0) break;
       offset[i] = ioffset[i];
     }
   }
-  if (length)
-    *length = ilength;
+  if (length) *length = ilength;
 
   ret = 0;
 _exit:
-  if (frame)
-    av_frame_free(&frame);
+  if (frame) av_frame_free(&frame);
   return ret;
 }
 
@@ -136,69 +132,69 @@ static int set_quality(void *priv_data, const char *name, int quality) {
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
     switch (quality) {
-    // p7 isn't zero lantency
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
-        fprintf(stderr, "nvenc set opt preset p4 failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
-        fprintf(stderr, "nvenc set opt preset p1 failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    default:
-      break;
+      // p7 isn't zero lantency
+      case Quality_Medium:
+        if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt preset p4 failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Low:
+        if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt preset p1 failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
     }
   }
   if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
     switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
-        fprintf(stderr, "amf set opt quality quality failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
-        fprintf(stderr, "amf set opt quality balanced failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
-        fprintf(stderr, "amf set opt quality speed failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    default:
-      break;
+      case Quality_High:
+        if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
+          fprintf(stderr, "amf set opt quality quality failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Medium:
+        if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
+          fprintf(stderr, "amf set opt quality balanced failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Low:
+        if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
+          fprintf(stderr, "amf set opt quality speed failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
     }
   }
   if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
     switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
-        fprintf(stderr, "qsv set opt preset veryslow failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
-        fprintf(stderr, "qsv set opt preset medium failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
-        fprintf(stderr, "qsv set opt preset veryfast failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    default:
-      break;
+      case Quality_High:
+        if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
+          fprintf(stderr, "qsv set opt preset veryslow failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Medium:
+        if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
+          fprintf(stderr, "qsv set opt preset medium failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      case Quality_Low:
+        if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
+          fprintf(stderr, "qsv set opt preset veryfast failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
     }
   }
   return ret;
@@ -209,35 +205,35 @@ static int set_rate_control(void *priv_data, const char *name, int rc) {
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
     switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        fprintf(stderr, "nvenc set opt rc cbr failed: %s\n", av_err2str(ret));
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
-        fprintf(stderr, "nvenc set opt rc vbr failed: %s\n", av_err2str(ret));
-      }
-      break;
-    default:
-      break;
+      case RC_CBR:
+        if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt rc cbr failed: %s\n", av_err2str(ret));
+        }
+        break;
+      case RC_VBR:
+        if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
+          fprintf(stderr, "nvenc set opt rc vbr failed: %s\n", av_err2str(ret));
+        }
+        break;
+      default:
+        break;
     }
   }
   if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
     switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        fprintf(stderr, "amf set opt rc cbr failed: %s\n", av_err2str(ret));
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
-        fprintf(stderr, "amf set opt rc vbr_latency failed: %s\n",
-                av_err2str(ret));
-      }
-      break;
-    default:
-      break;
+      case RC_CBR:
+        if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
+          fprintf(stderr, "amf set opt rc cbr failed: %s\n", av_err2str(ret));
+        }
+        break;
+      case RC_VBR:
+        if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
+          fprintf(stderr, "amf set opt rc vbr_latency failed: %s\n",
+                  av_err2str(ret));
+        }
+        break;
+      default:
+        break;
     }
   }
   return ret;
@@ -245,8 +241,7 @@ static int set_rate_control(void *priv_data, const char *name, int rc) {
 
 static int set_gpu(void *priv_data, const char *name, int gpu) {
   int ret;
-  if (gpu < 0)
-    return -1;
+  if (gpu < 0) return -1;
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
     if ((ret = av_opt_set_int(priv_data, "gpu", gpu, 0)) < 0) {
       fprintf(stderr, "nvenc set opt gpu %d failed: %s\n", gpu,
@@ -325,6 +320,12 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   c->thread_count = thread_count;
   c->thread_type = FF_THREAD_SLICE;
 
+  // https://github.com/obsproject/obs-studio/blob/3cc7dc0e7cf8b01081dc23e432115f7efd0c8877/plugins/obs-ffmpeg/obs-ffmpeg-mux.c#L160
+  c->color_range = AVCOL_RANGE_MPEG;
+  c->colorspace = AVCOL_SPC_SMPTE170M;
+  c->color_primaries = AVCOL_PRI_SMPTE170M;
+  c->color_trc = AVCOL_TRC_SMPTE170M;
+
   if (set_lantency_free(c->priv_data, name) < 0) {
     goto _exit;
   }
@@ -364,50 +365,46 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   return encoder;
 
 _exit:
-  if (encoder)
-    free(encoder);
-  if (pkt)
-    av_packet_free(&pkt);
-  if (frame)
-    av_frame_free(&frame);
-  if (c)
-    avcodec_free_context(&c);
+  if (encoder) free(encoder);
+  if (pkt) av_packet_free(&pkt);
+  if (frame) av_frame_free(&frame);
+  if (c) avcodec_free_context(&c);
   return NULL;
 }
 
 static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
                       const int *const offset) {
   switch (frame->format) {
-  case AV_PIX_FMT_NV12:
-    if (data_length <
-        frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
-      fprintf(stderr,
-              "fill_frame: NV12 data length error. data_length:%d, "
-              "linesize[0]:%d, linesize[1]:%d\n",
-              data_length, frame->linesize[0], frame->linesize[1]);
+    case AV_PIX_FMT_NV12:
+      if (data_length <
+          frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
+        fprintf(stderr,
+                "fill_frame: NV12 data length error. data_length:%d, "
+                "linesize[0]:%d, linesize[1]:%d\n",
+                data_length, frame->linesize[0], frame->linesize[1]);
+        return -1;
+      }
+      frame->data[0] = data;
+      frame->data[1] = data + offset[0];
+      break;
+    case AV_PIX_FMT_YUV420P:
+      if (data_length <
+          frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
+                           frame->linesize[2] / 2)) {
+        fprintf(stderr,
+                "fill_frame: 420P data length error. data_length:%d, "
+                "linesize[0]:%d, linesize[1]:%d, linesize[2]:%d\n",
+                data_length, frame->linesize[0], frame->linesize[1],
+                frame->linesize[2]);
+        return -1;
+      }
+      frame->data[0] = data;
+      frame->data[1] = data + offset[0];
+      frame->data[2] = data + offset[1];
+      break;
+    default:
+      fprintf(stderr, "fill_frame: unsupported format:%d\n", frame->format);
       return -1;
-    }
-    frame->data[0] = data;
-    frame->data[1] = data + offset[0];
-    break;
-  case AV_PIX_FMT_YUV420P:
-    if (data_length <
-        frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
-                         frame->linesize[2] / 2)) {
-      fprintf(stderr,
-              "fill_frame: 420P data length error. data_length:%d, "
-              "linesize[0]:%d, linesize[1]:%d, linesize[2]:%d\n",
-              data_length, frame->linesize[0], frame->linesize[1],
-              frame->linesize[2]);
-      return -1;
-    }
-    frame->data[0] = data;
-    frame->data[1] = data + offset[0];
-    frame->data[2] = data + offset[1];
-    break;
-  default:
-    fprintf(stderr, "fill_frame: unsupported format:%d\n", frame->format);
-    return -1;
   }
   return 0;
 }
@@ -434,8 +431,7 @@ static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj,
     encoder->out++;
     fprintf(stdout, "delay EO: in:%d, out:%d\n", encoder->in, encoder->out);
 #endif
-    if (encoder->first_ms == 0)
-      encoder->first_ms = ms;
+    if (encoder->first_ms == 0) encoder->first_ms = ms;
     encoder->callback(pkt->data, pkt->size, ms - encoder->first_ms,
                       pkt->flags & AV_PKT_FLAG_KEY, obj);
   }
@@ -464,14 +460,10 @@ int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj,
 }
 
 void free_encoder(Encoder *encoder) {
-  if (!encoder)
-    return;
-  if (encoder->pkt)
-    av_packet_free(&encoder->pkt);
-  if (encoder->frame)
-    av_frame_free(&encoder->frame);
-  if (encoder->c)
-    avcodec_free_context(&encoder->c);
+  if (!encoder) return;
+  if (encoder->pkt) av_packet_free(&encoder->pkt);
+  if (encoder->frame) av_frame_free(&encoder->frame);
+  if (encoder->c) avcodec_free_context(&encoder->c);
 }
 
 int set_bitrate(Encoder *encoder, int bitrate) {
