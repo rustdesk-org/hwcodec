@@ -50,7 +50,6 @@
 
 
 ### TODO
-- [ ] Support qsv in RustDesk
 - [ ] Scoring and automatic selection of codecs
 - [ ] Support for more platforms
 
