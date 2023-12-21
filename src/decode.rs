@@ -1,13 +1,13 @@
 use crate::{
-    av_log_get_level, av_log_set_level, decode,
+    av_log_get_level, av_log_set_level,
     ffmpeg::{
         AVHWDeviceType::{self, *},
         CodecInfo,
         DataFormat::*,
         Vendor::*,
     },
-    free_decoder, get_bin_file, new_decoder, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
-    AV_NUM_DATA_POINTERS,
+    hwcodec_decode, hwcodec_free_decoder, hwcodec_get_bin_file, hwcodec_new_decoder, AVPixelFormat,
+    AV_LOG_ERROR, AV_LOG_PANIC, AV_NUM_DATA_POINTERS,
 };
 use core::slice;
 use log::{error, trace};
@@ -68,7 +68,7 @@ unsafe impl Sync for Decoder {}
 impl Decoder {
     pub fn new(ctx: DecodeContext) -> Result<Self, ()> {
         unsafe {
-            let codec = new_decoder(
+            let codec = hwcodec_new_decoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.device_type as _,
                 ctx.thread_count,
@@ -90,7 +90,7 @@ impl Decoder {
     pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
-            let ret = decode(
+            let ret = hwcodec_decode(
                 &mut *self.codec,
                 packet.as_ptr(),
                 packet.len() as c_int,
@@ -304,8 +304,8 @@ impl Decoder {
         let mut len_bin_265: c_int = 0;
         let buf265;
         unsafe {
-            get_bin_file(0, &mut p_bin_264 as _, &mut len_bin_264 as _);
-            get_bin_file(1, &mut p_bin_265 as _, &mut len_bin_265 as _);
+            hwcodec_get_bin_file(0, &mut p_bin_264 as _, &mut len_bin_264 as _);
+            hwcodec_get_bin_file(1, &mut p_bin_265 as _, &mut len_bin_265 as _);
             buf264 = slice::from_raw_parts(p_bin_264, len_bin_264 as _);
             buf265 = slice::from_raw_parts(p_bin_265, len_bin_265 as _);
         }
@@ -401,7 +401,7 @@ impl Decoder {
 impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
-            free_decoder(self.codec.as_mut());
+            hwcodec_free_decoder(self.codec.as_mut());
             let _ = Box::from_raw(self.frames);
             trace!("Decoder dropped");
         }

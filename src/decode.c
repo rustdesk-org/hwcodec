@@ -8,8 +8,9 @@
 
 // #define CFG_PKG_TRACE
 
-extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
-#define fprintf my_fprintf
+extern void hwcodec_fprintf(FILE *const _Stream, const char *const _Format,
+                            ...);
+#define fprintf hwcodec_fprintf
 
 typedef void (*DecodeCallback)(const void *obj, int width, int height,
                                enum AVPixelFormat pixfmt,
@@ -32,8 +33,8 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-Decoder *new_decoder(const char *name, int device_type, int thread_count,
-                     DecodeCallback callback) {
+Decoder *hwcodec_new_decoder(const char *name, int device_type,
+                             int thread_count, DecodeCallback callback) {
   AVCodecContext *c = NULL;
   AVBufferRef *hw_device_ctx = NULL;
   AVCodecParserContext *sw_parse_ctx = NULL;
@@ -125,14 +126,10 @@ Decoder *new_decoder(const char *name, int device_type, int thread_count,
   return decoder;
 
 _exit:
-  if (frame)
-    av_frame_free(&frame);
-  if (pkt)
-    av_packet_free(&pkt);
-  if (sw_frame)
-    av_frame_free(&sw_frame);
-  if (sw_parse_ctx)
-    av_parser_close(sw_parse_ctx);
+  if (frame) av_frame_free(&frame);
+  if (pkt) av_packet_free(&pkt);
+  if (sw_frame) av_frame_free(&sw_frame);
+  if (sw_parse_ctx) av_parser_close(sw_parse_ctx);
   if (c)
     avcodec_free_context(&c);
   else if (hw_device_ctx)
@@ -188,7 +185,8 @@ _exit:
   return decoded ? 0 : -1;
 }
 
-int decode(Decoder *decoder, const uint8_t *data, int length, const void *obj) {
+int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
+                   const void *obj) {
   int ret = -1;
 #ifdef CFG_PKG_TRACE
   decoder->in++;
@@ -226,17 +224,12 @@ int decode(Decoder *decoder, const uint8_t *data, int length, const void *obj) {
   return ret;
 }
 
-void free_decoder(Decoder *decoder) {
-  if (!decoder)
-    return;
-  if (decoder->frame)
-    av_frame_free(&decoder->frame);
-  if (decoder->pkt)
-    av_packet_free(&decoder->pkt);
-  if (decoder->sw_frame)
-    av_frame_free(&decoder->sw_frame);
-  if (decoder->sw_parser_ctx)
-    av_parser_close(decoder->sw_parser_ctx);
+void hwcodec_free_decoder(Decoder *decoder) {
+  if (!decoder) return;
+  if (decoder->frame) av_frame_free(&decoder->frame);
+  if (decoder->pkt) av_packet_free(&decoder->pkt);
+  if (decoder->sw_frame) av_frame_free(&decoder->sw_frame);
+  if (decoder->sw_parser_ctx) av_parser_close(decoder->sw_parser_ctx);
   if (decoder->c)
     avcodec_free_context(&decoder->c);
   else if (decoder->hw_device_ctx)
@@ -248,7 +241,7 @@ void free_decoder(Decoder *decoder) {
 INCBIN_EXTERN(BinFile264);
 INCBIN_EXTERN(BinFile265);
 
-void get_bin_file(int is265, uint8_t **p, /*int maxlen,*/ int *len) {
+void hwcodec_get_bin_file(int is265, uint8_t **p, /*int maxlen,*/ int *len) {
   if (is265 == 0) {
     *p = (uint8_t *)gBinFile264Data;
     *len = gBinFile264Size;

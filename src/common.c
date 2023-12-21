@@ -1,7 +1,7 @@
 #include <libavutil/log.h>
 #include <stdio.h>
 
-void my_fprintf(FILE *const _Stream, const char *const _Format, ...) {
+void hwcodec_fprintf(FILE *const _Stream, const char *const _Format, ...) {
   va_list ap;
   int level = av_log_get_level();
 

@@ -1,7 +1,13 @@
 use log::{error, trace};
 
-use crate::{av_log_get_level, free_muxer, new_muxer, write_tail, write_video_frame, AV_LOG_ERROR};
-use std::{ffi::{c_void, CString}, time::Instant};
+use crate::{
+    av_log_get_level, hwcodec_free_muxer, hwcodec_new_muxer, hwcodec_write_tail,
+    hwcodec_write_video_frame, AV_LOG_ERROR,
+};
+use std::{
+    ffi::{c_void, CString},
+    time::Instant,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MuxContext {
@@ -24,7 +30,7 @@ unsafe impl Sync for Muxer {}
 impl Muxer {
     pub fn new(ctx: MuxContext) -> Result<Self, ()> {
         unsafe {
-            let inner = new_muxer(
+            let inner = hwcodec_new_muxer(
                 CString::new(ctx.filename.as_str())
                     .map_err(|_| ())?
                     .as_ptr(),
@@ -45,14 +51,14 @@ impl Muxer {
         }
     }
 
-    pub fn write_video(&mut self, data: &[u8], key:bool) -> Result<(), i32> {
+    pub fn write_video(&mut self, data: &[u8], key: bool) -> Result<(), i32> {
         unsafe {
-            let result = write_video_frame(
+            let result = hwcodec_write_video_frame(
                 &mut *self.inner,
                 (*data).as_ptr(),
                 data.len() as _,
                 self.start.elapsed().as_millis() as _,
-                if key {1} else {0},
+                if key { 1 } else { 0 },
             );
             if result != 0 {
                 if av_log_get_level() >= AV_LOG_ERROR as _ {
@@ -66,7 +72,7 @@ impl Muxer {
 
     pub fn write_tail(&mut self) -> Result<(), i32> {
         unsafe {
-            let result = write_tail(&mut *self.inner);
+            let result = hwcodec_write_tail(&mut *self.inner);
             if result != 0 {
                 if av_log_get_level() >= AV_LOG_ERROR as _ {
                     error!("Error write_tail: {}", result);
@@ -81,7 +87,7 @@ impl Muxer {
 impl Drop for Muxer {
     fn drop(&mut self) {
         unsafe {
-            free_muxer(self.inner.as_mut());
+            hwcodec_free_muxer(self.inner.as_mut());
             trace!("Muxer dropped");
         }
     }

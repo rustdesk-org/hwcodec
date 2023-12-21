@@ -34,29 +34,31 @@ typedef void (*DecodeCallback)(const void *obj, int width, int height,
 typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
                                int key, const void *obj);
 
-void *new_encoder(const char *name, int width, int height, int pixfmt,
-                  int align, int bit_rate, int time_base_num, int time_base_den,
-                  int gop, int quality, int rc, int thread_count, int gpu,
-                  int *linesize, int *offset, int *length,
-                  EncodeCallback callback);
-void *new_decoder(const char *name, int device_type, int thread_count,
-                  DecodeCallback callback);
-void *new_muxer(const char *filename, int width, int height, int is265,
-                int framerate);
-int encode(void *encoder, const uint8_t *data, int length, const void *obj,
-           int64_t ms);
-int decode(void *decoder, const uint8_t *data, int length, const void *obj);
-int write_video_frame(void *muxer, const uint8_t *data, int len, int64_t pts_ms,
-                      int key);
-int write_tail(void *muxer);
-void free_encoder(void *encoder);
-void free_decoder(void *decoder);
-void free_muxer(void *muxer);
-int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
-                               int *linesize, int *offset, int *length);
-int set_bitrate(void *encoder, int bitrate);
+void *hwcodec_new_encoder(const char *name, int width, int height, int pixfmt,
+                          int align, int bit_rate, int time_base_num,
+                          int time_base_den, int gop, int quality, int rc,
+                          int thread_count, int gpu, int *linesize, int *offset,
+                          int *length, EncodeCallback callback);
+void *hwcodec_new_decoder(const char *name, int device_type, int thread_count,
+                          DecodeCallback callback);
+void *hwcodec_new_muxer(const char *filename, int width, int height, int is265,
+                        int framerate);
+int hwcodec_encode(void *encoder, const uint8_t *data, int length,
+                   const void *obj, int64_t ms);
+int hwcodec_decode(void *decoder, const uint8_t *data, int length,
+                   const void *obj);
+int hwcodec_write_video_frame(void *muxer, const uint8_t *data, int len,
+                              int64_t pts_ms, int key);
+int hwcodec_write_tail(void *muxer);
+void hwcodec_free_encoder(void *encoder);
+void hwcodec_free_decoder(void *decoder);
+void hwcodec_free_muxer(void *muxer);
+int hwcodec_get_linesize_offset_length(int pix_fmt, int width, int height,
+                                       int align, int *linesize, int *offset,
+                                       int *length);
+int hwcodec_set_bitrate(void *encoder, int bitrate);
 int av_log_get_level(void);
 void av_log_set_level(int level);
-void get_bin_file(int is265, uint8_t **p, int *len);
+void hwcodec_get_bin_file(int is265, uint8_t **p, int *len);
 
 #endif // FFI_H

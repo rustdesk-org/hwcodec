@@ -118,7 +118,7 @@ pub fn ffmpeg_linesize_offset_length(
     let mut length = Vec::<c_int>::new();
     length.resize(1, 0);
     unsafe {
-        if get_linesize_offset_length(
+        if hwcodec_get_linesize_offset_length(
             pixfmt as _,
             width as _,
             height as _,

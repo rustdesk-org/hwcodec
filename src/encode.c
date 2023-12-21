@@ -10,8 +10,9 @@
 
 // #define CFG_PKG_TRACE
 
-extern void my_fprintf(FILE *const _Stream, const char *const _Format, ...);
-#define fprintf my_fprintf
+extern void hwcodec_fprintf(FILE *const _Stream, const char *const _Format,
+                            ...);
+#define fprintf hwcodec_fprintf
 
 enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
 
@@ -59,8 +60,9 @@ static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
   return 0;
 }
 
-int get_linesize_offset_length(int pix_fmt, int width, int height, int align,
-                               int *linesize, int *offset, int *length) {
+int hwcodec_get_linesize_offset_length(int pix_fmt, int width, int height,
+                                       int align, int *linesize, int *offset,
+                                       int *length) {
   AVFrame *frame = NULL;
   int ioffset[AV_NUM_DATA_POINTERS] = {0};
   int ilength = 0;
@@ -251,11 +253,12 @@ static int set_gpu(void *priv_data, const char *name, int gpu) {
   return ret;
 }
 
-Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
-                     int align, int bit_rate, int time_base_num,
-                     int time_base_den, int gop, int quality, int rc,
-                     int thread_count, int gpu, int *linesize, int *offset,
-                     int *length, EncodeCallback callback) {
+Encoder *hwcodec_new_encoder(const char *name, int width, int height,
+                             int pixfmt, int align, int bit_rate,
+                             int time_base_num, int time_base_den, int gop,
+                             int quality, int rc, int thread_count, int gpu,
+                             int *linesize, int *offset, int *length,
+                             EncodeCallback callback) {
   const AVCodec *codec = NULL;
   AVCodecContext *c = NULL;
   AVFrame *frame = NULL;
@@ -353,8 +356,8 @@ Encoder *new_encoder(const char *name, int width, int height, int pixfmt,
   encoder->out = 0;
 #endif
 
-  if (get_linesize_offset_length(pixfmt, width, height, align, NULL,
-                                 encoder->offset, length) != 0)
+  if (hwcodec_get_linesize_offset_length(pixfmt, width, height, align, NULL,
+                                         encoder->offset, length) != 0)
     goto _exit;
 
   for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
@@ -440,8 +443,8 @@ _exit:
   return encoded ? 0 : -1;
 }
 
-int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj,
-           uint64_t ms) {
+int hwcodec_encode(Encoder *encoder, const uint8_t *data, int length,
+                   const void *obj, uint64_t ms) {
   int ret;
 
 #ifdef CFG_PKG_TRACE
@@ -459,14 +462,14 @@ int encode(Encoder *encoder, const uint8_t *data, int length, const void *obj,
   return do_encode(encoder, encoder->frame, obj, ms);
 }
 
-void free_encoder(Encoder *encoder) {
+void hwcodec_free_encoder(Encoder *encoder) {
   if (!encoder) return;
   if (encoder->pkt) av_packet_free(&encoder->pkt);
   if (encoder->frame) av_frame_free(&encoder->frame);
   if (encoder->c) avcodec_free_context(&encoder->c);
 }
 
-int set_bitrate(Encoder *encoder, int bitrate) {
+int hwcodec_set_bitrate(Encoder *encoder, int bitrate) {
   const char *name = encoder->name;
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0 ||
       strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
