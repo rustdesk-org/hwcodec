@@ -1,7 +1,7 @@
-prefix=/e/ffmpeg/ffmpeg/../install_release
+prefix=/d/codecs/ff/FFmpeg/../install_release
 exec_prefix=${prefix}
-libdir=/e/ffmpeg/ffmpeg/../install_release/lib
-includedir=/e/ffmpeg/ffmpeg/../install_release/include
+libdir=/d/codecs/ff/FFmpeg/../install_release/lib
+includedir=/d/codecs/ff/FFmpeg/../install_release/include
 
 Name: libavdevice
 Description: FFmpeg device handling library

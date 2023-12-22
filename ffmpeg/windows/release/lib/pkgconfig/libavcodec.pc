@@ -1,7 +1,7 @@
-prefix=/e/ffmpeg/ffmpeg/../install_release
+prefix=/d/codecs/ff/FFmpeg/../install_release
 exec_prefix=${prefix}
-libdir=/e/ffmpeg/ffmpeg/../install_release/lib
-includedir=/e/ffmpeg/ffmpeg/../install_release/include
+libdir=/d/codecs/ff/FFmpeg/../install_release/lib
+includedir=/d/codecs/ff/FFmpeg/../install_release/include
 
 Name: libavcodec
 Description: FFmpeg codec library
@@ -9,6 +9,6 @@ Version: 59.28.101
 Requires: libavutil >= 57.25.100
 Requires.private: 
 Conflicts:
-Libs: -L${libdir}  -lavcodec ole32.lib user32.lib -libpath:/e/ffmpeg/3rd/mfx/lib/pkgconfig/../../lib mfx.lib ole32.lib Advapi32.lib
+Libs: -L${libdir}  -lavcodec ole32.lib user32.lib
 Libs.private: 
 Cflags: -I${includedir}

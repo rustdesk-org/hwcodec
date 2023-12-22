@@ -17,13 +17,6 @@ final directory structure
     * |-AMF
       * |-components
       * |-core
-  + |- mfx
-    * |-include
-      * |-mfx
-    * |-lib
-      * |-pkgconfig
-        * |-libmfx.pc
-      * |-mfx.lib
 
 ### 1.1 ffmpeg
 
@@ -39,53 +32,25 @@ The revised commit has not been merged into the official repository, you can reb
 
   * Copy `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\lib\x64` to `3rd/nv_sdk/lib`
 
-  * Environment variables
+  * Add `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\bin` to `Path`
 
-    | Key             | Value                                    |
-    | --------------- | ---------------------------------------- |
-    | CUDA_PATH_V11_6 | C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6 |
-    | CUDA_PATH       | %CUDA_PATH_V11_6%                        |
-    | CUDA_LIB_PATH   | %CUDA_PATH%\lib\x64                      |
-    | CUDA_BIN_PATH   | %CUDA_PATH%\bin                          |
-    | CUDA_SDK_PATH   | C:\ProgramData\NVIDIA Corporation\CUDA Samples\v11.6 |
-    | CUDA_SDK_BIN    | %CUDA_SDK_PATH%\bin\Win64                |
-    | CUDA_SDK_LIB    | %CUDA_SDK_PATH%\common\lib\x64           |
-    | PATH            | add %CUDA_BIN_PATH%   %CUDA_SDK_BIN_PATH% |
+  * ffnvcodec
+    ```shell
+      git clone git@github.com:FFmpeg/nv-codec-headers.git
+      cd nv-codec-headers 
+      git checkout n11.1.5.2
+      make && make install
+      export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+    ```
 
     (Change according to installation directory and version)
 
 ### 1.3 AMD
 
 * `git clone git@github.com:GPUOpen-LibrariesAndSDKs/AMF.git`
+* `git checkout v1.4.29`
 * Copy `amf\public\include` to `3rd/amf`, rename `include` to `AMF`
 
-### 1.4 intel
-
-* `git clone git@github.com:lu-zero/mfx_dispatch.git`
-
-* Copy `mfx_dispatch/mfx` to `3rd/mfx/include`
-
-* Edit `CMakeLists.txt`, add `src/mfx_driver_store_loader.cpp`  to `if (CMAKE_SYSTEM_NAME MATCHES "Windows")`
-
-* Use `cmake gui` to generate vs project, compile project `mfx`, project type `release x64`, `Properties->C/C++->Code Generation->Runtime Library` select MT, generate `mfx.lib`, put it in `3rd/mfx/lib`
-
-* put `libmfx.pc` into `3rd/mfx/lib/pkgconfig`
-
-  ```
-  prefix=${pcfiledir}/../..
-
-  # libmfx pkg-config.
-  exec_prefix=${prefix}
-  includedir=${prefix}/include
-  libdir=${exec_prefix}/lib
-
-  Name: libmfx
-  Description: Intel Media SDK Dispatched static library
-  Version: 1.35.1
-  Libs: -L"${libdir}" -lmfx -lole32 -lAdvapi32
-  Requires: 
-  Cflags: -I"${includedir}"
-  ```
 
 
 ## 2. Prepare the compilation tools
@@ -108,14 +73,13 @@ in the msys2 command line, cd to the ffmpeg directory
 #### common
 ```shell
 CC=cl.exe ./configure  \
---prefix=$PWD/../install \
+--prefix=$PWD/../install_release \
 --toolchain=msvc \
 --disable-everything \
 --disable-shared --enable-small \
 --disable-runtime-cpudetect --disable-swscale-alpha \
 --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
---disable-network --disable-dct --disable-dwt --disable-error-resilience --disable-lsp \
---disable-mdct --disable-rdft --disable-fft --disable-faan \
+--disable-network --disable-error-resilience  \
 --enable-decoder=h264 --enable-decoder=hevc \
 --enable-parser=h264 --enable-parser=hevc \
 --enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb  \
@@ -145,13 +109,8 @@ CC=cl.exe ./configure  \
 ```
 
 #### intel
-Modify `PKG_CONFIG_PATH`,
-`export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/e/ffmpeg/3rd/mfx/lib/pkgconfig` (change it according to your directory)
-
 ```shell
---enable-libmfx \
---enable-encoder=h264_qsv --enable-encoder=hevc_qsv \
---enable-decoder=h264_qsv --enable-decoder=hevc_qsv \
+--enable-mediafoundation --enable-encoder=h264_mf --enable-encoder=hevc_mf \
 ```
 
 #### d3d9(dxva2)

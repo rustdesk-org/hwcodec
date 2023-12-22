@@ -18,11 +18,14 @@ fn main() {
     #[cfg(target_os = "windows")]
     {
         println!("cargo:rustc-link-search=native=ffmpeg/windows/release/lib");
-        let static_libs = [
-            "avcodec", "avfilter", "avutil", "avformat", "avdevice", "mfx",
-        ];
+        let static_libs = ["avcodec", "avfilter", "avutil", "avformat", "avdevice"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-        let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
+        let dyn_libs = [
+            "User32", "bcrypt", "ole32",
+            "advapi32",
+            // media foundation
+            // "Mfplat", "Mf", "mfuuid", "Strmiids",
+        ];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
         builder.include("ffmpeg/windows/release/include");
     }

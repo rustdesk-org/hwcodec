@@ -1,3 +1,5 @@
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+
 CC=cl.exe ./configure  \
 --prefix=$PWD/../install_release \
 --toolchain=msvc \
@@ -5,8 +7,7 @@ CC=cl.exe ./configure  \
 --disable-shared --enable-small \
 --disable-runtime-cpudetect --disable-swscale-alpha \
 --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
---disable-network --disable-dct --disable-dwt --disable-error-resilience --disable-lsp \
---disable-mdct --disable-rdft --disable-fft --disable-faan \
+--disable-network --disable-error-resilience  \
 --enable-decoder=h264 --enable-decoder=hevc \
 --enable-parser=h264 --enable-parser=hevc \
 --enable-bsf=h264_mp4toannexb --enable-bsf=hevc_mp4toannexb  \
@@ -23,17 +24,12 @@ CC=cl.exe ./configure  \
 --extra-ldflags="-libpath:../3rd/nv_sdk/lib" \
 --enable-amf --enable-encoder=h264_amf --enable-encoder=hevc_amf \
 --extra-cflags="-I../3rd/amf" \
---enable-libmfx \
---enable-encoder=h264_qsv --enable-encoder=hevc_qsv \
---enable-decoder=h264_qsv --enable-decoder=hevc_qsv \
---enable-dxva2 \
---enable-hwaccel=h264_dxva2 --enable-hwaccel=hevc_dxva2 \
 --enable-d3d11va \
 --enable-hwaccel=h264_d3d11va --enable-hwaccel=hevc_d3d11va \
 --enable-hwaccel=h264_d3d11va2 --enable-hwaccel=hevc_d3d11va2 \
 --enable-muxer=mp4 \
 --enable-protocol=file
-install prefix            /e/ffmpeg/ffmpeg/../install_release
+install prefix            /d/codecs/ff/FFmpeg/../install_release
 source path               .
 C compiler                cl.exe
 C library                 msvcrt
@@ -81,8 +77,7 @@ External libraries:
 mediafoundation         schannel
 
 External libraries providing hardware acceleration:
-amf                     cuda_llvm               cuvid                   dxva2                   libmfx                  nvdec
-cuda                    cuda_nvcc               d3d11va                 ffnvcodec               libnpp                  nvenc
+amf                     cuda                    cuda_llvm               cuda_nvcc               cuvid                   d3d11va                 dxva2                   ffnvcodec               libnpp                  nvdec                   nvenc
 
 Libraries:
 avcodec                 avdevice                avfilter                avformat                avutil
@@ -90,13 +85,13 @@ avcodec                 avdevice                avfilter                avformat
 Programs:
 
 Enabled decoders:
-h264                    h264_cuvid              h264_qsv                hevc                    hevc_cuvid              hevc_qsv
+h264                    h264_cuvid              hevc                    hevc_cuvid
 
 Enabled encoders:
-h264_amf                h264_nvenc              h264_qsv                hevc_amf                hevc_nvenc              hevc_qsv
+h264_amf                h264_nvenc              hevc_amf                hevc_nvenc
 
 Enabled hwaccels:
-h264_d3d11va            h264_d3d11va2           h264_dxva2              h264_nvdec              hevc_d3d11va            hevc_d3d11va2           hevc_dxva2              hevc_nvdec
+h264_d3d11va            h264_d3d11va2           h264_nvdec              hevc_d3d11va            hevc_d3d11va2           hevc_nvdec
 
 Enabled parsers:
 h264                    hevc
