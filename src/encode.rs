@@ -190,13 +190,6 @@ impl Encoder {
                 score: 92,
                 ..Default::default()
             },
-            CodecInfo {
-                name: "h264_qsv".to_owned(), // nv12 only
-                format: H264,
-                vendor: INTEL,
-                score: 70,
-                ..Default::default()
-            },
             // 265
             CodecInfo {
                 name: "hevc_nvenc".to_owned(),
@@ -212,14 +205,27 @@ impl Encoder {
                 score: 94,
                 ..Default::default()
             },
-            CodecInfo {
-                name: "hevc_qsv".to_owned(), // nv12 only
-                format: H265,
-                vendor: INTEL,
-                score: 60,
-                ..Default::default()
-            },
         ];
+
+        #[cfg(target_os = "linux")]
+        {
+            codecs.append(&mut vec![
+                CodecInfo {
+                    name: "h264_qsv".to_owned(),
+                    format: H264,
+                    vendor: INTEL,
+                    score: 90,
+                    ..Default::default()
+                },
+                CodecInfo {
+                    name: "hevc_qsv".to_owned(),
+                    format: H265,
+                    vendor: INTEL,
+                    score: 90,
+                    ..Default::default()
+                },
+            ])
+        }
 
         // qsv doesn't support yuv420p
         codecs.retain(|c| {

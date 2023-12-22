@@ -204,36 +204,8 @@ impl Decoder {
                     name: "h264".to_owned(),
                     format: H264,
                     vendor: OTHER,
-                    hwdevice: AV_HWDEVICE_TYPE_DXVA2,
-                    score: 90,
-                },
-                CodecInfo {
-                    name: "h264".to_owned(),
-                    format: H264,
-                    vendor: OTHER,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
                     score: 91,
-                },
-                CodecInfo {
-                    name: "h264_qsv".to_owned(),
-                    format: H264,
-                    vendor: INTEL,
-                    hwdevice: AV_HWDEVICE_TYPE_QSV,
-                    score: 80, // not tested
-                },
-                CodecInfo {
-                    name: "h264_qsv".to_owned(),
-                    format: H264,
-                    vendor: INTEL,
-                    hwdevice: AV_HWDEVICE_TYPE_NONE,
-                    score: 80, // Why qsv decoder so fast
-                },
-                CodecInfo {
-                    name: "hevc".to_owned(),
-                    format: H265,
-                    vendor: OTHER,
-                    hwdevice: AV_HWDEVICE_TYPE_DXVA2,
-                    score: 90,
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
@@ -241,20 +213,6 @@ impl Decoder {
                     vendor: OTHER,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
                     score: 91,
-                },
-                CodecInfo {
-                    name: "hevc_qsv".to_owned(),
-                    format: H265,
-                    vendor: INTEL,
-                    hwdevice: AV_HWDEVICE_TYPE_QSV,
-                    score: 80, // not tested
-                },
-                CodecInfo {
-                    name: "hevc_qsv".to_owned(),
-                    format: H265,
-                    vendor: INTEL,
-                    hwdevice: AV_HWDEVICE_TYPE_NONE,
-                    score: 80,
                 },
             ]);
         }
