@@ -195,22 +195,6 @@ impl Decoder {
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 95, // not tested
             },
-            // Software decoder
-            // Only when hardware encoding && 264/265 selected && no hardware decoding
-            CodecInfo {
-                name: "h264".to_owned(),
-                format: H264,
-                vendor: OTHER,
-                hwdevice: AV_HWDEVICE_TYPE_NONE,
-                score: 80,
-            },
-            CodecInfo {
-                name: "hevc".to_owned(),
-                format: H265,
-                vendor: OTHER,
-                hwdevice: AV_HWDEVICE_TYPE_NONE,
-                score: 80,
-            },
         ];
 
         #[cfg(target_os = "windows")]

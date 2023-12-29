@@ -25,7 +25,14 @@ typedef struct Decoder {
   AVFrame *frame;
   AVPacket *pkt;
   bool hwaccel;
+
+  char name[128];
+  int device_type;
+  int thread_count;
   DecodeCallback callback;
+
+  int last_width;
+  int last_height;
 
 #ifdef CFG_PKG_TRACE
   int in;
@@ -33,8 +40,28 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-Decoder *hwcodec_new_decoder(const char *name, int device_type,
-                             int thread_count, DecodeCallback callback) {
+void hwcodec_free_decoder(Decoder *decoder) {
+  if (!decoder) return;
+  if (decoder->frame) av_frame_free(&decoder->frame);
+  if (decoder->pkt) av_packet_free(&decoder->pkt);
+  if (decoder->sw_frame) av_frame_free(&decoder->sw_frame);
+  if (decoder->sw_parser_ctx) av_parser_close(decoder->sw_parser_ctx);
+  if (decoder->c)
+    avcodec_free_context(&decoder->c);
+  else if (decoder->hw_device_ctx)
+    av_buffer_unref(&decoder->hw_device_ctx);
+
+  decoder->frame = NULL;
+  decoder->pkt = NULL;
+  decoder->sw_frame = NULL;
+  decoder->sw_parser_ctx = NULL;
+  decoder->c = NULL;
+  decoder->hw_device_ctx = NULL;
+}
+
+static int reset(Decoder *d) {
+  if (d) hwcodec_free_decoder(d);
+
   AVCodecContext *c = NULL;
   AVBufferRef *hw_device_ctx = NULL;
   AVCodecParserContext *sw_parse_ctx = NULL;
@@ -42,100 +69,102 @@ Decoder *hwcodec_new_decoder(const char *name, int device_type,
   AVFrame *frame = NULL;
   AVPacket *pkt = NULL;
   const AVCodec *codec = NULL;
-  Decoder *decoder = NULL;
-  bool hwaccel = device_type != AV_HWDEVICE_TYPE_NONE;
+  bool hwaccel = d->device_type != AV_HWDEVICE_TYPE_NONE;
   int ret;
 
-  if (!(codec = avcodec_find_decoder_by_name(name))) {
-    fprintf(stderr, "Codec %s not found\n", name);
-    goto _exit;
+  if (!(codec = avcodec_find_decoder_by_name(d->name))) {
+    fprintf(stderr, "Codec %s not found\n", d->name);
+    return -1;
   }
 
   if (!(c = avcodec_alloc_context3(codec))) {
     fprintf(stderr, "Could not allocate video codec context\n");
-    goto _exit;
+    return -1;
   }
 
   c->flags |= AV_CODEC_CAP_TRUNCATED;
   c->flags |= AV_CODEC_FLAG_LOW_DELAY;
-  c->thread_count = thread_count;
+  c->thread_count = d->thread_count;
   c->thread_type = FF_THREAD_SLICE;
 
-  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
+  if (strcmp(d->name, "h264_qsv") == 0 || strcmp(d->name, "hevc_qsv") == 0) {
     if ((ret = av_opt_set(c->priv_data, "async_depth", "1", 0)) < 0) {
       fprintf(stderr, "qsv set opt failed %s\n", av_err2str(ret));
-      goto _exit;
+      return -1;
     }
     // https://github.com/FFmpeg/FFmpeg/blob/c6364b711bad1fe2fbd90e5b2798f87080ddf5ea/libavcodec/qsvdec.c#L932
     // for disable warning
     c->pkt_timebase = av_make_q(1, 30);
   }
 
-  if (hwaccel) {
-    ret = av_hwdevice_ctx_create(&hw_device_ctx, device_type, NULL, NULL, 0);
-    if (ret < 0) {
-      fprintf(stderr, "Failed to create specified HW device:%s\n",
-              av_err2str(ret));
-      goto _exit;
-    }
-    c->hw_device_ctx = hw_device_ctx;
-    if (!(sw_frame = av_frame_alloc())) {
-      fprintf(stderr, "Can not alloc frame\n");
-      goto _exit;
-    }
-  } else {
-    if (!(sw_parse_ctx = av_parser_init(codec->id))) {
-      fprintf(stderr, "parser not found\n");
-      goto _exit;
-    }
-    sw_parse_ctx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+  ret = av_hwdevice_ctx_create(&hw_device_ctx, d->device_type, NULL, NULL, 0);
+  if (ret < 0) {
+    fprintf(stderr, "Failed to create specified HW device:%s\n",
+            av_err2str(ret));
+    return -1;
   }
+  c->hw_device_ctx = hw_device_ctx;
+  if (!(sw_frame = av_frame_alloc())) {
+    fprintf(stderr, "Can not alloc frame\n");
+    return -1;
+  }
+  if (!(sw_parse_ctx = av_parser_init(codec->id))) {
+    fprintf(stderr, "parser not found\n");
+    return -1;
+  }
+  sw_parse_ctx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
 
   if (!(pkt = av_packet_alloc())) {
     fprintf(stderr, "Failed to allocate AVPacket\n");
-    goto _exit;
+    return -1;
   }
 
   if (!(frame = av_frame_alloc())) {
     fprintf(stderr, "Can not alloc frame\n");
-    goto _exit;
+    return -1;
   }
 
   if ((ret = avcodec_open2(c, codec, NULL)) != 0) {
     fprintf(stderr, "avcodec_open2: %s\n", av_err2str(ret));
-    goto _exit;
+    return -1;
   }
 
-  if (!(decoder = calloc(1, sizeof(Decoder)))) {
-    fprintf(stderr, "calloc failed\n");
-    goto _exit;
-  }
-  decoder->c = c;
-  decoder->hw_device_ctx = hw_device_ctx;
-  decoder->sw_parser_ctx = sw_parse_ctx;
-  decoder->frame = frame;
-  decoder->sw_frame = sw_frame;
-  decoder->pkt = pkt;
-  decoder->hwaccel = hwaccel;
-  decoder->callback = callback;
+  d->c = c;
+  d->hw_device_ctx = hw_device_ctx;
+  d->sw_parser_ctx = sw_parse_ctx;
+  d->frame = frame;
+  d->sw_frame = sw_frame;
+  d->pkt = pkt;
+  d->hwaccel = hwaccel;
+  d->last_width = 0;
+  d->last_height = 0;
 #ifdef CFG_PKG_TRACE
   decoder->in = 0;
   decoder->out = 0;
 #endif
 
+  return 0;
+}
+
+Decoder *hwcodec_new_decoder(const char *name, int device_type,
+                             int thread_count, DecodeCallback callback) {
+  Decoder *decoder = NULL;
+
+  if (!(decoder = calloc(1, sizeof(Decoder)))) {
+    fprintf(stderr, "calloc failed\n");
+    return NULL;
+  }
+  snprintf(decoder->name, sizeof(decoder->name), "%s", name);
+  decoder->device_type = device_type;
+  decoder->thread_count = thread_count;
+  decoder->callback = callback;
+
+  if (reset(decoder) != 0) {
+    fprintf(stderr, "reset failed\n");
+    hwcodec_free_decoder(decoder);
+    return NULL;
+  }
   return decoder;
-
-_exit:
-  if (frame) av_frame_free(&frame);
-  if (pkt) av_packet_free(&pkt);
-  if (sw_frame) av_frame_free(&sw_frame);
-  if (sw_parse_ctx) av_parser_close(sw_parse_ctx);
-  if (c)
-    avcodec_free_context(&c);
-  else if (hw_device_ctx)
-    av_buffer_unref(&hw_device_ctx);
-
-  return NULL;
 }
 
 static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
@@ -176,8 +205,9 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
     decoder->out++;
     fprintf(stdout, "delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
 #endif
-    decoder->callback(obj, tmp_frame->width, tmp_frame->height,
-                      tmp_frame->format, tmp_frame->linesize, tmp_frame->data,
+    decoder->callback(obj, decoder->sw_parser_ctx->width,
+                      decoder->sw_parser_ctx->height, tmp_frame->format,
+                      tmp_frame->linesize, tmp_frame->data,
                       tmp_frame->key_frame);
   }
 _exit:
@@ -188,6 +218,7 @@ _exit:
 int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
                    const void *obj) {
   int ret = -1;
+  bool retried = false;
 #ifdef CFG_PKG_TRACE
   decoder->in++;
   fprintf(stdout, "delay DI: in:%d, out:%d\n", decoder->in, decoder->out);
@@ -198,42 +229,34 @@ int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
     return -1;
   }
 
-  if (decoder->hwaccel) {
-    decoder->pkt->data = (uint8_t *)data;
-    decoder->pkt->size = length;
-    ret = do_decode(decoder, decoder->pkt, obj);
-  } else {
-    while (length >= 0) {
-      ret = av_parser_parse2(decoder->sw_parser_ctx, decoder->c,
-                             &decoder->pkt->data, &decoder->pkt->size, data,
-                             length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-      if (ret < 0) {
-        fprintf(stderr, "av_parser_parse2: %s", av_err2str(ret));
-        return ret;
+_lable:
+  ret = av_parser_parse2(decoder->sw_parser_ctx, decoder->c,
+                         &decoder->pkt->data, &decoder->pkt->size, data, length,
+                         AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+  if (ret < 0) {
+    fprintf(stderr, "av_parser_parse2: %s", av_err2str(ret));
+    return ret;
+  }
+  if (decoder->last_width != 0 && decoder->last_height != 0) {
+    if (decoder->last_width != decoder->sw_parser_ctx->width ||
+        decoder->last_height != decoder->sw_parser_ctx->height) {
+      if (reset(decoder) != 0) {
+        fprintf(stderr, "reset failed\n");
+        return -1;
       }
-      data += ret;
-      length -= ret;
-
-      if (decoder->pkt->size > 0) {
-        ret = do_decode(decoder, decoder->pkt, obj);
-        break;
+      if (!retried) {
+        retried = true;
+        goto _lable;
       }
     }
   }
+  decoder->last_width = decoder->sw_parser_ctx->width;
+  decoder->last_height = decoder->sw_parser_ctx->height;
+  if (decoder->pkt->size > 0) {
+    ret = do_decode(decoder, decoder->pkt, obj);
+  }
 
   return ret;
-}
-
-void hwcodec_free_decoder(Decoder *decoder) {
-  if (!decoder) return;
-  if (decoder->frame) av_frame_free(&decoder->frame);
-  if (decoder->pkt) av_packet_free(&decoder->pkt);
-  if (decoder->sw_frame) av_frame_free(&decoder->sw_frame);
-  if (decoder->sw_parser_ctx) av_parser_close(decoder->sw_parser_ctx);
-  if (decoder->c)
-    avcodec_free_context(&decoder->c);
-  else if (decoder->hw_device_ctx)
-    av_buffer_unref(&decoder->hw_device_ctx);
 }
 
 #include "incbin.h"
