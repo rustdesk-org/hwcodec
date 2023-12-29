@@ -31,6 +31,7 @@ typedef struct Decoder {
   int thread_count;
   DecodeCallback callback;
 
+  bool ready_decode;
   int last_width;
   int last_height;
 
@@ -57,10 +58,14 @@ void hwcodec_free_decoder(Decoder *decoder) {
   decoder->sw_parser_ctx = NULL;
   decoder->c = NULL;
   decoder->hw_device_ctx = NULL;
+  decoder->ready_decode = false;
 }
 
 static int reset(Decoder *d) {
-  if (d) hwcodec_free_decoder(d);
+  if (d)
+    hwcodec_free_decoder(d);
+  else
+    return -1;
 
   AVCodecContext *c = NULL;
   AVBufferRef *hw_device_ctx = NULL;
@@ -142,6 +147,7 @@ static int reset(Decoder *d) {
   decoder->in = 0;
   decoder->out = 0;
 #endif
+  d->ready_decode = true;
 
   return 0;
 }
@@ -226,6 +232,10 @@ int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
 
   if (!data || !length) {
     fprintf(stderr, "illegal decode parameter\n");
+    return -1;
+  }
+  if (!decoder->ready_decode) {
+    fprintf(stderr, "not ready decode\n");
     return -1;
   }
 
