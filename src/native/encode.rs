@@ -1,6 +1,9 @@
 use crate::{
-    common::{AdapterDesc, DynamicContext, EncodeContext, EncodeDriver::*, FeatureContext},
-    native::{amf, inner::EncodeCalls, nv, vpl},
+    common::AdapterDesc,
+    native::{
+        amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, EncodeDriver::*,
+        FeatureContext,
+    },
 };
 use log::trace;
 use std::{

@@ -1,5 +1,6 @@
 #include <cstring>
 #include <iostream>
+#include <libavutil/pixfmt.h>
 #include <sample_defs.h>
 #include <sample_utils.h>
 

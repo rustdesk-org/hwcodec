@@ -10,6 +10,7 @@
 #include <dynlink_loader.h>
 #include <fstream>
 #include <iostream>
+#include <libavutil/pixfmt.h>
 #include <memory>
 
 #include <d3d11.h>

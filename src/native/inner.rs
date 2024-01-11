@@ -86,7 +86,7 @@ pub struct InnerEncodeContext {
 
 pub struct InnerDecodeContext {
     pub api: API,
-    pub dataFormat: DataFormat,
+    pub data_format: DataFormat,
 }
 
 #[no_mangle]

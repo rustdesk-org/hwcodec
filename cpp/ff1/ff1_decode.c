@@ -12,10 +12,11 @@ extern void hwcodec_fprintf(FILE *const _Stream, const char *const _Format,
                             ...);
 #define fprintf hwcodec_fprintf
 
-typedef void (*DecodeCallback)(const void *obj, int width, int height,
-                               enum AVPixelFormat pixfmt,
-                               int linesize[AV_NUM_DATA_POINTERS],
-                               uint8_t *data[AV_NUM_DATA_POINTERS], int key);
+typedef void (*PixelbufferDecodeCallback)(const void *obj, int width,
+                                          int height, enum AVPixelFormat pixfmt,
+                                          int linesize[AV_NUM_DATA_POINTERS],
+                                          uint8_t *data[AV_NUM_DATA_POINTERS],
+                                          int key);
 
 typedef struct Decoder {
   AVCodecContext *c;
@@ -29,7 +30,7 @@ typedef struct Decoder {
   char name[128];
   int device_type;
   int thread_count;
-  DecodeCallback callback;
+  PixelbufferDecodeCallback callback;
 
   bool ready_decode;
   int last_width;
@@ -153,7 +154,8 @@ static int reset(Decoder *d) {
 }
 
 Decoder *hwcodec_new_decoder(const char *name, int device_type,
-                             int thread_count, DecodeCallback callback) {
+                             int thread_count,
+                             PixelbufferDecodeCallback callback) {
   Decoder *decoder = NULL;
 
   if (!(decoder = calloc(1, sizeof(Decoder)))) {

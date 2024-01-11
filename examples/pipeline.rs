@@ -1,10 +1,10 @@
 use capture::dxgi;
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
-use hwcodec::common::{
-    DataFormat, DecodeContext, DecodeDriver, DynamicContext, EncodeContext, EncodeDriver,
-    FeatureContext, API::*, MAX_GOP,
+use hwcodec::common::{DataFormat, API::*, MAX_GOP};
+use hwcodec::native::{
+    decode::Decoder, encode::Encoder, DecodeContext, DecodeDriver, DynamicContext, EncodeContext,
+    EncodeDriver, FeatureContext,
 };
-use hwcodec::native::{decode::Decoder, encode::Encoder};
 use render::Render;
 use std::{
     io::Write,

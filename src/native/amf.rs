@@ -70,7 +70,7 @@ pub fn possible_support_decoders() -> Vec<InnerDecodeContext> {
         for codec in codecs.iter() {
             v.push(InnerDecodeContext {
                 api: device.clone(),
-                dataFormat: codec.clone(),
+                data_format: codec.clone(),
             });
         }
     }

@@ -22,8 +22,9 @@ enum RateContorl {
   RC_VBR,
 };
 
-typedef void (*EncodeCallback)(const uint8_t *data, int len, int64_t pts,
-                               int key, const void *obj);
+typedef void (*PixelbufferEncodeCallback)(const uint8_t *data, int len,
+                                          int64_t pts, int key,
+                                          const void *obj);
 
 typedef struct Encoder {
   AVCodecContext *c;
@@ -31,7 +32,7 @@ typedef struct Encoder {
   AVPacket *pkt;
   int offset[AV_NUM_DATA_POINTERS];
   char name[32];
-  EncodeCallback callback;
+  PixelbufferEncodeCallback callback;
   int64_t first_ms;
 
 #ifdef CFG_PKG_TRACE
@@ -258,7 +259,7 @@ Encoder *hwcodec_new_encoder(const char *name, int width, int height,
                              int time_base_num, int time_base_den, int gop,
                              int quality, int rc, int thread_count, int gpu,
                              int *linesize, int *offset, int *length,
-                             EncodeCallback callback) {
+                             PixelbufferEncodeCallback callback) {
   const AVCodec *codec = NULL;
   AVCodecContext *c = NULL;
   AVFrame *frame = NULL;

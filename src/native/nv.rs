@@ -58,7 +58,7 @@ pub fn possible_support_decoders() -> Vec<InnerDecodeContext> {
         for dataFormat in dataFormats.iter() {
             v.push(InnerDecodeContext {
                 api: device.clone(),
-                dataFormat: dataFormat.clone(),
+                data_format: dataFormat.clone(),
             });
         }
     }

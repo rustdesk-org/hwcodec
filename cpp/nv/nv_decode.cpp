@@ -9,6 +9,7 @@
 #include <d3dcompiler.h>
 #include <directxcolors.h>
 #include <iostream>
+#include <libavutil/pixfmt.h>
 #include <thread>
 
 #include "callback.h"

@@ -1,6 +1,6 @@
 use crate::{
-    common::{hwcodec_get_bin_file, AdapterDesc, DataFormat::*, DecodeContext, DecodeDriver},
-    native::{amf, inner::DecodeCalls, nv, vpl},
+    common::{hwcodec_get_bin_file, AdapterDesc, DataFormat::*},
+    native::{amf, inner::DecodeCalls, nv, vpl, DecodeContext, DecodeDriver},
 };
 use log::{error, trace};
 use std::{
@@ -115,7 +115,7 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
     let inputs = natives.drain(..).map(|(driver, n)| DecodeContext {
         device: None,
         driver,
-        data_format: n.dataFormat,
+        data_format: n.data_format,
         api: n.api,
         output_shared_handle,
         luid: 0,

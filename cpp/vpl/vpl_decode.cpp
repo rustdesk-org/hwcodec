@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include <d3d11_allocator.h>
+#include <libavutil/pixfmt.h>
 #include <sample_defs.h>
 #include <sample_utils.h>
 

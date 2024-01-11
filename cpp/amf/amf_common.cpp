@@ -12,15 +12,6 @@ static bool convert_api(API lhs, amf::AMF_MEMORY_TYPE &rhs) {
   case API_DX11:
     rhs = amf::AMF_MEMORY_DX11;
     break;
-  case API_OPENCL:
-    rhs = amf::AMF_MEMORY_OPENCL;
-    break;
-  case API_OPENGL:
-    rhs = amf::AMF_MEMORY_OPENGL;
-    break;
-  case API_VULKAN:
-    rhs = amf::AMF_MEMORY_VULKAN;
-    break;
   default:
     std::cerr << "unsupported memory type: " << static_cast<int>(lhs) << "\n";
     return false;
