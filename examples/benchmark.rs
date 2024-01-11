@@ -1,11 +1,13 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    decode::{DecodeContext, Decoder},
-    encode::{EncodeContext, Encoder},
-    ffmpeg::{CodecInfo, CodecInfos},
-    AVPixelFormat,
-    Quality::*,
-    RateControl::*,
+    ff1::{
+        decode::{DecodeContext, Decoder},
+        encode::{EncodeContext, Encoder},
+        CodecInfo, CodecInfos,
+        Quality::*,
+        RateControl::*,
+    },
+    ffmpeg::AVPixelFormat,
 };
 use rand::random;
 use std::io::Write;

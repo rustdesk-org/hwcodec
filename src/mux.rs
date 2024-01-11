@@ -1,9 +1,12 @@
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+
+include!(concat!(env!("OUT_DIR"), "/mux_ffi.rs"));
+
 use log::{error, trace};
 
-use crate::{
-    av_log_get_level, hwcodec_free_muxer, hwcodec_new_muxer, hwcodec_write_tail,
-    hwcodec_write_video_frame, AV_LOG_ERROR,
-};
+use crate::ffmpeg::{av_log_get_level, AV_LOG_ERROR};
 use std::{
     ffi::{c_void, CString},
     time::Instant,

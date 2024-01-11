@@ -14,3 +14,11 @@
 /ffmpeg/ios/debug
 /input
 /output
+*.diff
+externals/Video_Codec_SDK_11.1.5/Samples/Utils
+dev/vs/AMFTest/x64
+dev/vs/MFXTest/x64
+dev/vs/ShaderCompileTool/x64
+.vs
+bmp
+texture
