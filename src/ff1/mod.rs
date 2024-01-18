@@ -2,7 +2,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use crate::ffmpeg::{AVHWDeviceType, AVPixelFormat, DataFormat, Vendor};
+use crate::common::DataFormat;
+use crate::ffmpeg::{AVHWDeviceType, AVPixelFormat};
 use serde_derive::{Deserialize, Serialize};
 use std::ffi::c_int;
 
@@ -15,7 +16,6 @@ pub mod encode;
 pub struct CodecInfo {
     pub name: String,
     pub format: DataFormat,
-    pub vendor: Vendor,
     pub score: i32,
     pub hwdevice: AVHWDeviceType,
 }
@@ -25,7 +25,6 @@ impl Default for CodecInfo {
         Self {
             name: Default::default(),
             format: DataFormat::H264,
-            vendor: Vendor::OTHER,
             score: Default::default(),
             hwdevice: AVHWDeviceType::AV_HWDEVICE_TYPE_NONE,
         }
@@ -55,6 +54,9 @@ impl CodecInfo {
                     }
                     None => h265 = Some(coder),
                 },
+                _ => {
+                    log::error!("CodecInfo::score() called with non H264 or H265 format");
+                }
             }
         }
         CodecInfos { h264, h265 }

@@ -9,6 +9,7 @@ enum AdapterVendor {
   ADAPTER_VENDOR_AMD = 0x1002,
   ADAPTER_VENDOR_INTEL = 0x8086,
   ADAPTER_VENDOR_NVIDIA = 0x10DE,
+  ADAPTER_VENDOR_UNKNOWN = 0,
 };
 
 enum SurfaceFormat {

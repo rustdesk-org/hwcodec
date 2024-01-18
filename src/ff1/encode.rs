@@ -1,14 +1,10 @@
 use crate::{
+    common::DataFormat::{self, *},
     ff1::{
         ffmpeg_linesize_offset_length, hwcodec_encode, hwcodec_free_encoder, hwcodec_new_encoder,
         hwcodec_set_bitrate, CodecInfo, Quality, RateControl, AV_NUM_DATA_POINTERS,
     },
-    ffmpeg::{
-        av_log_get_level, av_log_set_level, AVPixelFormat,
-        DataFormat::{self, *},
-        Vendor::*,
-        AV_LOG_ERROR, AV_LOG_PANIC,
-    },
+    ffmpeg::{av_log_get_level, av_log_set_level, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC},
 };
 use log::{error, trace};
 use std::{
@@ -181,14 +177,12 @@ impl Encoder {
             CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
-                vendor: NVIDIA,
                 score: 92,
                 ..Default::default()
             },
             CodecInfo {
                 name: "h264_amf".to_owned(),
                 format: H264,
-                vendor: AMD,
                 score: 92,
                 ..Default::default()
             },
@@ -196,14 +190,12 @@ impl Encoder {
             CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
-                vendor: NVIDIA,
                 score: 94,
                 ..Default::default()
             },
             CodecInfo {
                 name: "hevc_amf".to_owned(),
                 format: H265,
-                vendor: AMD,
                 score: 94,
                 ..Default::default()
             },

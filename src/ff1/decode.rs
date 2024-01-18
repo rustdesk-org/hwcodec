@@ -1,4 +1,5 @@
 use crate::{
+    common::DataFormat::*,
     ff1::{
         hwcodec_decode, hwcodec_free_decoder, hwcodec_get_bin_file, hwcodec_new_decoder, CodecInfo,
         AV_NUM_DATA_POINTERS,
@@ -6,10 +7,7 @@ use crate::{
     ffmpeg::{
         av_log_get_level, av_log_set_level,
         AVHWDeviceType::{self, *},
-        AVPixelFormat,
-        DataFormat::*,
-        Vendor::*,
-        AV_LOG_ERROR, AV_LOG_PANIC,
+        AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
     },
 };
 use core::slice;
@@ -187,14 +185,12 @@ impl Decoder {
             CodecInfo {
                 name: "h264".to_owned(),
                 format: H264,
-                vendor: OTHER,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 94,
             },
             CodecInfo {
                 name: "hevc".to_owned(),
                 format: H265,
-                vendor: OTHER,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 95, // not tested
             },
@@ -206,14 +202,12 @@ impl Decoder {
                 CodecInfo {
                     name: "h264".to_owned(),
                     format: H264,
-                    vendor: OTHER,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
                     score: 91,
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
-                    vendor: OTHER,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
                     score: 91,
                 },
@@ -279,6 +273,10 @@ impl Decoder {
                     let data = match codec.format {
                         H264 => &buf264[..],
                         H265 => &buf265[..],
+                        _ => {
+                            log::error!("unsupported format: {:?}", codec.format);
+                            return;
+                        }
                     };
                     let start = Instant::now();
                     if let Ok(_) = decoder.decode(data) {

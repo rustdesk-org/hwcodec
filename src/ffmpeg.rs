@@ -8,20 +8,6 @@ include!(concat!(env!("OUT_DIR"), "/ffmpeg_ffi.rs"));
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
-pub enum DataFormat {
-    H264,
-    H265,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
-pub enum Vendor {
-    NVIDIA,
-    AMD,
-    INTEL,
-    OTHER,
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum AVHWDeviceType {
     AV_HWDEVICE_TYPE_NONE,
     AV_HWDEVICE_TYPE_VDPAU,
