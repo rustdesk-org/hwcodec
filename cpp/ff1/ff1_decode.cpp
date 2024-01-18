@@ -11,9 +11,8 @@ extern "C" {
 
 #include <stdbool.h>
 
-static char av_error[AV_ERROR_MAX_STRING_SIZE] = {0};
-#define av_err2str(errnum)                                                     \
-  av_make_error_string(av_error, AV_ERROR_MAX_STRING_SIZE, errnum)
+#define LOG_MODULE "FF1DEC"
+#include <log.h>
 
 // #define CFG_PKG_TRACE
 
@@ -89,12 +88,12 @@ static int reset(Decoder *d) {
   int ret;
 
   if (!(codec = avcodec_find_decoder_by_name(d->name))) {
-    fprintf(stdout, "Codec %s not found\n", d->name);
+    LOG_ERROR("avcodec_find_decoder_by_name " + d->name + " failed");
     return -1;
   }
 
   if (!(c = avcodec_alloc_context3(codec))) {
-    fprintf(stdout, "Could not allocate video codec context\n");
+    LOG_ERROR("Could not allocate video codec context");
     return -1;
   }
 
@@ -105,7 +104,7 @@ static int reset(Decoder *d) {
 
   if (strcmp(d->name, "h264_qsv") == 0 || strcmp(d->name, "hevc_qsv") == 0) {
     if ((ret = av_opt_set(c->priv_data, "async_depth", "1", 0)) < 0) {
-      fprintf(stdout, "qsv set opt failed %s\n", av_err2str(ret));
+      LOG_ERROR("qsv set opt async_depth 1 failed");
       return -1;
     }
     // https://github.com/FFmpeg/FFmpeg/blob/c6364b711bad1fe2fbd90e5b2798f87080ddf5ea/libavcodec/qsvdec.c#L932
@@ -116,33 +115,32 @@ static int reset(Decoder *d) {
   ret = av_hwdevice_ctx_create(&hw_device_ctx, (AVHWDeviceType)d->device_type,
                                NULL, NULL, 0);
   if (ret < 0) {
-    fprintf(stdout, "Failed to create specified HW device:%s\n",
-            av_err2str(ret));
+    LOG_ERROR("av_hwdevice_ctx_create failed, ret = " + std::to_string(ret));
     return -1;
   }
   c->hw_device_ctx = hw_device_ctx;
   if (!(sw_frame = av_frame_alloc())) {
-    fprintf(stdout, "Can not alloc frame\n");
+    LOG_ERROR("av_frame_alloc failed");
     return -1;
   }
   if (!(sw_parse_ctx = av_parser_init(codec->id))) {
-    fprintf(stdout, "parser not found\n");
+    LOG_ERROR("av_parser_init failed");
     return -1;
   }
   sw_parse_ctx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
 
   if (!(pkt = av_packet_alloc())) {
-    fprintf(stdout, "Failed to allocate AVPacket\n");
+    LOG_ERROR("av_packet_alloc failed");
     return -1;
   }
 
   if (!(frame = av_frame_alloc())) {
-    fprintf(stdout, "Can not alloc frame\n");
+    LOG_ERROR("av_frame_alloc failed");
     return -1;
   }
 
   if ((ret = avcodec_open2(c, codec, NULL)) != 0) {
-    fprintf(stdout, "avcodec_open2: %s\n", av_err2str(ret));
+    LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string(ret));
     return -1;
   }
 
@@ -170,7 +168,7 @@ extern "C" Decoder *hwcodec_new_decoder(const char *name, int device_type,
   Decoder *decoder = NULL;
 
   if (!(decoder = (Decoder *)calloc(1, sizeof(Decoder)))) {
-    fprintf(stdout, "calloc failed\n");
+    LOG_ERROR("calloc failed");
     return NULL;
   }
   snprintf(decoder->name, sizeof(decoder->name), "%s", name);
@@ -179,7 +177,7 @@ extern "C" Decoder *hwcodec_new_decoder(const char *name, int device_type,
   decoder->callback = callback;
 
   if (reset(decoder) != 0) {
-    fprintf(stdout, "reset failed\n");
+    LOG_ERROR("reset failed");
     hwcodec_free_decoder(decoder);
     return NULL;
   }
@@ -193,25 +191,25 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
 
   ret = avcodec_send_packet(decoder->c, pkt);
   if (ret < 0) {
-    fprintf(stdout, "avcodec_send_packet: %s\n", av_err2str(ret));
+    LOG_ERROR("avcodec_send_packet failed, ret = " + std::to_string(ret));
     return ret;
   }
 
   while (ret >= 0) {
     if ((ret = avcodec_receive_frame(decoder->c, decoder->frame)) != 0) {
-      if (ret != AVERROR(EAGAIN))
-        fprintf(stdout, "avcodec_receive_frame: %s\n", av_err2str(ret));
+      LOG_ERROR("avcodec_receive_frame failed, ret = " + std::to_string(ret));
       goto _exit;
     }
 
     if (decoder->hwaccel) {
       if (!decoder->frame->hw_frames_ctx) {
-        fprintf(stdout, "hw_frames_ctx is NULL\n");
+        LOG_ERROR("hw_frames_ctx is NULL");
         goto _exit;
       }
       if ((ret = av_hwframe_transfer_data(decoder->sw_frame, decoder->frame,
                                           0)) < 0) {
-        fprintf(stdout, "av_hwframe_transfer_data: %s\n", av_err2str(ret));
+        LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
+                  std::to_string(ret));
         goto _exit;
       }
 
@@ -222,7 +220,7 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
     decoded = true;
 #ifdef CFG_PKG_TRACE
     decoder->out++;
-    fprintf(stdout, "delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
+    LOG_DEBUG("delay DO: in:" + decoder->in + " out:" + decoder->out);
 #endif
     decoder->callback(obj, decoder->sw_parser_ctx->width,
                       decoder->sw_parser_ctx->height,
@@ -240,15 +238,15 @@ extern "C" int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
   bool retried = false;
 #ifdef CFG_PKG_TRACE
   decoder->in++;
-  fprintf(stdout, "delay DI: in:%d, out:%d\n", decoder->in, decoder->out);
+  LOG_DEBUG("delay DI: in:" + decoder->in + " out:" + decoder->out);
 #endif
 
   if (!data || !length) {
-    fprintf(stdout, "illegal decode parameter\n");
+    LOG_ERROR("illegal decode parameter");
     return -1;
   }
   if (!decoder->ready_decode) {
-    fprintf(stdout, "not ready decode\n");
+    LOG_ERROR("not ready decode");
     return -1;
   }
 
@@ -257,14 +255,14 @@ _lable:
                          &decoder->pkt->data, &decoder->pkt->size, data, length,
                          AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
   if (ret < 0) {
-    fprintf(stdout, "av_parser_parse2: %s", av_err2str(ret));
+    LOG_ERROR("av_parser_parse2 failed, ret = " + std::to_string(ret));
     return ret;
   }
   if (decoder->last_width != 0 && decoder->last_height != 0) {
     if (decoder->last_width != decoder->sw_parser_ctx->width ||
         decoder->last_height != decoder->sw_parser_ctx->height) {
       if (reset(decoder) != 0) {
-        fprintf(stdout, "reset failed\n");
+        LOG_ERROR("reset failed");
         return -1;
       }
       if (!retried) {

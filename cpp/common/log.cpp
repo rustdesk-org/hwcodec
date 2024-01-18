@@ -10,11 +10,11 @@ enum {
   LOG_LEVEL_TRACE = 4,
 };
 
-extern "C" void log_gpucodec(int level, const char *message);
+extern "C" void hwcodec_log(int level, const char *message);
 
 void log_to_rust(int level, const std::string &message) {
   const char *cstr = message.c_str();
-  log_gpucodec(level, cstr);
+  hwcodec_log(level, cstr);
 }
 
 void error(const std::string &message) {

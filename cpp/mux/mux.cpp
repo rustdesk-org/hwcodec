@@ -11,9 +11,8 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-static char av_error[AV_ERROR_MAX_STRING_SIZE] = {0};
-#define av_err2str(errnum)                                                     \
-  av_make_error_string(av_error, AV_ERROR_MAX_STRING_SIZE, errnum)
+#define LOG_MODULE "MUX"
+#include <log.h>
 
 typedef struct OutputStream {
   AVStream *st;
@@ -37,19 +36,20 @@ extern "C" Muxer *hwcodec_new_muxer(const char *filename, int width, int height,
   int ret;
 
   if (!(muxer = (Muxer *)calloc(1, sizeof(Muxer)))) {
-    fprintf(stderr, "Failed to alloc Muxer\n");
+    LOG_ERROR("Failed to alloc Muxer");
     return NULL;
   }
   ost = &muxer->video_st;
 
   if ((ret = avformat_alloc_output_context2(&oc, NULL, NULL, filename)) < 0) {
-    fprintf(stderr, "Cannot open output formatContext %s\n", av_err2str(ret));
+    LOG_ERROR("avformat_alloc_output_context2 failed, ret = " +
+              std::to_string(ret));
     goto _exit;
   }
 
   ost->st = avformat_new_stream(oc, NULL);
   if (!ost->st) {
-    fprintf(stderr, "Could not allocate stream\n");
+    LOG_ERROR("avformat_new_stream failed");
     goto _exit;
   }
   ost->st->id = oc->nb_streams - 1;
@@ -61,21 +61,20 @@ extern "C" Muxer *hwcodec_new_muxer(const char *filename, int width, int height,
   if (!(oc->oformat->flags & AVFMT_NOFILE)) {
     ret = avio_open(&oc->pb, filename, AVIO_FLAG_WRITE);
     if (ret < 0) {
-      fprintf(stderr, "Could not open '%s': %s\n", filename, av_err2str(ret));
+      LOG_ERROR("avio_open failed, ret = " + std::to_string(ret));
       goto _exit;
     }
   }
 
   ost->tmp_pkt = av_packet_alloc();
   if (!ost->tmp_pkt) {
-    fprintf(stderr, "Could not allocate AVPacket\n");
+    LOG_ERROR("av_packet_alloc failed");
     goto _exit;
   }
 
   ret = avformat_write_header(oc, NULL);
   if (ret < 0) {
-    fprintf(stderr, "Error occurred when opening output file: %s\n",
-            av_err2str(ret));
+    LOG_ERROR("avformat_write_header failed");
     goto _exit;
   }
 
@@ -138,7 +137,7 @@ extern "C" int hwcodec_write_video_frame(Muxer *muxer, const uint8_t *data,
   }
   ret = av_write_frame(fmt_ctx, pkt);
   if (ret < 0) {
-    fprintf(stderr, "Error while writing output packet: %s\n", av_err2str(ret));
+    LOG_ERROR("av_write_frame failed, ret = " + std::to_string(ret));
     return -1;
   }
   return 0;
