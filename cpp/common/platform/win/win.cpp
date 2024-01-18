@@ -35,7 +35,7 @@ bool NativeDevice::Init(int64_t luid, ID3D11Device *device, int pool_size) {
 bool NativeDevice::InitFromLuid(int64_t luid) {
   HRESULT hr = S_OK;
 
-  HRB(CreateDXGIFactory1(__uuidof(IDXGIFactory1),
+  HRB(CreateDXGIFactory1(IID_IDXGIFactory1,
                          (void **)factory1_.ReleaseAndGetAddressOf()));
 
   ComPtr<IDXGIAdapter1> tmpAdapter = nullptr;
@@ -357,7 +357,7 @@ bool Adapter::SetMultithreadProtected() {
 }
 
 bool Adapters::Init(AdapterVendor vendor) {
-  HRB(CreateDXGIFactory1(__uuidof(IDXGIFactory1),
+  HRB(CreateDXGIFactory1(IID_IDXGIFactory1,
                          (void **)factory1_.ReleaseAndGetAddressOf()));
 
   ComPtr<IDXGIAdapter1> tmpAdapter = nullptr;

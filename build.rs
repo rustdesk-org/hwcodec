@@ -143,7 +143,6 @@ mod sdk {
     use super::*;
 
     pub(crate) fn build_sdk(builder: &mut Build) {
-        build_common(builder);
         build_amf(builder);
         build_nv(builder);
         build_vpl(builder);
