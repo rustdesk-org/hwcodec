@@ -26,9 +26,8 @@ enum RateContorl {
   RC_VBR,
 };
 
-typedef void (*PixelbufferEncodeCallback)(const uint8_t *data, int len,
-                                          int64_t pts, int key,
-                                          const void *obj);
+typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
+                                  int key, const void *obj);
 
 typedef struct Encoder {
   AVCodecContext *c;
@@ -36,7 +35,7 @@ typedef struct Encoder {
   AVPacket *pkt;
   int offset[AV_NUM_DATA_POINTERS];
   char name[32];
-  PixelbufferEncodeCallback callback;
+  RamEncodeCallback callback;
   int64_t first_ms;
 
 #ifdef CFG_PKG_TRACE
@@ -65,10 +64,10 @@ static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
   return 0;
 }
 
-extern "C" int hwcodec_get_linesize_offset_length(int pix_fmt, int width,
-                                                  int height, int align,
-                                                  int *linesize, int *offset,
-                                                  int *length) {
+extern "C" int ffram_get_linesize_offset_length(int pix_fmt, int width,
+                                                int height, int align,
+                                                int *linesize, int *offset,
+                                                int *length) {
   AVFrame *frame = NULL;
   int ioffset[AV_NUM_DATA_POINTERS] = {0};
   int ilength = 0;
@@ -262,13 +261,13 @@ static int set_gpu(void *priv_data, const char *name, int gpu) {
   return ret;
 }
 
-extern "C" Encoder *hwcodec_new_encoder(const char *name, int width, int height,
-                                        int pixfmt, int align, int bit_rate,
-                                        int time_base_num, int time_base_den,
-                                        int gop, int quality, int rc,
-                                        int thread_count, int gpu,
-                                        int *linesize, int *offset, int *length,
-                                        PixelbufferEncodeCallback callback) {
+extern "C" Encoder *ffram_new_encoder(const char *name, int width, int height,
+                                      int pixfmt, int align, int bit_rate,
+                                      int time_base_num, int time_base_den,
+                                      int gop, int quality, int rc,
+                                      int thread_count, int gpu, int *linesize,
+                                      int *offset, int *length,
+                                      RamEncodeCallback callback) {
   const AVCodec *codec = NULL;
   AVCodecContext *c = NULL;
   AVFrame *frame = NULL;
@@ -366,8 +365,8 @@ extern "C" Encoder *hwcodec_new_encoder(const char *name, int width, int height,
   encoder->out = 0;
 #endif
 
-  if (hwcodec_get_linesize_offset_length(pixfmt, width, height, align, NULL,
-                                         encoder->offset, length) != 0)
+  if (ffram_get_linesize_offset_length(pixfmt, width, height, align, NULL,
+                                       encoder->offset, length) != 0)
     goto _exit;
 
   for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
@@ -459,8 +458,8 @@ _exit:
   return encoded ? 0 : -1;
 }
 
-extern "C" int hwcodec_encode(Encoder *encoder, const uint8_t *data, int length,
-                              const void *obj, uint64_t ms) {
+extern "C" int ffram_encode(Encoder *encoder, const uint8_t *data, int length,
+                            const void *obj, uint64_t ms) {
   int ret;
 
 #ifdef CFG_PKG_TRACE
@@ -468,7 +467,7 @@ extern "C" int hwcodec_encode(Encoder *encoder, const uint8_t *data, int length,
   LOG_DEBUG("delay EI: in:" + encoder->in + " out:" + encoder->out);
 #endif
   if ((ret = av_frame_make_writable(encoder->frame)) != 0) {
-    LOG_ERROR("av_frame_make_writable failed, ret = " +std::to_string((ret)));
+    LOG_ERROR("av_frame_make_writable failed, ret = " + std::to_string((ret)));
     return ret;
   }
   if ((ret = fill_frame(encoder->frame, (uint8_t *)data, length,
@@ -478,7 +477,7 @@ extern "C" int hwcodec_encode(Encoder *encoder, const uint8_t *data, int length,
   return do_encode(encoder, encoder->frame, obj, ms);
 }
 
-extern "C" void hwcodec_free_encoder(Encoder *encoder) {
+extern "C" void ffram_free_encoder(Encoder *encoder) {
   if (!encoder)
     return;
   if (encoder->pkt)
@@ -489,13 +488,13 @@ extern "C" void hwcodec_free_encoder(Encoder *encoder) {
     avcodec_free_context(&encoder->c);
 }
 
-extern "C" int hwcodec_set_bitrate(Encoder *encoder, int bitrate) {
+extern "C" int ffram_set_bitrate(Encoder *encoder, int bitrate) {
   const char *name = encoder->name;
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0 ||
       strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
     encoder->c->bit_rate = bitrate;
     return 0;
   }
-  LOG_ERROR("hwcodec_set_bitrate " + name + " does not implement bitrate change");
+  LOG_ERROR("ffram_set_bitrate " + name + " does not implement bitrate change");
   return -1;
 }

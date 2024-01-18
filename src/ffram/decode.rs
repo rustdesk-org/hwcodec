@@ -1,13 +1,13 @@
 use crate::{
     common::DataFormat::*,
-    ff1::{
-        hwcodec_decode, hwcodec_free_decoder, hwcodec_get_bin_file, hwcodec_new_decoder, CodecInfo,
-        AV_NUM_DATA_POINTERS,
-    },
     ffmpeg::{
         av_log_get_level, av_log_set_level,
         AVHWDeviceType::{self, *},
         AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
+    },
+    ffram::{
+        ffram_decode, ffram_free_decoder, ffram_new_decoder, hwcodec_get_bin_file, CodecInfo,
+        AV_NUM_DATA_POINTERS,
     },
 };
 use core::slice;
@@ -69,7 +69,7 @@ unsafe impl Sync for Decoder {}
 impl Decoder {
     pub fn new(ctx: DecodeContext) -> Result<Self, ()> {
         unsafe {
-            let codec = hwcodec_new_decoder(
+            let codec = ffram_new_decoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.device_type as _,
                 ctx.thread_count,
@@ -91,7 +91,7 @@ impl Decoder {
     pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
-            let ret = hwcodec_decode(
+            let ret = ffram_decode(
                 &mut *self.codec,
                 packet.as_ptr(),
                 packet.len() as c_int,
@@ -342,7 +342,7 @@ impl Decoder {
 impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
-            hwcodec_free_decoder(self.codec.as_mut());
+            ffram_free_decoder(self.codec.as_mut());
             let _ = Box::from_raw(self.frames);
             trace!("Decoder dropped");
         }

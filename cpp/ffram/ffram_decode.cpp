@@ -16,11 +16,10 @@ extern "C" {
 
 // #define CFG_PKG_TRACE
 
-typedef void (*PixelbufferDecodeCallback)(const void *obj, int width,
-                                          int height, enum AVPixelFormat pixfmt,
-                                          int linesize[AV_NUM_DATA_POINTERS],
-                                          uint8_t *data[AV_NUM_DATA_POINTERS],
-                                          int key);
+typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
+                                  enum AVPixelFormat pixfmt,
+                                  int linesize[AV_NUM_DATA_POINTERS],
+                                  uint8_t *data[AV_NUM_DATA_POINTERS], int key);
 
 typedef struct Decoder {
   AVCodecContext *c;
@@ -34,7 +33,7 @@ typedef struct Decoder {
   char name[128];
   int device_type;
   int thread_count;
-  PixelbufferDecodeCallback callback;
+  RamDecodeCallback callback;
 
   bool ready_decode;
   int last_width;
@@ -46,7 +45,7 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-extern "C" void hwcodec_free_decoder(Decoder *decoder) {
+extern "C" void ffram_free_decoder(Decoder *decoder) {
   if (!decoder)
     return;
   if (decoder->frame)
@@ -73,7 +72,7 @@ extern "C" void hwcodec_free_decoder(Decoder *decoder) {
 
 static int reset(Decoder *d) {
   if (d)
-    hwcodec_free_decoder(d);
+    ffram_free_decoder(d);
   else
     return -1;
 
@@ -162,9 +161,9 @@ static int reset(Decoder *d) {
   return 0;
 }
 
-extern "C" Decoder *hwcodec_new_decoder(const char *name, int device_type,
-                                        int thread_count,
-                                        PixelbufferDecodeCallback callback) {
+extern "C" Decoder *ffram_new_decoder(const char *name, int device_type,
+                                      int thread_count,
+                                      RamDecodeCallback callback) {
   Decoder *decoder = NULL;
 
   if (!(decoder = (Decoder *)calloc(1, sizeof(Decoder)))) {
@@ -178,7 +177,7 @@ extern "C" Decoder *hwcodec_new_decoder(const char *name, int device_type,
 
   if (reset(decoder) != 0) {
     LOG_ERROR("reset failed");
-    hwcodec_free_decoder(decoder);
+    ffram_free_decoder(decoder);
     return NULL;
   }
   return decoder;
@@ -232,8 +231,8 @@ _exit:
   return decoded ? 0 : -1;
 }
 
-extern "C" int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
-                              const void *obj) {
+extern "C" int ffram_decode(Decoder *decoder, const uint8_t *data, int length,
+                            const void *obj) {
   int ret = -1;
   bool retried = false;
 #ifdef CFG_PKG_TRACE

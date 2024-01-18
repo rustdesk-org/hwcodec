@@ -1,10 +1,10 @@
 use crate::{
     common::DataFormat::{self, *},
-    ff1::{
-        ffmpeg_linesize_offset_length, hwcodec_encode, hwcodec_free_encoder, hwcodec_new_encoder,
-        hwcodec_set_bitrate, CodecInfo, Quality, RateControl, AV_NUM_DATA_POINTERS,
-    },
     ffmpeg::{av_log_get_level, av_log_set_level, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC},
+    ffram::{
+        ffmpeg_linesize_offset_length, ffram_encode, ffram_free_encoder, ffram_new_encoder,
+        ffram_set_bitrate, CodecInfo, Quality, RateControl, AV_NUM_DATA_POINTERS,
+    },
 };
 use log::{error, trace};
 use std::{
@@ -67,7 +67,7 @@ impl Encoder {
                 .unwrap_or("-1".to_owned())
                 .parse()
                 .unwrap_or(-1);
-            let codec = hwcodec_new_encoder(
+            let codec = ffram_new_encoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.width,
                 ctx.height,
@@ -106,7 +106,7 @@ impl Encoder {
     pub fn encode(&mut self, data: &[u8]) -> Result<&mut Vec<EncodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
-            let result = hwcodec_encode(
+            let result = ffram_encode(
                 &mut *self.codec,
                 (*data).as_ptr(),
                 data.len() as _,
@@ -135,7 +135,7 @@ impl Encoder {
     }
 
     pub fn set_bitrate(&mut self, bitrate: i32) -> Result<(), ()> {
-        let ret = unsafe { hwcodec_set_bitrate(&mut *self.codec, bitrate) };
+        let ret = unsafe { ffram_set_bitrate(&mut *self.codec, bitrate) };
         if ret == 0 {
             Ok(())
         } else {
@@ -292,7 +292,7 @@ impl Encoder {
 impl Drop for Encoder {
     fn drop(&mut self) {
         unsafe {
-            hwcodec_free_encoder(self.codec.as_mut());
+            ffram_free_encoder(self.codec.as_mut());
             let _ = Box::from_raw(self.frames);
             trace!("Encoder dropped");
         }

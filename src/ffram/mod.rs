@@ -7,7 +7,7 @@ use crate::ffmpeg::{AVHWDeviceType, AVPixelFormat};
 use serde_derive::{Deserialize, Serialize};
 use std::ffi::c_int;
 
-include!(concat!(env!("OUT_DIR"), "/ff1_ffi.rs"));
+include!(concat!(env!("OUT_DIR"), "/ffram_ffi.rs"));
 
 pub mod decode;
 pub mod encode;
@@ -98,7 +98,7 @@ pub fn ffmpeg_linesize_offset_length(
     let mut length = Vec::<c_int>::new();
     length.resize(1, 0);
     unsafe {
-        if hwcodec_get_linesize_offset_length(
+        if ffram_get_linesize_offset_length(
             pixfmt as _,
             width as _,
             height as _,

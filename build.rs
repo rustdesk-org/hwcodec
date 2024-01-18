@@ -17,7 +17,7 @@ fn main() {
 
     link_ffmpeg(&mut builder);
     build_common(&mut builder);
-    build_ff1(&mut builder);
+    build_ffram(&mut builder);
     #[cfg(feature = "sdk")]
     sdk::build_sdk(&mut builder);
     build_mux(&mut builder);
@@ -27,8 +27,8 @@ fn main() {
 
 fn link_ffmpeg(builder: &mut Build) {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ff1_dir = manifest_dir.join("cpp").join("common");
-    let ffi_header = ff1_dir.join("ffmpeg_ffi.h").to_string_lossy().to_string();
+    let ffram_dir = manifest_dir.join("cpp").join("common");
+    let ffi_header = ffram_dir.join("ffmpeg_ffi.h").to_string_lossy().to_string();
     bindgen::builder()
         .header(ffi_header)
         .rustified_enum("*")
@@ -58,19 +58,19 @@ fn link_ffmpeg(builder: &mut Build) {
     }
 }
 
-fn build_ff1(builder: &mut Build) {
+fn build_ffram(builder: &mut Build) {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ff1_dir = manifest_dir.join("cpp").join("ff1");
-    let ffi_header = ff1_dir.join("ff1_ffi.h").to_string_lossy().to_string();
+    let ffram_dir = manifest_dir.join("cpp").join("ffram");
+    let ffi_header = ffram_dir.join("ffram_ffi.h").to_string_lossy().to_string();
     bindgen::builder()
         .header(ffi_header)
         .rustified_enum("*")
         .generate()
         .unwrap()
-        .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ff1_ffi.rs"))
+        .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffram_ffi.rs"))
         .unwrap();
 
-    builder.files(["ff1_encode.cpp", "ff1_decode.cpp"].map(|f| ff1_dir.join(f)));
+    builder.files(["ffram_encode.cpp", "ffram_decode.cpp"].map(|f| ffram_dir.join(f)));
 }
 
 fn build_mux(builder: &mut Build) {
