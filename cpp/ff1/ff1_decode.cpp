@@ -1,16 +1,21 @@
 // https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/hw_decode.c
 // https://github.com/FFmpeg/FFmpeg/blob/master/doc/examples/decode_video.c
 
+extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavutil/error.h>
+#include <libavutil/log.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
+}
+
 #include <stdbool.h>
 
-// #define CFG_PKG_TRACE
+static char av_error[AV_ERROR_MAX_STRING_SIZE] = {0};
+#define av_err2str(errnum)                                                     \
+  av_make_error_string(av_error, AV_ERROR_MAX_STRING_SIZE, errnum)
 
-extern void hwcodec_fprintf(FILE *const _Stream, const char *const _Format,
-                            ...);
-#define fprintf hwcodec_fprintf
+// #define CFG_PKG_TRACE
 
 typedef void (*PixelbufferDecodeCallback)(const void *obj, int width,
                                           int height, enum AVPixelFormat pixfmt,
@@ -42,12 +47,17 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-void hwcodec_free_decoder(Decoder *decoder) {
-  if (!decoder) return;
-  if (decoder->frame) av_frame_free(&decoder->frame);
-  if (decoder->pkt) av_packet_free(&decoder->pkt);
-  if (decoder->sw_frame) av_frame_free(&decoder->sw_frame);
-  if (decoder->sw_parser_ctx) av_parser_close(decoder->sw_parser_ctx);
+extern "C" void hwcodec_free_decoder(Decoder *decoder) {
+  if (!decoder)
+    return;
+  if (decoder->frame)
+    av_frame_free(&decoder->frame);
+  if (decoder->pkt)
+    av_packet_free(&decoder->pkt);
+  if (decoder->sw_frame)
+    av_frame_free(&decoder->sw_frame);
+  if (decoder->sw_parser_ctx)
+    av_parser_close(decoder->sw_parser_ctx);
   if (decoder->c)
     avcodec_free_context(&decoder->c);
   else if (decoder->hw_device_ctx)
@@ -103,7 +113,8 @@ static int reset(Decoder *d) {
     c->pkt_timebase = av_make_q(1, 30);
   }
 
-  ret = av_hwdevice_ctx_create(&hw_device_ctx, d->device_type, NULL, NULL, 0);
+  ret = av_hwdevice_ctx_create(&hw_device_ctx, (AVHWDeviceType)d->device_type,
+                               NULL, NULL, 0);
   if (ret < 0) {
     fprintf(stdout, "Failed to create specified HW device:%s\n",
             av_err2str(ret));
@@ -153,12 +164,12 @@ static int reset(Decoder *d) {
   return 0;
 }
 
-Decoder *hwcodec_new_decoder(const char *name, int device_type,
-                             int thread_count,
-                             PixelbufferDecodeCallback callback) {
+extern "C" Decoder *hwcodec_new_decoder(const char *name, int device_type,
+                                        int thread_count,
+                                        PixelbufferDecodeCallback callback) {
   Decoder *decoder = NULL;
 
-  if (!(decoder = calloc(1, sizeof(Decoder)))) {
+  if (!(decoder = (Decoder *)calloc(1, sizeof(Decoder)))) {
     fprintf(stdout, "calloc failed\n");
     return NULL;
   }
@@ -214,17 +225,17 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
     fprintf(stdout, "delay DO: in:%d, out:%d\n", decoder->in, decoder->out);
 #endif
     decoder->callback(obj, decoder->sw_parser_ctx->width,
-                      decoder->sw_parser_ctx->height, tmp_frame->format,
-                      tmp_frame->linesize, tmp_frame->data,
-                      tmp_frame->key_frame);
+                      decoder->sw_parser_ctx->height,
+                      (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
+                      tmp_frame->data, tmp_frame->key_frame);
   }
 _exit:
   av_packet_unref(decoder->pkt);
   return decoded ? 0 : -1;
 }
 
-int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
-                   const void *obj) {
+extern "C" int hwcodec_decode(Decoder *decoder, const uint8_t *data, int length,
+                              const void *obj) {
   int ret = -1;
   bool retried = false;
 #ifdef CFG_PKG_TRACE
@@ -269,19 +280,4 @@ _lable:
   }
 
   return ret;
-}
-
-#include "incbin.h"
-
-INCBIN_EXTERN(BinFile264);
-INCBIN_EXTERN(BinFile265);
-
-void hwcodec_get_bin_file(int is265, uint8_t **p, /*int maxlen,*/ int *len) {
-  if (is265 == 0) {
-    *p = (uint8_t *)gBinFile264Data;
-    *len = gBinFile264Size;
-  } else {
-    *p = (uint8_t *)gBinFile265Data;
-    *len = gBinFile265Size;
-  }
 }

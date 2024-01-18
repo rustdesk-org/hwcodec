@@ -1,3 +1,4 @@
+// use bindgen::callbacks::DeriveInfo;
 use cc::Build;
 use std::{
     env,
@@ -68,7 +69,7 @@ fn build_ff1(builder: &mut Build) {
         .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ff1_ffi.rs"))
         .unwrap();
 
-    builder.files(["ff1_encode.c", "ff1_decode.c", "ff1_common.c"].map(|f| ff1_dir.join(f)));
+    builder.files(["ff1_encode.cpp", "ff1_decode.cpp"].map(|f| ff1_dir.join(f)));
 }
 
 fn build_mux(builder: &mut Build) {
@@ -83,7 +84,7 @@ fn build_mux(builder: &mut Build) {
         .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("mux_ffi.rs"))
         .unwrap();
 
-    builder.files(["mux.c"].map(|f| mux_dir.join(f)));
+    builder.files(["mux.cpp"].map(|f| mux_dir.join(f)));
 }
 
 fn build_common(builder: &mut Build) {
