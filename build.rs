@@ -110,10 +110,10 @@ fn build_common(builder: &mut Build) {
     builder.include(&common_dir);
 
     // platform
-    let platform_path = common_dir.join("platform");
+    let _platform_path = common_dir.join("platform");
     #[cfg(windows)]
     {
-        let win_path = platform_path.join("win");
+        let win_path = _platform_path.join("win");
         builder.include(&win_path);
         builder.file(win_path.join("win.cpp"));
     }

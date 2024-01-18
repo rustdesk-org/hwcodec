@@ -207,14 +207,12 @@ impl Encoder {
                 CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,
-                    vendor: INTEL,
                     score: 90,
                     ..Default::default()
                 },
                 CodecInfo {
                     name: "hevc_qsv".to_owned(),
                     format: H265,
-                    vendor: INTEL,
                     score: 90,
                     ..Default::default()
                 },

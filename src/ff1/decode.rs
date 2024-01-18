@@ -220,14 +220,12 @@ impl Decoder {
                 CodecInfo {
                     name: "h264".to_owned(),
                     format: H264,
-                    vendor: OTHER,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
                     score: 70, // assume slow
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
-                    vendor: OTHER,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
                     score: 70,
                 },

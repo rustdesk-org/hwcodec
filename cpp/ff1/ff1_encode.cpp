@@ -468,7 +468,7 @@ extern "C" int hwcodec_encode(Encoder *encoder, const uint8_t *data, int length,
   LOG_DEBUG("delay EI: in:" + encoder->in + " out:" + encoder->out);
 #endif
   if ((ret = av_frame_make_writable(encoder->frame)) != 0) {
-    LOG_ERROR("av_frame_make_writable failed, ret = ", +std::to_string((ret)));
+    LOG_ERROR("av_frame_make_writable failed, ret = " +std::to_string((ret)));
     return ret;
   }
   if ((ret = fill_frame(encoder->frame, (uint8_t *)data, length,
@@ -496,8 +496,6 @@ extern "C" int hwcodec_set_bitrate(Encoder *encoder, int bitrate) {
     encoder->c->bit_rate = bitrate;
     return 0;
   }
-  LOG_ERROR("hwcodec_set_bitrate " + name +
-                " does not implement bitrate change\n",
-            name);
+  LOG_ERROR("hwcodec_set_bitrate " + name + " does not implement bitrate change");
   return -1;
 }
