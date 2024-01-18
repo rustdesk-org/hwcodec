@@ -7,7 +7,7 @@ edition = "2021"
 
 [features]
 default = []
-native = []
+sdk = []
 
 [dependencies]
 log = "0.4"

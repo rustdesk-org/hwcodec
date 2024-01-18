@@ -18,7 +18,8 @@ fn main() {
     link_ffmpeg(&mut builder);
     build_common(&mut builder);
     build_ff1(&mut builder);
-    native::build_native(&mut builder);
+    #[cfg(feature = "sdk")]
+    sdk::build_sdk(&mut builder);
     build_mux(&mut builder);
 
     builder.compile("hwcodec");
@@ -136,33 +137,17 @@ impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
         }
     }
 }
-mod native {
+
+#[cfg(feature = "sdk")]
+mod sdk {
     use super::*;
 
-    pub(crate) fn build_native(builder: &mut Build) {
+    pub(crate) fn build_sdk(builder: &mut Build) {
         build_common(builder);
         build_amf(builder);
         build_nv(builder);
         build_vpl(builder);
-        // build_gpucodec(builder);
     }
-
-    // fn build_gpucodec(builder: &mut Build) {
-    //     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    //     let gpucodec_dir = manifest_dir.join("cpp").join("gpucodec");
-    //     bindgen::builder()
-    //         .header(
-    //             gpucodec_dir
-    //                 .join("gpucodec_ffi.h")
-    //                 .to_string_lossy()
-    //                 .to_string(),
-    //         )
-    //         .rustified_enum("*")
-    //         .generate()
-    //         .unwrap()
-    //         .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("gpucodec_ffi.rs"))
-    //         .unwrap();
-    // }
 
     fn build_nv(builder: &mut Build) {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
