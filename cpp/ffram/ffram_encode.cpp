@@ -439,8 +439,10 @@ static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj,
 
   while (ret >= 0) {
     if ((ret = avcodec_receive_packet(encoder->c, pkt)) < 0) {
-      LOG_ERROR("avcodec_receive_packet failed, ret = " +
-                std::to_string((ret)));
+      if (ret != AVERROR(EAGAIN)) {
+        LOG_ERROR("avcodec_receive_packet failed, ret = " +
+                  std::to_string((ret)));
+      }
       goto _exit;
     }
     encoded = true;

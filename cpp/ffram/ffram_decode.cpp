@@ -58,7 +58,7 @@ extern "C" void ffram_free_decoder(Decoder *decoder) {
     av_parser_close(decoder->sw_parser_ctx);
   if (decoder->c)
     avcodec_free_context(&decoder->c);
-  else if (decoder->hw_device_ctx)
+  if (decoder->hw_device_ctx)
     av_buffer_unref(&decoder->hw_device_ctx);
 
   decoder->frame = NULL;
@@ -117,7 +117,7 @@ static int reset(Decoder *d) {
     LOG_ERROR("av_hwdevice_ctx_create failed, ret = " + std::to_string(ret));
     return -1;
   }
-  c->hw_device_ctx = hw_device_ctx;
+  c->hw_device_ctx = av_buffer_ref(hw_device_ctx);
   if (!(sw_frame = av_frame_alloc())) {
     LOG_ERROR("av_frame_alloc failed");
     return -1;
@@ -196,7 +196,9 @@ static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
 
   while (ret >= 0) {
     if ((ret = avcodec_receive_frame(decoder->c, decoder->frame)) != 0) {
-      LOG_ERROR("avcodec_receive_frame failed, ret = " + std::to_string(ret));
+      if (ret != AVERROR(EAGAIN)) {
+        LOG_ERROR("avcodec_receive_frame failed, ret = " + std::to_string(ret));
+      }
       goto _exit;
     }
 
