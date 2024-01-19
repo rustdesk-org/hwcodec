@@ -47,10 +47,11 @@ void hwcodec_free_decoder(Decoder *decoder) {
   if (decoder->pkt) av_packet_free(&decoder->pkt);
   if (decoder->sw_frame) av_frame_free(&decoder->sw_frame);
   if (decoder->sw_parser_ctx) av_parser_close(decoder->sw_parser_ctx);
-  if (decoder->c)
-    avcodec_free_context(&decoder->c);
-  else if (decoder->hw_device_ctx)
-    av_buffer_unref(&decoder->hw_device_ctx);
+  if (decoder->c) avcodec_free_context(&decoder->c);
+  // https://github.com/FFmpeg/FFmpeg/blob/8e23ebe6f971ec4177be73b453960d83c264b7b5/doc/examples/hw_decode.c#L252
+  // https://github.com/FFmpeg/FFmpeg/blob/8e23ebe6f971ec4177be73b453960d83c264b7b5/doc/examples/qsv_decode.c#L238C22-L238C32
+  // https://github.com/FFmpeg/FFmpeg/blob/8e23ebe6f971ec4177be73b453960d83c264b7b5/doc/examples/vaapi_transcode.c#L302
+  if (decoder->hw_device_ctx) av_buffer_unref(&decoder->hw_device_ctx);
 
   decoder->frame = NULL;
   decoder->pkt = NULL;
@@ -108,7 +109,10 @@ static int reset(Decoder *d) {
             av_err2str(ret));
     return -1;
   }
-  c->hw_device_ctx = hw_device_ctx;
+  // https://github.com/FFmpeg/FFmpeg/blob/8e23ebe6f971ec4177be73b453960d83c264b7b5/doc/examples/hw_decode.c#L57
+  // https://github.com/FFmpeg/FFmpeg/blob/8e23ebe6f971ec4177be73b453960d83c264b7b5/doc/examples/qsv_decode.c#L184
+  // https://github.com/FFmpeg/FFmpeg/blob/8e23ebe6f971ec4177be73b453960d83c264b7b5/doc/examples/vaapi_transcode.c#L95
+  c->hw_device_ctx = av_buffer_ref(hw_device_ctx);
   if (!(sw_frame = av_frame_alloc())) {
     fprintf(stdout, "Can not alloc frame\n");
     return -1;
