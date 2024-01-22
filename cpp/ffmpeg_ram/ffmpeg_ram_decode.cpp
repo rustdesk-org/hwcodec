@@ -11,7 +11,7 @@ extern "C" {
 
 #include <stdbool.h>
 
-#define LOG_MODULE "FF1DEC"
+#define LOG_MODULE "FFMPEG_RAM_DEC"
 #include <log.h>
 
 // #define CFG_PKG_TRACE
@@ -45,7 +45,7 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-extern "C" void ffram_free_decoder(Decoder *decoder) {
+extern "C" void ffmpeg_ram_free_decoder(Decoder *decoder) {
   if (!decoder)
     return;
   if (decoder->frame)
@@ -72,7 +72,7 @@ extern "C" void ffram_free_decoder(Decoder *decoder) {
 
 static int reset(Decoder *d) {
   if (d)
-    ffram_free_decoder(d);
+    ffmpeg_ram_free_decoder(d);
   else
     return -1;
 
@@ -161,9 +161,9 @@ static int reset(Decoder *d) {
   return 0;
 }
 
-extern "C" Decoder *ffram_new_decoder(const char *name, int device_type,
-                                      int thread_count,
-                                      RamDecodeCallback callback) {
+extern "C" Decoder *ffmpeg_ram_new_decoder(const char *name, int device_type,
+                                           int thread_count,
+                                           RamDecodeCallback callback) {
   Decoder *decoder = NULL;
 
   if (!(decoder = (Decoder *)calloc(1, sizeof(Decoder)))) {
@@ -177,7 +177,7 @@ extern "C" Decoder *ffram_new_decoder(const char *name, int device_type,
 
   if (reset(decoder) != 0) {
     LOG_ERROR("reset failed");
-    ffram_free_decoder(decoder);
+    ffmpeg_ram_free_decoder(decoder);
     return NULL;
   }
   return decoder;
@@ -233,8 +233,8 @@ _exit:
   return decoded ? 0 : -1;
 }
 
-extern "C" int ffram_decode(Decoder *decoder, const uint8_t *data, int length,
-                            const void *obj) {
+extern "C" int ffmpeg_ram_decode(Decoder *decoder, const uint8_t *data,
+                                 int length, const void *obj) {
   int ret = -1;
   bool retried = false;
 #ifdef CFG_PKG_TRACE

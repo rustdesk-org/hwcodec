@@ -1,6 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    ffram::decode::{DecodeContext, Decoder},
+    ffmpeg_ram::decode::{DecodeContext, Decoder},
     ffmpeg::AVHWDeviceType::*,
 };
 use std::{fs::File, io::Read};

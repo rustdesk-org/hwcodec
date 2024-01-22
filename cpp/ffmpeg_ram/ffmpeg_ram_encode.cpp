@@ -13,7 +13,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-#define LOG_MODULE "FF1ENC"
+#define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
 
 // #define CFG_PKG_TRACE
@@ -64,10 +64,10 @@ static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
   return 0;
 }
 
-extern "C" int ffram_get_linesize_offset_length(int pix_fmt, int width,
-                                                int height, int align,
-                                                int *linesize, int *offset,
-                                                int *length) {
+extern "C" int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width,
+                                                     int height, int align,
+                                                     int *linesize, int *offset,
+                                                     int *length) {
   AVFrame *frame = NULL;
   int ioffset[AV_NUM_DATA_POINTERS] = {0};
   int ilength = 0;
@@ -261,13 +261,12 @@ static int set_gpu(void *priv_data, const char *name, int gpu) {
   return ret;
 }
 
-extern "C" Encoder *ffram_new_encoder(const char *name, int width, int height,
-                                      int pixfmt, int align, int bit_rate,
-                                      int time_base_num, int time_base_den,
-                                      int gop, int quality, int rc,
-                                      int thread_count, int gpu, int *linesize,
-                                      int *offset, int *length,
-                                      RamEncodeCallback callback) {
+extern "C" Encoder *
+ffmpeg_ram_new_encoder(const char *name, int width, int height, int pixfmt,
+                       int align, int bit_rate, int time_base_num,
+                       int time_base_den, int gop, int quality, int rc,
+                       int thread_count, int gpu, int *linesize, int *offset,
+                       int *length, RamEncodeCallback callback) {
   const AVCodec *codec = NULL;
   AVCodecContext *c = NULL;
   AVFrame *frame = NULL;
@@ -365,8 +364,8 @@ extern "C" Encoder *ffram_new_encoder(const char *name, int width, int height,
   encoder->out = 0;
 #endif
 
-  if (ffram_get_linesize_offset_length(pixfmt, width, height, align, NULL,
-                                       encoder->offset, length) != 0)
+  if (ffmpeg_ram_get_linesize_offset_length(pixfmt, width, height, align, NULL,
+                                            encoder->offset, length) != 0)
     goto _exit;
 
   for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
@@ -460,8 +459,8 @@ _exit:
   return encoded ? 0 : -1;
 }
 
-extern "C" int ffram_encode(Encoder *encoder, const uint8_t *data, int length,
-                            const void *obj, uint64_t ms) {
+extern "C" int ffmpeg_ram_encode(Encoder *encoder, const uint8_t *data,
+                                 int length, const void *obj, uint64_t ms) {
   int ret;
 
 #ifdef CFG_PKG_TRACE
@@ -479,7 +478,7 @@ extern "C" int ffram_encode(Encoder *encoder, const uint8_t *data, int length,
   return do_encode(encoder, encoder->frame, obj, ms);
 }
 
-extern "C" void ffram_free_encoder(Encoder *encoder) {
+extern "C" void ffmpeg_ram_free_encoder(Encoder *encoder) {
   if (!encoder)
     return;
   if (encoder->pkt)
@@ -490,13 +489,14 @@ extern "C" void ffram_free_encoder(Encoder *encoder) {
     avcodec_free_context(&encoder->c);
 }
 
-extern "C" int ffram_set_bitrate(Encoder *encoder, int bitrate) {
+extern "C" int ffmpeg_ram_set_bitrate(Encoder *encoder, int bitrate) {
   const char *name = encoder->name;
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0 ||
       strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
     encoder->c->bit_rate = bitrate;
     return 0;
   }
-  LOG_ERROR("ffram_set_bitrate " + name + " does not implement bitrate change");
+  LOG_ERROR("ffmpeg_ram_set_bitrate " + name +
+            " does not implement bitrate change");
   return -1;
 }

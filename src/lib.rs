@@ -1,6 +1,6 @@
 pub mod common;
 pub mod ffmpeg;
-pub mod ffram;
+pub mod ffmpeg_ram;
 pub mod mux;
 #[cfg(feature = "sdk")]
 pub mod native;

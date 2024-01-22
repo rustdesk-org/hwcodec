@@ -1,6 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    ffram::{
+    ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
         encode::{EncodeContext, Encoder},
         ffmpeg_linesize_offset_length,
