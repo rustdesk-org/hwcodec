@@ -46,7 +46,7 @@ impl Display for EncodeFrame {
 }
 
 pub struct Encoder {
-    codec: Box<c_void>,
+    codec: *mut c_void,
     frames: *mut Vec<EncodeFrame>,
     pub ctx: EncodeContext,
     pub linesize: Vec<i32>,
@@ -93,7 +93,7 @@ impl Encoder {
             }
 
             Ok(Encoder {
-                codec: Box::from_raw(codec as *mut c_void),
+                codec,
                 frames: Box::into_raw(Box::new(Vec::<EncodeFrame>::new())),
                 ctx,
                 linesize,
@@ -108,7 +108,7 @@ impl Encoder {
         unsafe {
             (&mut *self.frames).clear();
             let result = ffmpeg_ram_encode(
-                &mut *self.codec,
+                self.codec,
                 (*data).as_ptr(),
                 data.len() as _,
                 self.frames as *const _ as *const c_void,
@@ -136,7 +136,7 @@ impl Encoder {
     }
 
     pub fn set_bitrate(&mut self, bitrate: i32) -> Result<(), ()> {
-        let ret = unsafe { ffmpeg_ram_set_bitrate(&mut *self.codec, bitrate) };
+        let ret = unsafe { ffmpeg_ram_set_bitrate(self.codec, bitrate) };
         if ret == 0 {
             Ok(())
         } else {
@@ -293,7 +293,8 @@ impl Encoder {
 impl Drop for Encoder {
     fn drop(&mut self) {
         unsafe {
-            ffmpeg_ram_free_encoder(self.codec.as_mut());
+            ffmpeg_ram_free_encoder(self.codec);
+            self.codec = std::ptr::null_mut();
             let _ = Box::from_raw(self.frames);
             trace!("Encoder dropped");
         }

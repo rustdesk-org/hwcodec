@@ -62,6 +62,8 @@ public:
     outputSharedHandle_ = outputSharedHandle;
   }
 
+  ~AMFDecoder() {}
+
   AMF_RESULT decode(uint8_t *iData, uint32_t iDataSize, DecodeCallback callback,
                     void *obj) {
     AMF_RESULT res = AMF_FAIL;
@@ -351,7 +353,10 @@ int amf_destroy_decoder(void *decoder) {
   try {
     AMFDecoder *dec = (AMFDecoder *)decoder;
     if (dec) {
-      return dec->destroy();
+      dec->destroy();
+      delete dec;
+      dec = NULL;
+      return 0;
     }
   } catch (const std::exception &e) {
     LOG_ERROR("destroy failed: " + e.what());
@@ -383,7 +388,7 @@ void *amf_new_decoder(void *device, int64_t luid, API api,
     LOG_ERROR("new failed: " + e.what());
   }
   if (dec) {
-    amf_destroy_decoder(dec);
+    dec->destroy();
     delete dec;
     dec = NULL;
   }

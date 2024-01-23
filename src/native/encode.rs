@@ -16,7 +16,7 @@ use std::{
 
 pub struct Encoder {
     calls: EncodeCalls,
-    codec: Box<c_void>,
+    codec: *mut c_void,
     frames: *mut Vec<EncodeFrame>,
     pub ctx: EncodeContext,
 }
@@ -51,7 +51,7 @@ impl Encoder {
             }
             Ok(Self {
                 calls,
-                codec: Box::from_raw(codec as *mut c_void),
+                codec,
                 frames: Box::into_raw(Box::new(Vec::<EncodeFrame>::new())),
                 ctx,
             })
@@ -62,7 +62,7 @@ impl Encoder {
         unsafe {
             (&mut *self.frames).clear();
             let result = (self.calls.encode)(
-                &mut *self.codec,
+                self.codec,
                 tex,
                 Some(Self::callback),
                 self.frames as *mut _ as *mut c_void,
@@ -88,7 +88,7 @@ impl Encoder {
 
     pub fn set_bitrate(&mut self, kbs: i32) -> Result<(), i32> {
         unsafe {
-            match (self.calls.set_bitrate)(&mut *self.codec, kbs) {
+            match (self.calls.set_bitrate)(self.codec, kbs) {
                 0 => Ok(()),
                 err => Err(err),
             }
@@ -97,7 +97,7 @@ impl Encoder {
 
     pub fn set_framerate(&mut self, framerate: i32) -> Result<(), i32> {
         unsafe {
-            match (self.calls.set_framerate)(&mut *self.codec, framerate) {
+            match (self.calls.set_framerate)(self.codec, framerate) {
                 0 => Ok(()),
                 err => Err(err),
             }
@@ -108,7 +108,8 @@ impl Encoder {
 impl Drop for Encoder {
     fn drop(&mut self) {
         unsafe {
-            (self.calls.destroy)(self.codec.as_mut());
+            (self.calls.destroy)(self.codec);
+            self.codec = std::ptr::null_mut();
             let _ = Box::from_raw(self.frames);
             trace!("Encoder dropped");
         }

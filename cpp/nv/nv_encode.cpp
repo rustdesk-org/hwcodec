@@ -92,6 +92,8 @@ public:
     load_driver(&cuda_dl_, &nvenc_dl_);
   }
 
+  ~NvencEncoder() {}
+
   bool init() {
     GUID guidCodec;
     switch (dataFormat_) {
@@ -332,6 +334,8 @@ int nv_destroy_encoder(void *encoder) {
     NvencEncoder *e = (NvencEncoder *)encoder;
     if (e) {
       e->destroy();
+      delete e;
+      e = NULL;
     }
     return 0;
   } catch (const std::exception &e) {
@@ -358,8 +362,9 @@ void *nv_new_encoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
 
 _exit:
   if (e) {
-    nv_destroy_encoder(e);
+    e->destroy();
     delete e;
+    e = NULL;
   }
   return NULL;
 }

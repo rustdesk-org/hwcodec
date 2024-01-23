@@ -296,6 +296,8 @@ public:
     callback_ = callback;
   }
 
+  ~FFmpegRamEncoder() {}
+
   bool init(int *linesize, int *offset, int *length) {
     const AVCodec *codec = NULL;
 
@@ -542,13 +544,14 @@ extern "C" int ffmpeg_ram_encode(FFmpegRamEncoder *encoder, const uint8_t *data,
 }
 
 extern "C" void ffmpeg_ram_free_encoder(FFmpegRamEncoder *encoder) {
-
   try {
     if (!encoder)
       return;
     encoder->free_encoder();
+    delete encoder;
+    encoder = NULL;
   } catch (const std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_free_encoder failed, " + std::string(e.what()));
+    LOG_ERROR("free encoder failed, " + std::string(e.what()));
   }
 }
 

@@ -54,6 +54,8 @@ public:
     this->callback_ = callback;
   }
 
+  ~FFmpegRamDecoder() {}
+
   void free_decoder() {
     if (frame_)
       av_frame_free(&frame_);
@@ -251,6 +253,8 @@ extern "C" void ffmpeg_ram_free_decoder(FFmpegRamDecoder *decoder) {
     if (!decoder)
       return;
     decoder->free_decoder();
+    delete decoder;
+    decoder = NULL;
   } catch (const std::exception &e) {
     LOG_ERROR("ffmpeg_ram_free_decoder exception:" + e.what());
   }
@@ -268,7 +272,7 @@ ffmpeg_ram_new_decoder(const char *name, int device_type, int thread_count,
       }
     }
   } catch (std::exception &e) {
-    LOG_ERROR("ffmpeg_ram_new_decoder exception:" + e.what());
+    LOG_ERROR("new decoder exception:" + e.what());
   }
   if (decoder) {
     decoder->free_decoder();

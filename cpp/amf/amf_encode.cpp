@@ -97,6 +97,8 @@ public:
     enable4K_ = width > 1920 && height > 1080;
   }
 
+  ~AMFEncoder() {}
+
   AMF_RESULT encode(void *tex, EncodeCallback callback, void *obj) {
     amf::AMFSurfacePtr surface = NULL;
     amf::AMFComputeSyncPointPtr pSyncPoint = NULL;
@@ -455,7 +457,10 @@ extern "C" {
 int amf_destroy_encoder(void *encoder) {
   try {
     AMFEncoder *enc = (AMFEncoder *)encoder;
-    return enc->destroy();
+    enc->destroy();
+    delete enc;
+    enc = NULL;
+    return 0;
   } catch (const std::exception &e) {
     LOG_ERROR("destroy failed: " + e.what());
   }
@@ -486,7 +491,7 @@ void *amf_new_encoder(void *handle, int64_t luid, API api,
     LOG_ERROR("new failed: " + e.what());
   }
   if (enc) {
-    amf_destroy_encoder(enc);
+    enc->destroy();
     delete enc;
     enc = NULL;
   }

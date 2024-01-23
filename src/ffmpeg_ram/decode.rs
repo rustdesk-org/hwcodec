@@ -58,7 +58,7 @@ impl std::fmt::Display for DecodeFrame {
 }
 
 pub struct Decoder {
-    codec: Box<c_void>,
+    codec: *mut c_void,
     frames: *mut Vec<DecodeFrame>,
     pub ctx: DecodeContext,
 }
@@ -81,7 +81,7 @@ impl Decoder {
             }
 
             Ok(Decoder {
-                codec: Box::from_raw(codec as *mut c_void),
+                codec,
                 frames: Box::into_raw(Box::new(Vec::<DecodeFrame>::new())),
                 ctx,
             })
@@ -92,7 +92,7 @@ impl Decoder {
         unsafe {
             (&mut *self.frames).clear();
             let ret = ffmpeg_ram_decode(
-                &mut *self.codec,
+                self.codec,
                 packet.as_ptr(),
                 packet.len() as c_int,
                 self.frames as *const _ as *const c_void,
@@ -342,7 +342,8 @@ impl Decoder {
 impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
-            ffmpeg_ram_free_decoder(self.codec.as_mut());
+            ffmpeg_ram_free_decoder(self.codec);
+            self.codec = std::ptr::null_mut();
             let _ = Box::from_raw(self.frames);
             trace!("Decoder dropped");
         }

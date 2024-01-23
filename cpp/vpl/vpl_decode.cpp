@@ -55,6 +55,17 @@ public:
     ZeroMemory(&mfxResponse_, sizeof(mfxResponse_));
   }
 
+  ~VplDecoder() {}
+
+  int destroy() {
+    if (mfxDEC_) {
+      mfxDEC_->Close();
+      delete mfxDEC_;
+      mfxDEC_ = NULL;
+    }
+    return 0;
+  }
+
   mfxStatus init() {
     mfxStatus sts = MFX_ERR_NONE;
     native_ = std::make_unique<NativeDevice>();
@@ -379,10 +390,9 @@ extern "C" {
 int vpl_destroy_decoder(void *decoder) {
   VplDecoder *p = (VplDecoder *)decoder;
   if (p) {
-    if (p->mfxDEC_) {
-      p->mfxDEC_->Close();
-      delete p->mfxDEC_;
-    }
+    p->destroy();
+    delete p;
+    p = NULL;
   }
   return 0;
 }
@@ -402,7 +412,7 @@ void *vpl_new_decoder(void *device, int64_t luid, API api, DataFormat codecID,
   }
 
   if (p) {
-    vpl_destroy_decoder(p);
+    p->destroy();
     delete p;
     p = NULL;
   }
