@@ -92,7 +92,6 @@ public:
       return -1;
     }
 
-    c_->flags |= AV_CODEC_CAP_TRUNCATED;
     c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
     c_->thread_count = thread_count_;
     c_->thread_type = FF_THREAD_SLICE;
