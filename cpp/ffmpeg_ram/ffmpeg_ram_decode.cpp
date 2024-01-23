@@ -16,267 +16,274 @@ extern "C" {
 
 // #define CFG_PKG_TRACE
 
+namespace {
 typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
                                   enum AVPixelFormat pixfmt,
                                   int linesize[AV_NUM_DATA_POINTERS],
                                   uint8_t *data[AV_NUM_DATA_POINTERS], int key);
 
-typedef struct Decoder {
-  AVCodecContext *c;
-  AVBufferRef *hw_device_ctx;
-  AVCodecParserContext *sw_parser_ctx;
-  AVFrame *sw_frame;
-  AVFrame *frame;
-  AVPacket *pkt;
-  bool hwaccel;
+class FFmpegRamDecoder {
+public:
+  AVCodecContext *c_ = NULL;
+  AVBufferRef *hw_device_ctx_ = NULL;
+  AVCodecParserContext *sw_parser_ctx_ = NULL;
+  AVFrame *sw_frame_ = NULL;
+  AVFrame *frame_ = NULL;
+  AVPacket *pkt_ = NULL;
+  bool hwaccel_ = true;
 
-  char name[128];
-  int device_type;
-  int thread_count;
-  RamDecodeCallback callback;
+  char name_[128] = {0};
+  AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_NONE;
+  int thread_count_ = 1;
+  RamDecodeCallback callback_ = NULL;
 
-  bool ready_decode;
-  int last_width;
-  int last_height;
+  bool ready_decode_ = false;
+  int last_width_ = 0;
+  int last_height_ = 0;
 
 #ifdef CFG_PKG_TRACE
-  int in;
-  int out;
+  int in_ = 0;
+  int out_ = 0;
 #endif
-} Decoder;
 
-extern "C" void ffmpeg_ram_free_decoder(Decoder *decoder) {
-  if (!decoder)
-    return;
-  if (decoder->frame)
-    av_frame_free(&decoder->frame);
-  if (decoder->pkt)
-    av_packet_free(&decoder->pkt);
-  if (decoder->sw_frame)
-    av_frame_free(&decoder->sw_frame);
-  if (decoder->sw_parser_ctx)
-    av_parser_close(decoder->sw_parser_ctx);
-  if (decoder->c)
-    avcodec_free_context(&decoder->c);
-  if (decoder->hw_device_ctx)
-    av_buffer_unref(&decoder->hw_device_ctx);
-
-  decoder->frame = NULL;
-  decoder->pkt = NULL;
-  decoder->sw_frame = NULL;
-  decoder->sw_parser_ctx = NULL;
-  decoder->c = NULL;
-  decoder->hw_device_ctx = NULL;
-  decoder->ready_decode = false;
-}
-
-static int reset(Decoder *d) {
-  if (d)
-    ffmpeg_ram_free_decoder(d);
-  else
-    return -1;
-
-  AVCodecContext *c = NULL;
-  AVBufferRef *hw_device_ctx = NULL;
-  AVCodecParserContext *sw_parse_ctx = NULL;
-  AVFrame *sw_frame = NULL;
-  AVFrame *frame = NULL;
-  AVPacket *pkt = NULL;
-  const AVCodec *codec = NULL;
-  bool hwaccel = d->device_type != AV_HWDEVICE_TYPE_NONE;
-  int ret;
-
-  if (!(codec = avcodec_find_decoder_by_name(d->name))) {
-    LOG_ERROR("avcodec_find_decoder_by_name " + d->name + " failed");
-    return -1;
+  FFmpegRamDecoder(const char *name, int device_type, int thread_count,
+                   RamDecodeCallback callback) {
+    snprintf(this->name_, sizeof(this->name_), "%s", name);
+    this->device_type_ = (AVHWDeviceType)device_type;
+    this->thread_count_ = thread_count;
+    this->callback_ = callback;
   }
 
-  if (!(c = avcodec_alloc_context3(codec))) {
-    LOG_ERROR("Could not allocate video codec context");
-    return -1;
+  void free_decoder() {
+    if (frame_)
+      av_frame_free(&frame_);
+    if (pkt_)
+      av_packet_free(&pkt_);
+    if (sw_frame_)
+      av_frame_free(&sw_frame_);
+    if (sw_parser_ctx_)
+      av_parser_close(sw_parser_ctx_);
+    if (c_)
+      avcodec_free_context(&c_);
+    if (hw_device_ctx_)
+      av_buffer_unref(&hw_device_ctx_);
+
+    frame_ = NULL;
+    pkt_ = NULL;
+    sw_frame_ = NULL;
+    sw_parser_ctx_ = NULL;
+    c_ = NULL;
+    hw_device_ctx_ = NULL;
+    ready_decode_ = false;
   }
-
-  c->flags |= AV_CODEC_CAP_TRUNCATED;
-  c->flags |= AV_CODEC_FLAG_LOW_DELAY;
-  c->thread_count = d->thread_count;
-  c->thread_type = FF_THREAD_SLICE;
-
-  if (strcmp(d->name, "h264_qsv") == 0 || strcmp(d->name, "hevc_qsv") == 0) {
-    if ((ret = av_opt_set(c->priv_data, "async_depth", "1", 0)) < 0) {
-      LOG_ERROR("qsv set opt async_depth 1 failed");
+  int reset() {
+    free_decoder();
+    const AVCodec *codec = NULL;
+    hwaccel_ = device_type_ != AV_HWDEVICE_TYPE_NONE;
+    int ret;
+    if (!(codec = avcodec_find_decoder_by_name(name_))) {
+      LOG_ERROR("avcodec_find_decoder_by_name " + name_ + " failed");
       return -1;
     }
-    // https://github.com/FFmpeg/FFmpeg/blob/c6364b711bad1fe2fbd90e5b2798f87080ddf5ea/libavcodec/qsvdec.c#L932
-    // for disable warning
-    c->pkt_timebase = av_make_q(1, 30);
-  }
-
-  ret = av_hwdevice_ctx_create(&hw_device_ctx, (AVHWDeviceType)d->device_type,
-                               NULL, NULL, 0);
-  if (ret < 0) {
-    LOG_ERROR("av_hwdevice_ctx_create failed, ret = " + std::to_string(ret));
-    return -1;
-  }
-  c->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-  if (!(sw_frame = av_frame_alloc())) {
-    LOG_ERROR("av_frame_alloc failed");
-    return -1;
-  }
-  if (!(sw_parse_ctx = av_parser_init(codec->id))) {
-    LOG_ERROR("av_parser_init failed");
-    return -1;
-  }
-  sw_parse_ctx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
-
-  if (!(pkt = av_packet_alloc())) {
-    LOG_ERROR("av_packet_alloc failed");
-    return -1;
-  }
-
-  if (!(frame = av_frame_alloc())) {
-    LOG_ERROR("av_frame_alloc failed");
-    return -1;
-  }
-
-  if ((ret = avcodec_open2(c, codec, NULL)) != 0) {
-    LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string(ret));
-    return -1;
-  }
-
-  d->c = c;
-  d->hw_device_ctx = hw_device_ctx;
-  d->sw_parser_ctx = sw_parse_ctx;
-  d->frame = frame;
-  d->sw_frame = sw_frame;
-  d->pkt = pkt;
-  d->hwaccel = hwaccel;
-  d->last_width = 0;
-  d->last_height = 0;
-#ifdef CFG_PKG_TRACE
-  decoder->in = 0;
-  decoder->out = 0;
-#endif
-  d->ready_decode = true;
-
-  return 0;
-}
-
-extern "C" Decoder *ffmpeg_ram_new_decoder(const char *name, int device_type,
-                                           int thread_count,
-                                           RamDecodeCallback callback) {
-  Decoder *decoder = NULL;
-
-  if (!(decoder = (Decoder *)calloc(1, sizeof(Decoder)))) {
-    LOG_ERROR("calloc failed");
-    return NULL;
-  }
-  snprintf(decoder->name, sizeof(decoder->name), "%s", name);
-  decoder->device_type = device_type;
-  decoder->thread_count = thread_count;
-  decoder->callback = callback;
-
-  if (reset(decoder) != 0) {
-    LOG_ERROR("reset failed");
-    ffmpeg_ram_free_decoder(decoder);
-    return NULL;
-  }
-  return decoder;
-}
-
-static int do_decode(Decoder *decoder, AVPacket *pkt, const void *obj) {
-  int ret;
-  AVFrame *tmp_frame = NULL;
-  bool decoded = false;
-
-  ret = avcodec_send_packet(decoder->c, pkt);
-  if (ret < 0) {
-    LOG_ERROR("avcodec_send_packet failed, ret = " + std::to_string(ret));
-    return ret;
-  }
-
-  while (ret >= 0) {
-    if ((ret = avcodec_receive_frame(decoder->c, decoder->frame)) != 0) {
-      if (ret != AVERROR(EAGAIN)) {
-        LOG_ERROR("avcodec_receive_frame failed, ret = " + std::to_string(ret));
-      }
-      goto _exit;
+    if (!(c_ = avcodec_alloc_context3(codec))) {
+      LOG_ERROR("Could not allocate video codec context");
+      return -1;
     }
 
-    if (decoder->hwaccel) {
-      if (!decoder->frame->hw_frames_ctx) {
-        LOG_ERROR("hw_frames_ctx is NULL");
-        goto _exit;
-      }
-      if ((ret = av_hwframe_transfer_data(decoder->sw_frame, decoder->frame,
-                                          0)) < 0) {
-        LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
-                  std::to_string(ret));
-        goto _exit;
-      }
+    c_->flags |= AV_CODEC_CAP_TRUNCATED;
+    c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    c_->thread_count = thread_count_;
+    c_->thread_type = FF_THREAD_SLICE;
 
-      tmp_frame = decoder->sw_frame;
-    } else {
-      tmp_frame = decoder->frame;
-    }
-    decoded = true;
-#ifdef CFG_PKG_TRACE
-    decoder->out++;
-    LOG_DEBUG("delay DO: in:" + decoder->in + " out:" + decoder->out);
-#endif
-    decoder->callback(obj, decoder->sw_parser_ctx->width,
-                      decoder->sw_parser_ctx->height,
-                      (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
-                      tmp_frame->data, tmp_frame->key_frame);
-  }
-_exit:
-  av_packet_unref(decoder->pkt);
-  return decoded ? 0 : -1;
-}
-
-extern "C" int ffmpeg_ram_decode(Decoder *decoder, const uint8_t *data,
-                                 int length, const void *obj) {
-  int ret = -1;
-  bool retried = false;
-#ifdef CFG_PKG_TRACE
-  decoder->in++;
-  LOG_DEBUG("delay DI: in:" + decoder->in + " out:" + decoder->out);
-#endif
-
-  if (!data || !length) {
-    LOG_ERROR("illegal decode parameter");
-    return -1;
-  }
-  if (!decoder->ready_decode) {
-    LOG_ERROR("not ready decode");
-    return -1;
-  }
-
-_lable:
-  ret = av_parser_parse2(decoder->sw_parser_ctx, decoder->c,
-                         &decoder->pkt->data, &decoder->pkt->size, data, length,
-                         AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-  if (ret < 0) {
-    LOG_ERROR("av_parser_parse2 failed, ret = " + std::to_string(ret));
-    return ret;
-  }
-  if (decoder->last_width != 0 && decoder->last_height != 0) {
-    if (decoder->last_width != decoder->sw_parser_ctx->width ||
-        decoder->last_height != decoder->sw_parser_ctx->height) {
-      if (reset(decoder) != 0) {
-        LOG_ERROR("reset failed");
+    if (strcmp(name_, "h264_qsv") == 0 || strcmp(name_, "hevc_qsv") == 0) {
+      if ((ret = av_opt_set(c_->priv_data, "async_depth", "1", 0)) < 0) {
+        LOG_ERROR("qsv set opt async_depth 1 failed");
         return -1;
       }
-      if (!retried) {
-        retried = true;
-        goto _lable;
-      }
+      // https://github.com/FFmpeg/FFmpeg/blob/c6364b711bad1fe2fbd90e5b2798f87080ddf5ea/libavcodec/qsvdec.c#L932
+      // for disable warning
+      c_->pkt_timebase = av_make_q(1, 30);
     }
-  }
-  decoder->last_width = decoder->sw_parser_ctx->width;
-  decoder->last_height = decoder->sw_parser_ctx->height;
-  if (decoder->pkt->size > 0) {
-    ret = do_decode(decoder, decoder->pkt, obj);
+
+    ret = av_hwdevice_ctx_create(&hw_device_ctx_, device_type_, NULL, NULL, 0);
+    if (ret < 0) {
+      LOG_ERROR("av_hwdevice_ctx_create failed, ret = " + std::to_string(ret));
+      return -1;
+    }
+    c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
+    if (!(sw_frame_ = av_frame_alloc())) {
+      LOG_ERROR("av_frame_alloc failed");
+      return -1;
+    }
+    if (!(sw_parser_ctx_ = av_parser_init(codec->id))) {
+      LOG_ERROR("av_parser_init failed");
+      return -1;
+    }
+    sw_parser_ctx_->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+
+    if (!(pkt_ = av_packet_alloc())) {
+      LOG_ERROR("av_packet_alloc failed");
+      return -1;
+    }
+
+    if (!(frame_ = av_frame_alloc())) {
+      LOG_ERROR("av_frame_alloc failed");
+      return -1;
+    }
+
+    if ((ret = avcodec_open2(c_, codec, NULL)) != 0) {
+      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string(ret));
+      return -1;
+    }
+
+    last_width_ = 0;
+    last_height_ = 0;
+#ifdef CFG_PKG_TRACE
+    in_ = 0;
+    out_ = 0;
+#endif
+    ready_decode_ = true;
+
+    return 0;
   }
 
-  return ret;
+  int decode(const uint8_t *data, int length, const void *obj) {
+    int ret = -1;
+    bool retried = false;
+#ifdef CFG_PKG_TRACE
+    in_++;
+    LOG_DEBUG("delay DI: in:" + in_ + " out:" + out_);
+#endif
+
+    if (!data || !length) {
+      LOG_ERROR("illegal decode parameter");
+      return -1;
+    }
+    if (!ready_decode_) {
+      LOG_ERROR("not ready decode");
+      return -1;
+    }
+
+  _lable:
+    ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size, data,
+                           length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+    if (ret < 0) {
+      LOG_ERROR("av_parser_parse2 failed, ret = " + std::to_string(ret));
+      return ret;
+    }
+    if (last_width_ != 0 && last_height_ != 0) {
+      if (last_width_ != sw_parser_ctx_->width ||
+          last_height_ != sw_parser_ctx_->height) {
+        if (reset() != 0) {
+          LOG_ERROR("reset failed");
+          return -1;
+        }
+        if (!retried) {
+          retried = true;
+          goto _lable;
+        }
+      }
+    }
+    last_width_ = sw_parser_ctx_->width;
+    last_height_ = sw_parser_ctx_->height;
+    if (pkt_->size > 0) {
+      ret = do_decode(obj);
+    }
+
+    return ret;
+  }
+
+private:
+  int do_decode(const void *obj) {
+    int ret;
+    AVFrame *tmp_frame = NULL;
+    bool decoded = false;
+
+    ret = avcodec_send_packet(c_, pkt_);
+    if (ret < 0) {
+      LOG_ERROR("avcodec_send_packet failed, ret = " + std::to_string(ret));
+      return ret;
+    }
+
+    while (ret >= 0) {
+      if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
+        if (ret != AVERROR(EAGAIN)) {
+          LOG_ERROR("avcodec_receive_frame failed, ret = " +
+                    std::to_string(ret));
+        }
+        goto _exit;
+      }
+
+      if (hwaccel_) {
+        if (!frame_->hw_frames_ctx) {
+          LOG_ERROR("hw_frames_ctx is NULL");
+          goto _exit;
+        }
+        if ((ret = av_hwframe_transfer_data(sw_frame_, frame_, 0)) < 0) {
+          LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
+                    std::to_string(ret));
+          goto _exit;
+        }
+
+        tmp_frame = sw_frame_;
+      } else {
+        tmp_frame = frame_;
+      }
+      decoded = true;
+#ifdef CFG_PKG_TRACE
+      out_++;
+      LOG_DEBUG("delay DO: in:" + in_ + " out:" + out_);
+#endif
+      callback_(obj, sw_parser_ctx_->width, sw_parser_ctx_->height,
+                (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
+                tmp_frame->data, tmp_frame->key_frame);
+    }
+  _exit:
+    av_packet_unref(pkt_);
+    return decoded ? 0 : -1;
+  }
+};
+
+} // namespace
+
+extern "C" void ffmpeg_ram_free_decoder(FFmpegRamDecoder *decoder) {
+  try {
+    if (!decoder)
+      return;
+    decoder->free_decoder();
+  } catch (const std::exception &e) {
+    LOG_ERROR("ffmpeg_ram_free_decoder exception:" + e.what());
+  }
+}
+
+extern "C" FFmpegRamDecoder *
+ffmpeg_ram_new_decoder(const char *name, int device_type, int thread_count,
+                       RamDecodeCallback callback) {
+  FFmpegRamDecoder *decoder = NULL;
+  try {
+    decoder = new FFmpegRamDecoder(name, device_type, thread_count, callback);
+    if (decoder) {
+      if (decoder->reset() == 0) {
+        return decoder;
+      }
+    }
+  } catch (std::exception &e) {
+    LOG_ERROR("ffmpeg_ram_new_decoder exception:" + e.what());
+  }
+  if (decoder) {
+    decoder->free_decoder();
+    delete decoder;
+    decoder = NULL;
+  }
+  return NULL;
+}
+
+extern "C" int ffmpeg_ram_decode(FFmpegRamDecoder *decoder, const uint8_t *data,
+                                 int length, const void *obj) {
+  try {
+    return decoder->decode(data, length, obj);
+  } catch (const std::exception &e) {
+    LOG_ERROR("ffmpeg_ram_decode exception:" + e.what());
+  }
+  return -1;
 }

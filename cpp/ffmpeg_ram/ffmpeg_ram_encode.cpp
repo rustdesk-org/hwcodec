@@ -18,32 +18,6 @@ extern "C" {
 
 // #define CFG_PKG_TRACE
 
-enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
-
-enum RateContorl {
-  RC_DEFAULT,
-  RC_CBR,
-  RC_VBR,
-};
-
-typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
-                                  int key, const void *obj);
-
-typedef struct Encoder {
-  AVCodecContext *c;
-  AVFrame *frame;
-  AVPacket *pkt;
-  int offset[AV_NUM_DATA_POINTERS];
-  char name[32];
-  RamEncodeCallback callback;
-  int64_t first_ms;
-
-#ifdef CFG_PKG_TRACE
-  int in;
-  int out;
-#endif
-} Encoder;
-
 static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
                                    int *offset, int *length) {
   switch (pix_fmt) {
@@ -113,7 +87,19 @@ _exit:
   return ret;
 }
 
-static int set_lantency_free(void *priv_data, const char *name) {
+namespace {
+enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
+
+enum RateContorl {
+  RC_DEFAULT,
+  RC_CBR,
+  RC_VBR,
+};
+
+typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
+                                  int key, const void *obj);
+
+int set_lantency_free(void *priv_data, const char *name) {
   int ret;
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
@@ -137,7 +123,7 @@ static int set_lantency_free(void *priv_data, const char *name) {
   return 0;
 }
 
-static int set_quality(void *priv_data, const char *name, int quality) {
+int set_quality(void *priv_data, const char *name, int quality) {
   int ret;
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
@@ -210,7 +196,7 @@ static int set_quality(void *priv_data, const char *name, int quality) {
   return ret;
 }
 
-static int set_rate_control(void *priv_data, const char *name, int rc) {
+int set_rate_control(void *priv_data, const char *name, int rc) {
   int ret;
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
@@ -249,7 +235,7 @@ static int set_rate_control(void *priv_data, const char *name, int rc) {
   return ret;
 }
 
-static int set_gpu(void *priv_data, const char *name, int gpu) {
+int set_gpu(void *priv_data, const char *name, int gpu) {
   int ret;
   if (gpu < 0)
     return -1;
@@ -261,242 +247,316 @@ static int set_gpu(void *priv_data, const char *name, int gpu) {
   return ret;
 }
 
-extern "C" Encoder *
+class FFmpegRamEncoder {
+public:
+  AVCodecContext *c_ = NULL;
+  AVFrame *frame_ = NULL;
+  AVPacket *pkt_ = NULL;
+  char name_[32] = {0};
+  int64_t first_ms_ = 0;
+
+  int width_ = 0;
+  int height_ = 0;
+  AVPixelFormat pixfmt_ = AV_PIX_FMT_NV12;
+  int align_ = 0;
+  int bit_rate_ = 0;
+  int time_base_num_ = 1;
+  int time_base_den_ = 30;
+  int gop_ = 0xFFFF;
+  int quality_ = 0;
+  int rc_ = 0;
+  int thread_count_ = 1;
+  int gpu_ = 0;
+  RamEncodeCallback callback_ = NULL;
+  int offset_[AV_NUM_DATA_POINTERS] = {0};
+
+#ifdef CFG_PKG_TRACE
+  int in;
+  int out;
+#endif
+
+  FFmpegRamEncoder(const char *name, int width, int height, int pixfmt,
+                   int align, int bit_rate, int time_base_num,
+                   int time_base_den, int gop, int quality, int rc,
+                   int thread_count, int gpu, RamEncodeCallback callback) {
+    memset(name_, 0, sizeof(name_));
+    snprintf(name_, sizeof(name_), "%s", name);
+    width_ = width;
+    height_ = height;
+    pixfmt_ = (AVPixelFormat)pixfmt;
+    align_ = align;
+    bit_rate_ = bit_rate;
+    time_base_num_ = time_base_num;
+    time_base_den_ = time_base_den;
+    gop_ = gop;
+    quality_ = quality;
+    rc_ = rc;
+    thread_count_ = thread_count;
+    gpu_ = gpu;
+    callback_ = callback;
+  }
+
+  bool init(int *linesize, int *offset, int *length) {
+    const AVCodec *codec = NULL;
+
+    int ret;
+
+    if (!(codec = avcodec_find_encoder_by_name(name_))) {
+      LOG_ERROR("Codec" + name_ + " not found");
+      return false;
+    }
+
+    if (!(c_ = avcodec_alloc_context3(codec))) {
+      LOG_ERROR("Could not allocate video codec context");
+      return false;
+    }
+
+    if (!(frame_ = av_frame_alloc())) {
+      LOG_ERROR("Could not allocate video frame");
+      return false;
+    }
+    frame_->format = pixfmt_;
+    frame_->width = width_;
+    frame_->height = height_;
+
+    if ((ret = av_frame_get_buffer(frame_, align_)) < 0) {
+      LOG_ERROR("av_frame_get_buffer failed, ret = " + std::to_string((ret)));
+      return false;
+    }
+
+    if (!(pkt_ = av_packet_alloc())) {
+      LOG_ERROR("Could not allocate video packet");
+      return false;
+    }
+    if ((ret = av_new_packet(
+             pkt_, av_image_get_buffer_size((AVPixelFormat)frame_->format,
+                                            frame_->width, frame_->height,
+                                            align_))) < 0) {
+      LOG_ERROR("av_new_packet failed, ret = " + std::to_string((ret)));
+      return false;
+    }
+
+    /* resolution must be a multiple of two */
+    c_->width = width_;
+    c_->height = height_;
+    c_->pix_fmt = (AVPixelFormat)pixfmt_;
+    c_->has_b_frames = 0;
+    c_->max_b_frames = 0;
+    c_->gop_size = gop_;
+    /* put sample parameters */
+    // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
+    if (bit_rate_ >= 1000) {
+      c_->bit_rate = bit_rate_;
+      if (strcmp(name_, "h264_qsv") == 0 || strcmp(name_, "hevc_qsv") == 0) {
+        c_->rc_max_rate = bit_rate_;
+      }
+    }
+    /* frames per second */
+    c_->time_base = av_make_q(time_base_num_, time_base_den_);
+    c_->framerate = av_inv_q(c_->time_base);
+    c_->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
+    c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    c_->thread_count = thread_count_;
+    c_->thread_type = FF_THREAD_SLICE;
+
+    // https://github.com/obsproject/obs-studio/blob/3cc7dc0e7cf8b01081dc23e432115f7efd0c8877/plugins/obs-ffmpeg/obs-ffmpeg-mux.c#L160
+    c_->color_range = AVCOL_RANGE_MPEG;
+    c_->colorspace = AVCOL_SPC_SMPTE170M;
+    c_->color_primaries = AVCOL_PRI_SMPTE170M;
+    c_->color_trc = AVCOL_TRC_SMPTE170M;
+
+    if (set_lantency_free(c_->priv_data, name_) < 0) {
+      return false;
+    }
+    set_quality(c_->priv_data, name_, quality_);
+    set_rate_control(c_->priv_data, name_, rc_);
+    set_gpu(c_->priv_data, name_, gpu_);
+
+    if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
+      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)));
+      return false;
+    }
+    first_ms_ = 0;
+#ifdef CFG_PKG_TRACE
+    in_ = 0;
+    out_ = 0;
+#endif
+
+    if (ffmpeg_ram_get_linesize_offset_length(pixfmt_, width_, height_, align_,
+                                              NULL, offset_, length) != 0)
+      return false;
+
+    for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
+      linesize[i] = frame_->linesize[i];
+      offset[i] = offset_[i];
+    }
+    return true;
+  }
+
+  int encode(const uint8_t *data, int length, const void *obj, uint64_t ms) {
+    int ret;
+
+#ifdef CFG_PKG_TRACE
+    in_++;
+    LOG_DEBUG("delay EI: in:" + in_ + " out:" + out_);
+#endif
+    if ((ret = av_frame_make_writable(frame_)) != 0) {
+      LOG_ERROR("av_frame_make_writable failed, ret = " +
+                std::to_string((ret)));
+      return ret;
+    }
+    if ((ret = fill_frame(frame_, (uint8_t *)data, length, offset_)) != 0)
+      return ret;
+
+    return do_encode(obj, ms);
+  }
+
+  void free_encoder() {
+    if (pkt_)
+      av_packet_free(&pkt_);
+    if (frame_)
+      av_frame_free(&frame_);
+    if (c_)
+      avcodec_free_context(&c_);
+  }
+
+  int set_bitrate(int bitrate) {
+    if (strcmp(name_, "h264_nvenc") == 0 || strcmp(name_, "hevc_nvenc") == 0 ||
+        strcmp(name_, "h264_amf") == 0 || strcmp(name_, "hevc_amf") == 0) {
+      c_->bit_rate = bitrate;
+      return 0;
+    }
+    LOG_ERROR("ffmpeg_ram_set_bitrate " + name_ +
+              " does not implement bitrate change");
+    return -1;
+  }
+
+private:
+  int do_encode(const void *obj, int64_t ms) {
+    int ret;
+    bool encoded = false;
+    if ((ret = avcodec_send_frame(c_, frame_)) < 0) {
+      LOG_ERROR("avcodec_send_frame failed, ret = " + std::to_string((ret)));
+      return ret;
+    }
+
+    while (ret >= 0) {
+      if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
+        if (ret != AVERROR(EAGAIN)) {
+          LOG_ERROR("avcodec_receive_packet failed, ret = " +
+                    std::to_string((ret)));
+        }
+        goto _exit;
+      }
+      encoded = true;
+#ifdef CFG_PKG_TRACE
+      encoder->out++;
+      LOG_DEBUG("delay EO: in:" + encoder->in + " out:" + encoder->out);
+#endif
+      if (first_ms_ == 0)
+        first_ms_ = ms;
+      callback_(pkt_->data, pkt_->size, ms - first_ms_,
+                pkt_->flags & AV_PKT_FLAG_KEY, obj);
+    }
+  _exit:
+    av_packet_unref(pkt_);
+    return encoded ? 0 : -1;
+  }
+
+  int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
+                 const int *const offset) {
+    switch (frame->format) {
+    case AV_PIX_FMT_NV12:
+      if (data_length <
+          frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
+        LOG_ERROR("fill_frame: NV12 data length error. data_length:" +
+                  std::to_string(data_length) +
+                  ", linesize[0]:" + std::to_string(frame->linesize[0]) +
+                  ", linesize[1]:" + std::to_string(frame->linesize[1]));
+        return -1;
+      }
+      frame->data[0] = data;
+      frame->data[1] = data + offset[0];
+      break;
+    case AV_PIX_FMT_YUV420P:
+      if (data_length <
+          frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
+                           frame->linesize[2] / 2)) {
+        LOG_ERROR("fill_frame: 420P data length error. data_length:" +
+                  std::to_string(data_length) +
+                  ", linesize[0]:" + std::to_string(frame->linesize[0]) +
+                  ", linesize[1]:" + std::to_string(frame->linesize[1]) +
+                  ", linesize[2]:" + std::to_string(frame->linesize[2]));
+        return -1;
+      }
+      frame->data[0] = data;
+      frame->data[1] = data + offset[0];
+      frame->data[2] = data + offset[1];
+      break;
+    default:
+      LOG_ERROR("fill_frame: unsupported format, " +
+                std::to_string(frame->format));
+      return -1;
+    }
+    return 0;
+  }
+};
+
+} // namespace
+
+extern "C" FFmpegRamEncoder *
 ffmpeg_ram_new_encoder(const char *name, int width, int height, int pixfmt,
                        int align, int bit_rate, int time_base_num,
                        int time_base_den, int gop, int quality, int rc,
                        int thread_count, int gpu, int *linesize, int *offset,
                        int *length, RamEncodeCallback callback) {
-  const AVCodec *codec = NULL;
-  AVCodecContext *c = NULL;
-  AVFrame *frame = NULL;
-  AVPacket *pkt = NULL;
-  Encoder *encoder = NULL;
-  int ret;
-
-  if (!(codec = avcodec_find_encoder_by_name(name))) {
-    LOG_ERROR("Codec" + name + " not found");
-    goto _exit;
-  }
-
-  if (!(c = avcodec_alloc_context3(codec))) {
-    LOG_ERROR("Could not allocate video codec context");
-    goto _exit;
-  }
-
-  if (!(frame = av_frame_alloc())) {
-    LOG_ERROR("Could not allocate video frame");
-    goto _exit;
-  }
-  frame->format = pixfmt;
-  frame->width = width;
-  frame->height = height;
-
-  if ((ret = av_frame_get_buffer(frame, align)) < 0) {
-    LOG_ERROR("av_frame_get_buffer failed, ret = " + std::to_string((ret)));
-    goto _exit;
-  }
-
-  if (!(pkt = av_packet_alloc())) {
-    LOG_ERROR("Could not allocate video packet");
-    goto _exit;
-  }
-  if ((ret = av_new_packet(pkt, av_image_get_buffer_size(
-                                    (AVPixelFormat)frame->format, frame->width,
-                                    frame->height, align))) < 0) {
-    LOG_ERROR("av_new_packet failed, ret = " + std::to_string((ret)));
-    goto _exit;
-  }
-
-  /* resolution must be a multiple of two */
-  c->width = width;
-  c->height = height;
-  c->pix_fmt = (AVPixelFormat)pixfmt;
-  c->has_b_frames = 0;
-  c->max_b_frames = 0;
-  c->gop_size = gop;
-  /* put sample parameters */
-  // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-  if (bit_rate >= 1000) {
-    c->bit_rate = bit_rate;
-    if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
-      c->rc_max_rate = bit_rate;
+  FFmpegRamEncoder *encoder = NULL;
+  try {
+    encoder = new FFmpegRamEncoder(name, width, height, pixfmt, align, bit_rate,
+                                   time_base_num, time_base_den, gop, quality,
+                                   rc, thread_count, gpu, callback);
+    if (encoder) {
+      if (encoder->init(linesize, offset, length)) {
+        return encoder;
+      }
     }
+  } catch (const std::exception &e) {
+    LOG_ERROR("new FFmpegRamEncoder failed, " + std::string(e.what()));
   }
-  /* frames per second */
-  c->time_base = av_make_q(time_base_num, time_base_den);
-  c->framerate = av_inv_q(c->time_base);
-  c->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
-  c->flags |= AV_CODEC_FLAG_LOW_DELAY;
-  c->thread_count = thread_count;
-  c->thread_type = FF_THREAD_SLICE;
-
-  // https://github.com/obsproject/obs-studio/blob/3cc7dc0e7cf8b01081dc23e432115f7efd0c8877/plugins/obs-ffmpeg/obs-ffmpeg-mux.c#L160
-  c->color_range = AVCOL_RANGE_MPEG;
-  c->colorspace = AVCOL_SPC_SMPTE170M;
-  c->color_primaries = AVCOL_PRI_SMPTE170M;
-  c->color_trc = AVCOL_TRC_SMPTE170M;
-
-  if (set_lantency_free(c->priv_data, name) < 0) {
-    goto _exit;
+  if (encoder) {
+    encoder->free_encoder();
+    delete encoder;
+    encoder = NULL;
   }
-  set_quality(c->priv_data, name, quality);
-  set_rate_control(c->priv_data, name, rc);
-  set_gpu(c->priv_data, name, gpu);
-
-  if ((ret = avcodec_open2(c, codec, NULL)) < 0) {
-    LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)));
-    goto _exit;
-  }
-
-  if (!(encoder = (Encoder *)calloc(1, sizeof(Encoder)))) {
-    LOG_ERROR("calloc failed");
-    goto _exit;
-  }
-  encoder->c = c;
-  encoder->frame = frame;
-  encoder->pkt = pkt;
-  encoder->callback = callback;
-  encoder->first_ms = 0;
-  snprintf(encoder->name, sizeof(encoder->name), "%s", name);
-#ifdef CFG_PKG_TRACE
-  encoder->in = 0;
-  encoder->out = 0;
-#endif
-
-  if (ffmpeg_ram_get_linesize_offset_length(pixfmt, width, height, align, NULL,
-                                            encoder->offset, length) != 0)
-    goto _exit;
-
-  for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
-    linesize[i] = frame->linesize[i];
-    offset[i] = encoder->offset[i];
-  }
-
-  return encoder;
-
-_exit:
-  if (encoder)
-    free(encoder);
-  if (pkt)
-    av_packet_free(&pkt);
-  if (frame)
-    av_frame_free(&frame);
-  if (c)
-    avcodec_free_context(&c);
   return NULL;
 }
 
-static int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
-                      const int *const offset) {
-  switch (frame->format) {
-  case AV_PIX_FMT_NV12:
-    if (data_length <
-        frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
-      LOG_ERROR("fill_frame: NV12 data length error. data_length:" +
-                std::to_string(data_length) +
-                ", linesize[0]:" + std::to_string(frame->linesize[0]) +
-                ", linesize[1]:" + std::to_string(frame->linesize[1]));
-      return -1;
-    }
-    frame->data[0] = data;
-    frame->data[1] = data + offset[0];
-    break;
-  case AV_PIX_FMT_YUV420P:
-    if (data_length <
-        frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
-                         frame->linesize[2] / 2)) {
-      LOG_ERROR("fill_frame: 420P data length error. data_length:" +
-                std::to_string(data_length) +
-                ", linesize[0]:" + std::to_string(frame->linesize[0]) +
-                ", linesize[1]:" + std::to_string(frame->linesize[1]) +
-                ", linesize[2]:" + std::to_string(frame->linesize[2]));
-      return -1;
-    }
-    frame->data[0] = data;
-    frame->data[1] = data + offset[0];
-    frame->data[2] = data + offset[1];
-    break;
-  default:
-    LOG_ERROR("fill_frame: unsupported format, " +
-              std::to_string(frame->format));
-    return -1;
-  }
-  return 0;
-}
-
-static int do_encode(Encoder *encoder, AVFrame *frame, const void *obj,
-                     int64_t ms) {
-  int ret;
-  bool encoded = false;
-  AVPacket *pkt = encoder->pkt;
-
-  if ((ret = avcodec_send_frame(encoder->c, frame)) < 0) {
-    LOG_ERROR("avcodec_send_frame failed, ret = " + std::to_string((ret)));
-    return ret;
-  }
-
-  while (ret >= 0) {
-    if ((ret = avcodec_receive_packet(encoder->c, pkt)) < 0) {
-      if (ret != AVERROR(EAGAIN)) {
-        LOG_ERROR("avcodec_receive_packet failed, ret = " +
-                  std::to_string((ret)));
-      }
-      goto _exit;
-    }
-    encoded = true;
-#ifdef CFG_PKG_TRACE
-    encoder->out++;
-    LOG_DEBUG("delay EO: in:" + encoder->in + " out:" + encoder->out);
-#endif
-    if (encoder->first_ms == 0)
-      encoder->first_ms = ms;
-    encoder->callback(pkt->data, pkt->size, ms - encoder->first_ms,
-                      pkt->flags & AV_PKT_FLAG_KEY, obj);
-  }
-_exit:
-  av_packet_unref(pkt);
-  return encoded ? 0 : -1;
-}
-
-extern "C" int ffmpeg_ram_encode(Encoder *encoder, const uint8_t *data,
+extern "C" int ffmpeg_ram_encode(FFmpegRamEncoder *encoder, const uint8_t *data,
                                  int length, const void *obj, uint64_t ms) {
-  int ret;
-
-#ifdef CFG_PKG_TRACE
-  encoder->in++;
-  LOG_DEBUG("delay EI: in:" + encoder->in + " out:" + encoder->out);
-#endif
-  if ((ret = av_frame_make_writable(encoder->frame)) != 0) {
-    LOG_ERROR("av_frame_make_writable failed, ret = " + std::to_string((ret)));
-    return ret;
+  try {
+    return encoder->encode(data, length, obj, ms);
+  } catch (const std::exception &e) {
+    LOG_ERROR("ffmpeg_ram_encode failed, " + std::string(e.what()));
   }
-  if ((ret = fill_frame(encoder->frame, (uint8_t *)data, length,
-                        encoder->offset)) != 0)
-    return ret;
-
-  return do_encode(encoder, encoder->frame, obj, ms);
+  return -1;
 }
 
-extern "C" void ffmpeg_ram_free_encoder(Encoder *encoder) {
-  if (!encoder)
-    return;
-  if (encoder->pkt)
-    av_packet_free(&encoder->pkt);
-  if (encoder->frame)
-    av_frame_free(&encoder->frame);
-  if (encoder->c)
-    avcodec_free_context(&encoder->c);
+extern "C" void ffmpeg_ram_free_encoder(FFmpegRamEncoder *encoder) {
+
+  try {
+    if (!encoder)
+      return;
+    encoder->free_encoder();
+  } catch (const std::exception &e) {
+    LOG_ERROR("ffmpeg_ram_free_encoder failed, " + std::string(e.what()));
+  }
 }
 
-extern "C" int ffmpeg_ram_set_bitrate(Encoder *encoder, int bitrate) {
-  const char *name = encoder->name;
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0 ||
-      strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    encoder->c->bit_rate = bitrate;
-    return 0;
+extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int bitrate) {
+  try {
+    return encoder->set_bitrate(bitrate);
+  } catch (const std::exception &e) {
+    LOG_ERROR("ffmpeg_ram_set_bitrate failed, " + std::string(e.what()));
   }
-  LOG_ERROR("ffmpeg_ram_set_bitrate " + name +
-            " does not implement bitrate change");
   return -1;
 }

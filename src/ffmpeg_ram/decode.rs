@@ -11,7 +11,7 @@ use crate::{
     },
 };
 use core::slice;
-use log::error;
+use log::{error, trace};
 use std::{
     ffi::{c_void, CString},
     os::raw::c_int,
@@ -342,10 +342,9 @@ impl Decoder {
 impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
-            error!("before Decoder dropped");
             ffmpeg_ram_free_decoder(self.codec.as_mut());
             let _ = Box::from_raw(self.frames);
-            error!("after Decoder dropped");
+            trace!("Decoder dropped");
         }
     }
 }
