@@ -18,7 +18,7 @@ fn main() {
     link_ffmpeg(&mut builder);
     build_common(&mut builder);
     build_ffmpeg_ram(&mut builder);
-    #[cfg(feature = "sdk")]
+    #[cfg(target_os = "windows")]
     sdk::build_sdk(&mut builder);
     build_mux(&mut builder);
 
@@ -145,7 +145,7 @@ impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
     }
 }
 
-#[cfg(feature = "sdk")]
+#[cfg(target_os = "windows")]
 mod sdk {
     use super::*;
 

@@ -2,7 +2,7 @@ pub mod common;
 pub mod ffmpeg;
 pub mod ffmpeg_ram;
 pub mod mux;
-#[cfg(feature = "sdk")]
+#[cfg(target_os = "windows")]
 pub mod native;
 
 #[no_mangle]
