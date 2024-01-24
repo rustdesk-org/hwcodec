@@ -1,0 +1,4 @@
+[submodule "libs/ffmpeg"]
+	path = deps
+	url = https://github.com/21pages/deps.git
+	branch = lib

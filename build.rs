@@ -10,7 +10,7 @@ fn main() {
     let externals_dir = manifest_dir.join("externals");
     let cpp_dir = manifest_dir.join("cpp");
     println!("cargo:rerun-if-changed=src");
-    println!("cargo:rerun-if-changed=ffmpeg");
+    println!("cargo:rerun-if-changed=deps");
     println!("cargo:rerun-if-changed={}", externals_dir.display());
     println!("cargo:rerun-if-changed={}", cpp_dir.display());
     let mut builder = Build::new();
@@ -42,22 +42,22 @@ fn link_ffmpeg(builder: &mut Build) {
 
     #[cfg(target_os = "windows")]
     {
-        println!("cargo:rustc-link-search=native=ffmpeg/windows/release/lib");
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/windows-x86_64/lib");
         let static_libs = ["avcodec", "avfilter", "avutil", "avformat", "avdevice"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
         let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-        builder.include("ffmpeg/windows/release/include");
+        builder.include("deps/ffmpeg/windows-x86_64/include");
     }
 
     #[cfg(target_os = "linux")]
     {
-        println!("cargo:rustc-link-search=native=ffmpeg/linux/release/lib");
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/linux-x86_64/lib");
         let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
         let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-        builder.include("ffmpeg/linux/release/include");
+        builder.include("deps/ffmpeg/linux-x86_64/include");
     }
 }
 
