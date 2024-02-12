@@ -1,4 +1,3 @@
-// use bindgen::callbacks::DeriveInfo;
 use cc::Build;
 use std::{
     env,
@@ -42,12 +41,20 @@ fn link_ffmpeg(builder: &mut Build) {
 
     #[cfg(target_os = "windows")]
     {
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/windows-x86_64/lib");
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        let arch_dir = if target_arch == "x86_64" {
+            "windows-x86_64"
+        } else if target_arch == "x86" {
+            "windows-i686"
+        } else {
+            panic!("unsupported target_arch: {target_arch}");
+        };
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
         let static_libs = ["avcodec", "avfilter", "avutil", "avformat", "avdevice"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
         let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-        builder.include("deps/ffmpeg/windows-x86_64/include");
+        builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
     }
 
     #[cfg(target_os = "linux")]
@@ -150,6 +157,15 @@ mod sdk {
     use super::*;
 
     pub(crate) fn build_sdk(builder: &mut Build) {
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        let arch_dir = if target_arch == "x86_64" {
+            "windows-x86_64"
+        } else if target_arch == "x86" {
+            "windows-i686"
+        } else {
+            panic!("unsupported target_arch: {target_arch}");
+        };
+        println!("cargo:rustc-link-search=native=deps/sdk/{arch_dir}");
         build_amf(builder);
         build_nv(builder);
         build_vpl(builder);
@@ -189,6 +205,7 @@ mod sdk {
         builder.include(ffnvcodec_path);
 
         // video codc sdk
+        println!("cargo:rustc-link-lib=static=video_codec_sdk");
         let sdk_path = externals_dir.join("Video_Codec_SDK_11.1.5");
         builder.includes([
             sdk_path.clone(),
@@ -198,24 +215,6 @@ mod sdk {
             sdk_path.join("Samples").join("NvCodec").join("NVEncoder"),
             sdk_path.join("Samples").join("NvCodec").join("NVDecoder"),
         ]);
-        for file in vec!["NvEncoder.cpp", "NvEncoderCuda.cpp", "NvEncoderD3D11.cpp"] {
-            builder.file(
-                sdk_path
-                    .join("Samples")
-                    .join("NvCodec")
-                    .join("NvEncoder")
-                    .join(file),
-            );
-        }
-        for file in vec!["NvDecoder.cpp"] {
-            builder.file(
-                sdk_path
-                    .join("Samples")
-                    .join("NvCodec")
-                    .join("NvDecoder")
-                    .join(file),
-            );
-        }
 
         // crate
         builder.files(["nv_encode.cpp", "nv_decode.cpp"].map(|f| nv_dir.join(f)));
@@ -242,21 +241,10 @@ mod sdk {
         println!("cargo:rustc-link-lib=stdc++");
 
         // amf
+        println!("cargo:rustc-link-lib=static=amf");
         let amf_path = externals_dir.join("AMF_v1.4.29");
         builder.include(format!("{}/amf/public/common", amf_path.display()));
         builder.include(amf_path.join("amf"));
-        for f in vec![
-            "AMFFactory.cpp",
-            "AMFSTL.cpp",
-            "Thread.cpp",
-            #[cfg(windows)]
-            "Windows/ThreadWindows.cpp",
-            #[cfg(target_os = "linux")]
-            "Linux/ThreadLinux.cpp",
-            "TraceAdapter.cpp",
-        ] {
-            builder.file(format!("{}/amf/public/common/{}", amf_path.display(), f));
-        }
 
         // crate
         builder.files(["amf_encode.cpp", "amf_decode.cpp"].map(|f| amf_dir.join(f)));
@@ -279,72 +267,19 @@ mod sdk {
         let sdk_path = externals_dir.join("libvpl_v2023.4.0");
 
         // libvpl
+        println!("cargo:rustc-link-lib=static=vpl");
         let libvpl_path = sdk_path.join("libvpl");
         let api_path = sdk_path.join("api");
         let legacy_tool_path = sdk_path.join("tools").join("legacy");
         let samples_common_path = legacy_tool_path.join("sample_common");
 
-        builder
-            .includes([
-                &libvpl_path,
-                &api_path,
-                &samples_common_path.join("include"),
-                &samples_common_path.join("include").join("vm"),
-                &legacy_tool_path.join("media_sdk_compatibility_headers"),
-            ])
-            .files(
-                [
-                    "mfx_dispatcher_vpl.cpp",
-                    "mfx_dispatcher_vpl_config.cpp",
-                    "mfx_dispatcher_vpl_loader.cpp",
-                    "mfx_dispatcher_vpl_log.cpp",
-                    "mfx_dispatcher_vpl_lowlatency.cpp",
-                    "mfx_dispatcher_vpl_msdk.cpp",
-                ]
-                .map(|f| libvpl_path.join("src").join(f)),
-            )
-            .files(
-                [
-                    "mfx_dispatcher_main.cpp",
-                    "mfx_critical_section.cpp",
-                    "mfx_dispatcher.cpp",
-                    "mfx_dispatcher_log.cpp",
-                    "mfx_driver_store_loader.cpp",
-                    "mfx_dxva2_device.cpp",
-                    "mfx_function_table.cpp",
-                    "mfx_library_iterator.cpp",
-                    "mfx_load_dll.cpp",
-                    "mfx_win_reg_key.cpp",
-                ]
-                .map(|f| libvpl_path.join("src").join("windows").join(f)),
-            )
-            .files(
-                [
-                    "mfx_config_interface.cpp",
-                    "mfx_config_interface_string_api.cpp",
-                ]
-                .map(|f| libvpl_path.join("src").join("mfx_config_interface").join(f)),
-            )
-            .files(
-                [
-                    "sample_utils.cpp",
-                    "base_allocator.cpp",
-                    "d3d11_allocator.cpp",
-                    "avc_bitstream.cpp",
-                    "avc_spl.cpp",
-                    "avc_nal_spl.cpp",
-                ]
-                .map(|f| samples_common_path.join("src").join(f)),
-            )
-            .files(
-                [
-                    "time.cpp",
-                    "atomic.cpp",
-                    "shared_object.cpp",
-                    "thread_windows.cpp",
-                ]
-                .map(|f| samples_common_path.join("src").join("vm").join(f)),
-            );
+        builder.includes([
+            &libvpl_path,
+            &api_path,
+            &samples_common_path.join("include"),
+            &samples_common_path.join("include").join("vm"),
+            &legacy_tool_path.join("media_sdk_compatibility_headers"),
+        ]);
 
         // link
         [
