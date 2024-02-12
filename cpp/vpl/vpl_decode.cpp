@@ -184,8 +184,8 @@ public:
         LOG_INFO("Device busy");
         Sleep(1);
         continue;
-      } else if (MFX_ERR_INCOMPATIBLE_VIDEO_PARAM == sts ||
-                 MFX_WRN_VIDEO_PARAM_CHANGED == sts) {
+      } else if (MFX_ERR_INCOMPATIBLE_VIDEO_PARAM == sts) {
+        // https://github.com/Intel-Media-SDK/MediaSDK/blob/master/doc/mediasdk-man.md#multiple-sequence-headers
         LOG_INFO("Incompatible video param, reset decoder");
         // https://github.com/FFmpeg/FFmpeg/blob/f84412d6f4e9c1f1d1a2491f9337d7e789c688ba/libavcodec/qsvdec.c#L736
         setBitStream(&mfxBS, data, len);
@@ -195,6 +195,13 @@ public:
           break;
         }
         Sleep(1);
+        continue;
+      } else if (MFX_WRN_VIDEO_PARAM_CHANGED == sts) {
+        LOG_TRACE("new sequence header");
+        sts = mfxDEC_->GetVideoParam(&mfxVideoParams_);
+        if (sts != MFX_ERR_NONE) {
+          LOG_ERROR("GetVideoParam failed, sts=" + std::to_string((int)sts));
+        }
         continue;
       } else if (MFX_ERR_MORE_SURFACE == sts) {
         LOG_INFO("More surface");
