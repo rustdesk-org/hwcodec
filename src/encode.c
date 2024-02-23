@@ -467,6 +467,7 @@ void hwcodec_free_encoder(Encoder *encoder) {
   if (encoder->pkt) av_packet_free(&encoder->pkt);
   if (encoder->frame) av_frame_free(&encoder->frame);
   if (encoder->c) avcodec_free_context(&encoder->c);
+  free(encoder);
 }
 
 int hwcodec_set_bitrate(Encoder *encoder, int bitrate) {

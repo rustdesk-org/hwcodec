@@ -41,7 +41,7 @@ typedef struct Decoder {
 #endif
 } Decoder;
 
-void hwcodec_free_decoder(Decoder *decoder) {
+static void free_decoder(Decoder *decoder) {
   if (!decoder) return;
   if (decoder->frame) av_frame_free(&decoder->frame);
   if (decoder->pkt) av_packet_free(&decoder->pkt);
@@ -62,9 +62,16 @@ void hwcodec_free_decoder(Decoder *decoder) {
   decoder->ready_decode = false;
 }
 
+void hwcodec_free_decoder(Decoder *decoder) {
+  if (decoder) {
+    free_decoder(decoder);
+    free(decoder);
+  }
+}
+
 static int reset(Decoder *d) {
   if (d)
-    hwcodec_free_decoder(d);
+    free_decoder(d);
   else
     return -1;
 

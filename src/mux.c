@@ -144,4 +144,5 @@ void hwcodec_free_muxer(Muxer *muxer) {
   if (oc && oc->pb && !(oc->oformat->flags & AVFMT_NOFILE))
     avio_closep(&oc->pb);
   avformat_free_context(oc);
+  free(muxer);
 }

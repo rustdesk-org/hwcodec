@@ -19,7 +19,7 @@ pub struct MuxContext {
 }
 
 pub struct Muxer {
-    inner: Box<c_void>,
+    inner: *mut c_void,
     pub ctx: MuxContext,
     start: Instant,
 }
@@ -44,7 +44,7 @@ impl Muxer {
             }
 
             Ok(Muxer {
-                inner: Box::from_raw(inner as *mut c_void),
+                inner,
                 ctx,
                 start: Instant::now(),
             })
@@ -54,7 +54,7 @@ impl Muxer {
     pub fn write_video(&mut self, data: &[u8], key: bool) -> Result<(), i32> {
         unsafe {
             let result = hwcodec_write_video_frame(
-                &mut *self.inner,
+                self.inner,
                 (*data).as_ptr(),
                 data.len() as _,
                 self.start.elapsed().as_millis() as _,
@@ -72,7 +72,7 @@ impl Muxer {
 
     pub fn write_tail(&mut self) -> Result<(), i32> {
         unsafe {
-            let result = hwcodec_write_tail(&mut *self.inner);
+            let result = hwcodec_write_tail(self.inner);
             if result != 0 {
                 if av_log_get_level() >= AV_LOG_ERROR as _ {
                     error!("Error write_tail: {}", result);
@@ -87,7 +87,7 @@ impl Muxer {
 impl Drop for Muxer {
     fn drop(&mut self) {
         unsafe {
-            hwcodec_free_muxer(self.inner.as_mut());
+            hwcodec_free_muxer(self.inner);
             trace!("Muxer dropped");
         }
     }
