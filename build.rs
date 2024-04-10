@@ -70,7 +70,7 @@ fn link_ffmpeg(builder: &mut Build) {
         println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
         let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-        let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z"];
+        let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z", "stdc++"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
         builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
     }

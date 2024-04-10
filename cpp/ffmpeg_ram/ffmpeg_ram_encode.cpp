@@ -304,7 +304,7 @@ public:
     int ret;
 
     if (!(codec = avcodec_find_encoder_by_name(name_))) {
-      LOG_ERROR("Codec" + name_ + " not found");
+      LOG_ERROR("Codec " + name_ + " not found");
       return false;
     }
 
