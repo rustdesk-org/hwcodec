@@ -59,12 +59,20 @@ fn link_ffmpeg(builder: &mut Build) {
 
     #[cfg(target_os = "linux")]
     {
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/linux-x86_64/lib");
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        let arch_dir = if target_arch == "x86_64" {
+            "linux-x86_64"
+        } else if target_arch == "aarch64" {
+            "linux-aarch64"
+        } else {
+            "linux-armv7"
+        };
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
         let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
         static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
         let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z"];
         dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-        builder.include("deps/ffmpeg/linux-x86_64/include");
+        builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
     }
 }
 
