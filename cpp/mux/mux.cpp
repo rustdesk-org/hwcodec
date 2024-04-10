@@ -87,6 +87,8 @@ public:
     this->start_ms = 0;
     this->last_pts = 0;
     this->got_first = 0;
+
+    return true;
   }
 
   int write_video_frame(const uint8_t *data, int len, int64_t pts_ms, int key) {
