@@ -21,7 +21,7 @@ fn main() {
     sdk::build_sdk(&mut builder);
     build_mux(&mut builder);
 
-    builder.compile("hwcodec");
+    builder.static_crt(true).compile("hwcodec");
 }
 
 fn link_ffmpeg(builder: &mut Build) {
