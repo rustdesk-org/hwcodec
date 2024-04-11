@@ -51,6 +51,12 @@ fn build_common(builder: &mut Build) {
         builder.include(&win_path);
         builder.file(win_path.join("win.cpp"));
     }
+    #[cfg(target_os = "linux")]
+    {
+        let linux_path = _platform_path.join("linux");
+        builder.include(&linux_path);
+        builder.file(linux_path.join("linux.cpp"));
+    }
 
     // tool
     builder.files(["log.cpp", "utils.c", "data.c"].map(|f| common_dir.join(f)));

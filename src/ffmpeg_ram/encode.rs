@@ -172,17 +172,7 @@ impl Encoder {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
-        #[allow(unused_mut)]
-        #[allow(unused_assignments)]
-        #[allow(unused_variables)]
-        let (mut nv, mut amf, mut vpl) = (true, true, true);
-        #[cfg(feature = "sdk")]
-        #[allow(unused_assignments)]
-        unsafe {
-            nv = crate::native::nv::nv_encode_driver_support() == 0;
-            amf = crate::native::amf::amf_driver_support() == 0;
-            vpl = crate::native::vpl::vpl_driver_support() == 0;
-        }
+        let (nv, amf, _vpl) = crate::common::supported_gpu(true);
         let mut codecs = vec![];
         if nv {
             codecs.push(CodecInfo {
@@ -214,7 +204,7 @@ impl Encoder {
         }
         #[cfg(target_os = "linux")]
         {
-            if vpl {
+            if _vpl {
                 codecs.push(CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,

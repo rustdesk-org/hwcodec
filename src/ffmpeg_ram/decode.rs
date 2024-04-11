@@ -180,15 +180,7 @@ impl Decoder {
             av_log_set_level(AV_LOG_PANIC as _);
         };
 
-        #[allow(unused_mut)]
-        #[allow(unused_assignments)]
-        #[allow(unused_variables)]
-        let mut nv = true;
-        #[cfg(feature = "sdk")]
-        #[allow(unused_assignments)]
-        unsafe {
-            nv = crate::native::nv::nv_decode_driver_support() == 0;
-        }
+        let (nv, _, _) = crate::common::supported_gpu(false);
         let mut codecs = vec![];
         if nv {
             codecs.push(CodecInfo {
