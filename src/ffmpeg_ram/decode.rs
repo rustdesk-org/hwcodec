@@ -180,21 +180,30 @@ impl Decoder {
             av_log_set_level(AV_LOG_PANIC as _);
         };
 
-        // TODO
-        let mut codecs = vec![
-            CodecInfo {
+        #[allow(unused_mut)]
+        #[allow(unused_assignments)]
+        #[allow(unused_variables)]
+        let mut nv = true;
+        #[cfg(feature = "sdk")]
+        #[allow(unused_assignments)]
+        unsafe {
+            nv = crate::native::nv::nv_decode_driver_support() == 0;
+        }
+        let mut codecs = vec![];
+        if nv {
+            codecs.push(CodecInfo {
                 name: "h264".to_owned(),
                 format: H264,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 94,
-            },
-            CodecInfo {
+            });
+            codecs.push(CodecInfo {
                 name: "hevc".to_owned(),
                 format: H265,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                score: 95, // not tested
-            },
-        ];
+                score: 95,
+            });
+        }
 
         #[cfg(target_os = "windows")]
         {
@@ -221,7 +230,7 @@ impl Decoder {
                     name: "h264".to_owned(),
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
-                    score: 70, // assume slow
+                    score: 70,
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),

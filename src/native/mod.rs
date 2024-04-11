@@ -1,9 +1,9 @@
-mod amf;
+pub(crate) mod amf;
 pub mod decode;
 pub mod encode;
 mod inner;
-mod nv;
-mod vpl;
+pub(crate) mod nv;
+pub(crate) mod vpl;
 
 pub(crate) const MAX_ADATER_NUM_ONE_VENDER: usize = 4;
 

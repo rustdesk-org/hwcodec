@@ -166,58 +166,68 @@ impl Encoder {
         }
     }
 
-    // TODO
     fn available_encoders_(ctx: EncodeContext) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
-        let mut codecs = vec![
-            // 264
-            CodecInfo {
+        #[allow(unused_mut)]
+        #[allow(unused_assignments)]
+        #[allow(unused_variables)]
+        let (mut nv, mut amf, mut vpl) = (true, true, true);
+        #[cfg(feature = "sdk")]
+        #[allow(unused_assignments)]
+        unsafe {
+            nv = crate::native::nv::nv_encode_driver_support() == 0;
+            amf = crate::native::amf::amf_driver_support() == 0;
+            vpl = crate::native::vpl::vpl_driver_support() == 0;
+        }
+        let mut codecs = vec![];
+        if nv {
+            codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
                 score: 92,
                 ..Default::default()
-            },
-            CodecInfo {
-                name: "h264_amf".to_owned(),
-                format: H264,
-                score: 92,
-                ..Default::default()
-            },
-            // 265
-            CodecInfo {
+            });
+            codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
                 score: 94,
                 ..Default::default()
-            },
-            CodecInfo {
+            });
+        }
+        if amf {
+            codecs.push(CodecInfo {
+                name: "h264_amf".to_owned(),
+                format: H264,
+                score: 92,
+                ..Default::default()
+            });
+            codecs.push(CodecInfo {
                 name: "hevc_amf".to_owned(),
                 format: H265,
                 score: 94,
                 ..Default::default()
-            },
-        ];
-
+            });
+        }
         #[cfg(target_os = "linux")]
         {
-            codecs.append(&mut vec![
-                CodecInfo {
+            if vpl {
+                codecs.push(CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,
                     score: 90,
                     ..Default::default()
-                },
-                CodecInfo {
+                });
+                codecs.push(CodecInfo {
                     name: "hevc_qsv".to_owned(),
                     format: H265,
                     score: 90,
                     ..Default::default()
-                },
-            ])
+                });
+            }
         }
 
         // qsv doesn't support yuv420p
