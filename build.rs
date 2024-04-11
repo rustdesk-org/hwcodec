@@ -53,6 +53,15 @@ fn build_common(builder: &mut Build) {
     }
     #[cfg(target_os = "linux")]
     {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let externals_dir = manifest_dir.join("externals");
+        // ffnvcodec
+        let ffnvcodec_path = externals_dir
+            .join("nv-codec-headers_n11.1.5.2")
+            .join("include")
+            .join("ffnvcodec");
+        builder.include(ffnvcodec_path);
+
         let linux_path = _platform_path.join("linux");
         builder.include(&linux_path);
         builder.file(linux_path.join("linux.cpp"));
