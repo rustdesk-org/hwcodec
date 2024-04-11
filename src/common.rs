@@ -17,7 +17,7 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
 
     #[allow(unused_unsafe)]
     unsafe {
-        #[cfg(feature = "sdk")]
+        #[cfg(all(windows, feature = "vram"))]
         return (
             _encode && crate::native::nv::nv_encode_driver_support() == 0
                 || !_encode && crate::native::nv::nv_decode_driver_support() == 0,

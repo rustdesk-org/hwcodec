@@ -17,7 +17,7 @@ fn main() {
     build_common(&mut builder);
     #[cfg(feature = "ffmpeg")]
     ffmpeg::build_ffmpeg(&mut builder);
-    #[cfg(feature = "sdk")]
+    #[cfg(all(windows, feature = "vram"))]
     sdk::build_sdk(&mut builder);
     builder.static_crt(true).compile("hwcodec");
 }
@@ -201,7 +201,7 @@ mod ffmpeg {
     }
 }
 
-#[cfg(feature = "sdk")]
+#[cfg(all(windows, feature = "vram"))]
 mod sdk {
     use super::*;
 

@@ -5,7 +5,7 @@ pub mod ffmpeg;
 pub mod ffmpeg_ram;
 #[cfg(feature = "ffmpeg")]
 pub mod mux;
-#[cfg(feature = "sdk")]
+#[cfg(all(windows, feature = "vram"))]
 pub mod native;
 
 #[no_mangle]

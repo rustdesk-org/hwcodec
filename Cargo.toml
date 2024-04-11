@@ -7,7 +7,7 @@ edition = "2021"
 
 [features]
 ffmpeg = []
-sdk = []
+vram = []
 
 [dependencies]
 log = "0.4"
