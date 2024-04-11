@@ -14,100 +14,12 @@ fn main() {
     println!("cargo:rerun-if-changed={}", cpp_dir.display());
     let mut builder = Build::new();
 
-    link_ffmpeg(&mut builder);
     build_common(&mut builder);
-    build_ffmpeg_ram(&mut builder);
-    #[cfg(target_os = "windows")]
+    #[cfg(feature = "ffmpeg")]
+    ffmpeg::build_ffmpeg(&mut builder);
+    #[cfg(feature = "sdk")]
     sdk::build_sdk(&mut builder);
-    build_mux(&mut builder);
-
     builder.static_crt(true).compile("hwcodec");
-}
-
-fn link_ffmpeg(builder: &mut Build) {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ffmpeg_ram_dir = manifest_dir.join("cpp").join("common");
-    let ffi_header = ffmpeg_ram_dir
-        .join("ffmpeg_ffi.h")
-        .to_string_lossy()
-        .to_string();
-    bindgen::builder()
-        .header(ffi_header)
-        .rustified_enum("*")
-        .generate()
-        .unwrap()
-        .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ffi.rs"))
-        .unwrap();
-
-    #[cfg(target_os = "windows")]
-    {
-        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-        let arch_dir = if target_arch == "x86_64" {
-            "windows-x86_64"
-        } else if target_arch == "x86" {
-            "windows-i686"
-        } else {
-            panic!("unsupported target_arch: {target_arch}");
-        };
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-        let static_libs = ["avcodec", "avfilter", "avutil", "avformat", "avdevice"];
-        static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-        let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
-        dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-        builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-        let arch_dir = if target_arch == "x86_64" {
-            "linux-x86_64"
-        } else if target_arch == "aarch64" {
-            "linux-aarch64"
-        } else {
-            "linux-armv7"
-        };
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-        let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
-        static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-        let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z", "stdc++"];
-        dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-        builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
-    }
-}
-
-fn build_ffmpeg_ram(builder: &mut Build) {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let ffmpeg_ram_dir = manifest_dir.join("cpp").join("ffmpeg_ram");
-    let ffi_header = ffmpeg_ram_dir
-        .join("ffmpeg_ram_ffi.h")
-        .to_string_lossy()
-        .to_string();
-    bindgen::builder()
-        .header(ffi_header)
-        .rustified_enum("*")
-        .generate()
-        .unwrap()
-        .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ram_ffi.rs"))
-        .unwrap();
-
-    builder
-        .files(["ffmpeg_ram_encode.cpp", "ffmpeg_ram_decode.cpp"].map(|f| ffmpeg_ram_dir.join(f)));
-}
-
-fn build_mux(builder: &mut Build) {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let mux_dir = manifest_dir.join("cpp").join("mux");
-    let mux_header = mux_dir.join("mux_ffi.h").to_string_lossy().to_string();
-    bindgen::builder()
-        .header(mux_header)
-        .rustified_enum("*")
-        .generate()
-        .unwrap()
-        .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("mux_ffi.rs"))
-        .unwrap();
-
-    builder.files(["mux.cpp"].map(|f| mux_dir.join(f)));
 }
 
 fn build_common(builder: &mut Build) {
@@ -160,11 +72,135 @@ impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
     }
 }
 
-#[cfg(target_os = "windows")]
+fn get_ffmpeg_arch() -> String {
+    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    #[cfg(target_os = "windows")]
+    {
+        let arch_dir = if target_arch == "x86_64" {
+            "windows-x86_64"
+        } else if target_arch == "x86" {
+            "windows-i686"
+        } else {
+            panic!("unsupported target_arch: {target_arch}");
+        };
+        return arch_dir.to_string();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let arch_dir = if target_arch == "x86_64" {
+            "linux-x86_64"
+        } else if target_arch == "aarch64" {
+            "linux-aarch64"
+        } else {
+            "linux-armv7"
+        };
+        return arch_dir.to_string();
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        panic!("unsupported os");
+    }
+}
+
+#[cfg(feature = "ffmpeg")]
+mod ffmpeg {
+    use super::*;
+
+    pub fn build_ffmpeg(builder: &mut Build) {
+        link_ffmpeg(builder);
+        build_ffmpeg_ram(builder);
+        build_mux(builder);
+    }
+
+    fn link_ffmpeg(builder: &mut Build) {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let ffmpeg_ram_dir = manifest_dir.join("cpp").join("common");
+        let ffi_header = ffmpeg_ram_dir
+            .join("ffmpeg_ffi.h")
+            .to_string_lossy()
+            .to_string();
+        bindgen::builder()
+            .header(ffi_header)
+            .rustified_enum("*")
+            .generate()
+            .unwrap()
+            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ffi.rs"))
+            .unwrap();
+
+        let arch_dir = get_ffmpeg_arch();
+        #[cfg(target_os = "windows")]
+        {
+            println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
+            let static_libs = ["avcodec", "avfilter", "avutil", "avformat", "avdevice"];
+            static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
+            let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
+            dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
+            builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
+            let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
+            static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
+            let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z", "stdc++"];
+            dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
+            builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
+        }
+    }
+
+    fn build_ffmpeg_ram(builder: &mut Build) {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let ffmpeg_ram_dir = manifest_dir.join("cpp").join("ffmpeg_ram");
+        let ffi_header = ffmpeg_ram_dir
+            .join("ffmpeg_ram_ffi.h")
+            .to_string_lossy()
+            .to_string();
+        bindgen::builder()
+            .header(ffi_header)
+            .rustified_enum("*")
+            .generate()
+            .unwrap()
+            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ram_ffi.rs"))
+            .unwrap();
+
+        builder.files(
+            ["ffmpeg_ram_encode.cpp", "ffmpeg_ram_decode.cpp"].map(|f| ffmpeg_ram_dir.join(f)),
+        );
+    }
+
+    fn build_mux(builder: &mut Build) {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mux_dir = manifest_dir.join("cpp").join("mux");
+        let mux_header = mux_dir.join("mux_ffi.h").to_string_lossy().to_string();
+        bindgen::builder()
+            .header(mux_header)
+            .rustified_enum("*")
+            .generate()
+            .unwrap()
+            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("mux_ffi.rs"))
+            .unwrap();
+
+        builder.files(["mux.cpp"].map(|f| mux_dir.join(f)));
+    }
+}
+
+#[cfg(feature = "sdk")]
 mod sdk {
     use super::*;
 
+    fn include_ffmpeg_header(builder: &mut Build) {
+        let arch_dir = get_ffmpeg_arch();
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        builder.include(format!(
+            "{}/deps/ffmpeg/{arch_dir}/include",
+            manifest_dir.display()
+        ));
+    }
+
     pub(crate) fn build_sdk(builder: &mut Build) {
+        include_ffmpeg_header(builder);
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let arch_dir = if target_arch == "x86_64" {
             "windows-x86_64"
