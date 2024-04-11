@@ -1,11 +1,8 @@
 pub mod common;
-#[cfg(feature = "ffmpeg")]
 pub mod ffmpeg;
-#[cfg(feature = "ffmpeg")]
 pub mod ffmpeg_ram;
-#[cfg(feature = "ffmpeg")]
 pub mod mux;
-#[cfg(feature = "sdk")]
+#[cfg(windows)]
 pub mod native;
 
 #[no_mangle]

@@ -176,7 +176,7 @@ impl Encoder {
         #[allow(unused_assignments)]
         #[allow(unused_variables)]
         let (mut nv, mut amf, mut vpl) = (true, true, true);
-        #[cfg(feature = "sdk")]
+        #[cfg(windows)]
         #[allow(unused_assignments)]
         unsafe {
             nv = crate::native::nv::nv_encode_driver_support() == 0;

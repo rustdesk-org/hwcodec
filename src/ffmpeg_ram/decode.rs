@@ -184,7 +184,7 @@ impl Decoder {
         #[allow(unused_assignments)]
         #[allow(unused_variables)]
         let mut nv = true;
-        #[cfg(feature = "sdk")]
+        #[cfg(windows)]
         #[allow(unused_assignments)]
         unsafe {
             nv = crate::native::nv::nv_decode_driver_support() == 0;

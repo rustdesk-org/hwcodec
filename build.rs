@@ -15,9 +15,7 @@ fn main() {
     let mut builder = Build::new();
 
     build_common(&mut builder);
-    #[cfg(feature = "ffmpeg")]
     ffmpeg::build_ffmpeg(&mut builder);
-    #[cfg(feature = "sdk")]
     sdk::build_sdk(&mut builder);
     builder.static_crt(true).compile("hwcodec");
 }
@@ -103,7 +101,6 @@ fn get_ffmpeg_arch() -> String {
     }
 }
 
-#[cfg(feature = "ffmpeg")]
 mod ffmpeg {
     use super::*;
 
@@ -186,21 +183,11 @@ mod ffmpeg {
     }
 }
 
-#[cfg(feature = "sdk")]
+#[cfg(windows)]
 mod sdk {
     use super::*;
 
-    fn include_ffmpeg_header(builder: &mut Build) {
-        let arch_dir = get_ffmpeg_arch();
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        builder.include(format!(
-            "{}/deps/ffmpeg/{arch_dir}/include",
-            manifest_dir.display()
-        ));
-    }
-
     pub(crate) fn build_sdk(builder: &mut Build) {
-        include_ffmpeg_header(builder);
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let arch_dir = if target_arch == "x86_64" {
             "windows-x86_64"
