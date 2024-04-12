@@ -5,7 +5,7 @@
 include!(concat!(env!("OUT_DIR"), "/nv_ffi.rs"));
 
 use crate::{
-    common::{DataFormat::*, API::*},
+    common::{DataFormat::*, FormatMASK::*, API::*},
     native::inner::{DecodeCalls, EncodeCalls, InnerDecodeContext, InnerEncodeContext},
 };
 
@@ -30,11 +30,19 @@ pub fn decode_calls() -> DecodeCalls {
 }
 
 pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
-    if unsafe { nv_encode_driver_support() } != 0 {
+    let mask = MASK_H264 as i32 | MASK_H265 as i32;
+    let mask = unsafe { nv_encode_driver_support(mask) };
+    if mask < 0 {
         return vec![];
     }
     let devices = vec![API_DX11];
-    let dataFormats = vec![H264, H265];
+    let mut dataFormats = vec![];
+    if mask & MASK_H264 as i32 != 0 {
+        dataFormats.push(H264);
+    }
+    if mask & MASK_H265 as i32 != 0 {
+        dataFormats.push(H265);
+    }
     let mut v = vec![];
     for device in devices.iter() {
         for dataFormat in dataFormats.iter() {
@@ -48,11 +56,19 @@ pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
 }
 
 pub fn possible_support_decoders() -> Vec<InnerDecodeContext> {
-    if unsafe { nv_encode_driver_support() } != 0 {
+    let mask = MASK_H264 as i32 | MASK_H265 as i32;
+    let mask = unsafe { nv_decode_driver_support(mask) };
+    if mask < 0 {
         return vec![];
     }
     let devices = vec![API_DX11];
-    let dataFormats = vec![H264, H265];
+    let mut dataFormats = vec![];
+    if mask & MASK_H264 as i32 != 0 {
+        dataFormats.push(H264);
+    }
+    if mask & MASK_H265 as i32 != 0 {
+        dataFormats.push(H265);
+    }
     let mut v = vec![];
     for device in devices.iter() {
         for dataFormat in dataFormats.iter() {

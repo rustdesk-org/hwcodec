@@ -406,6 +406,44 @@ int amf_decode(void *decoder, uint8_t *data, int32_t length,
   return -1;
 }
 
+int amf_decode_driver_support(int mask) {
+  AMFFactoryHelper factory;
+  amf::AMFContextPtr context = NULL;
+  int ret = -1;
+  try {
+    AMF_RESULT res = factory.Init();
+    if (res == AMF_OK) {
+      ret = 0;
+      if (mask > 0) {
+        amf::AMFComponentPtr compent = NULL;
+        if (factory.GetFactory()->CreateContext(&context) == AMF_OK) {
+          if (mask & MASK_H264) {
+            if (factory.GetFactory()->CreateComponent(
+                    context, AMFVideoDecoderUVD_H264_AVC, &compent) == AMF_OK) {
+              ret |= MASK_H264;
+              compent->Terminate();
+              compent = NULL;
+            }
+          }
+          if (mask & MASK_H265) {
+            if (factory.GetFactory()->CreateComponent(
+                    context, AMFVideoDecoderHW_H265_HEVC, NULL) == AMF_OK) {
+              ret |= MASK_H265;
+              compent->Terminate();
+              compent = NULL;
+            }
+          }
+        }
+      }
+    }
+  } catch (const std::exception &e) {
+  }
+  if (ret >= 0) {
+    factory.Terminate();
+  }
+  return ret;
+}
+
 int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
                     int32_t *outDescNum, API api, DataFormat dataFormat,
                     bool outputSharedHandle, uint8_t *data, int32_t length) {

@@ -1,5 +1,8 @@
 use crate::{
-    common::DataFormat::{self, *},
+    common::{
+        DataFormat::{self, *},
+        FormatMASK::*,
+    },
     ffmpeg::{av_log_get_level, av_log_set_level, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC},
     ffmpeg_ram::{
         ffmpeg_linesize_offset_length, ffmpeg_ram_encode, ffmpeg_ram_free_encoder,
@@ -172,15 +175,17 @@ impl Encoder {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
-        let (nv, amf, _vpl) = crate::common::supported_gpu(true);
+        let (nv, amf, _vpl) = crate::common::query_capabilities(true, H264 as i32 | H265 as i32);
         let mut codecs = vec![];
-        if nv {
+        if nv > 0 && (nv & MASK_H264 as i32 != 0) {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
                 score: 92,
                 ..Default::default()
             });
+        }
+        if nv > 0 && (nv & MASK_H265 as i32 != 0) {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
@@ -188,13 +193,15 @@ impl Encoder {
                 ..Default::default()
             });
         }
-        if amf {
+        if amf > 0 && (amf & MASK_H264 as i32 != 0) {
             codecs.push(CodecInfo {
                 name: "h264_amf".to_owned(),
                 format: H264,
                 score: 92,
                 ..Default::default()
             });
+        }
+        if amf > 0 && (amf & MASK_H265 as i32 != 0) {
             codecs.push(CodecInfo {
                 name: "hevc_amf".to_owned(),
                 format: H265,
@@ -204,13 +211,15 @@ impl Encoder {
         }
         #[cfg(target_os = "linux")]
         {
-            if _vpl {
+            if _vpl > 0 && (_vpl & MASK_H264 as i32 != 0) {
                 codecs.push(CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,
                     score: 90,
                     ..Default::default()
                 });
+            }
+            if _vpl > 0 && (_vpl & MASK_H265 as i32 != 0) {
                 codecs.push(CodecInfo {
                     name: "hevc_qsv".to_owned(),
                     format: H265,

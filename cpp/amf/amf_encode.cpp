@@ -508,17 +508,42 @@ int amf_encode(void *encoder, void *tex, EncodeCallback callback, void *obj) {
   return -1;
 }
 
-int amf_driver_support() {
+int amf_encode_driver_support(int mask) {
+  AMFFactoryHelper factory;
+  amf::AMFContextPtr context = NULL;
+  int ret = -1;
   try {
-    AMFFactoryHelper factory;
     AMF_RESULT res = factory.Init();
     if (res == AMF_OK) {
-      factory.Terminate();
-      return 0;
+      ret = 0;
+      if (mask > 0) {
+        amf::AMFComponentPtr compent = NULL;
+        if (factory.GetFactory()->CreateContext(&context) == AMF_OK) {
+          if (mask & MASK_H264) {
+            if (factory.GetFactory()->CreateComponent(
+                    context, AMFVideoEncoderVCE_AVC, &compent) == AMF_OK) {
+              ret |= MASK_H264;
+              compent->Terminate();
+              compent = NULL;
+            }
+          }
+          if (mask & MASK_H265) {
+            if (factory.GetFactory()->CreateComponent(
+                    context, AMFVideoEncoder_HEVC, NULL) == AMF_OK) {
+              ret |= MASK_H265;
+              compent->Terminate();
+              compent = NULL;
+            }
+          }
+        }
+      }
     }
   } catch (const std::exception &e) {
   }
-  return -1;
+  if (ret >= 0) {
+    factory.Terminate();
+  }
+  return ret;
 }
 
 int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,

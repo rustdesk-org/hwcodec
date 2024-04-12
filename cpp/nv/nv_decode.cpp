@@ -617,16 +617,44 @@ private:
 
 extern "C" {
 
-int nv_decode_driver_support() {
+int nv_decode_driver_support(int mask) {
+  int ret = -1;
+  CudaFunctions *cudl = NULL;
+  CuvidFunctions *cvdl = NULL;
   try {
-    CudaFunctions *cudl = NULL;
-    CuvidFunctions *cvdl = NULL;
     load_driver(&cudl, &cvdl);
-    free_driver(&cudl, &cvdl);
-    return 0;
+    if (mask > 0) {
+      if (mask & MASK_H264) {
+        CUVIDDECODECAPS caps = {};
+        memset(&caps, 0, sizeof(caps));
+        caps.eCodecType = cudaVideoCodec_H264;
+        caps.eChromaFormat = cudaVideoChromaFormat_420;
+        caps.nBitDepthMinus8 = 0;
+        if (cvdl->cuvidGetDecoderCaps(&caps) == CUDA_SUCCESS) {
+          if (caps.bIsSupported == 1) {
+            ret |= MASK_H264;
+          }
+        }
+      }
+      if (mask & MASK_H265) {
+        CUVIDDECODECAPS caps = {};
+        memset(&caps, 0, sizeof(caps));
+        caps.eCodecType = cudaVideoCodec_HEVC;
+        caps.eChromaFormat = cudaVideoChromaFormat_420;
+        caps.nBitDepthMinus8 = 0;
+        if (cvdl->cuvidGetDecoderCaps(&caps) == CUDA_SUCCESS) {
+          if (caps.bIsSupported == 1) {
+            ret |= MASK_H265;
+          }
+        }
+      }
+    }
   } catch (const std::exception &e) {
   }
-  return -1;
+  if (ret >= 0) {
+    free_driver(&cudl, &cvdl);
+  }
+  return ret;
 }
 
 int nv_destroy_decoder(void *decoder) {

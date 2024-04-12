@@ -316,13 +316,13 @@ private:
 
 extern "C" {
 
-int nv_encode_driver_support() {
+int nv_encode_driver_support(int mask) {
   try {
     CudaFunctions *cuda_dl = NULL;
     NvencFunctions *nvenc_dl = NULL;
     load_driver(&cuda_dl, &nvenc_dl);
     free_driver(&cuda_dl, &nvenc_dl);
-    return 0;
+    return mask;
   } catch (const std::exception &e) {
     LOG_TRACE("driver not support, " + e.what());
   }

@@ -4,7 +4,9 @@
 #include "../common/callback.h"
 #include <stdbool.h>
 
-int amf_driver_support();
+int amf_encode_driver_support(int mask);
+
+int amf_decode_driver_support(int mask);
 
 void *amf_new_encoder(void *handle, int64_t luid, int32_t api,
                       int32_t data_format, int32_t width, int32_t height,

@@ -1,5 +1,5 @@
 use crate::{
-    common::DataFormat::*,
+    common::{DataFormat::*, FormatMASK::*},
     ffmpeg::{
         av_log_get_level, av_log_set_level,
         AVHWDeviceType::{self, *},
@@ -180,15 +180,17 @@ impl Decoder {
             av_log_set_level(AV_LOG_PANIC as _);
         };
 
-        let (nv, _, _) = crate::common::supported_gpu(false);
+        let (nv, _, _) = crate::common::query_capabilities(false, H264 as i32 | H265 as i32);
         let mut codecs = vec![];
-        if nv {
+        if nv > 0 && (nv & MASK_H264 as i32 != 0) {
             codecs.push(CodecInfo {
                 name: "h264".to_owned(),
                 format: H264,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 94,
             });
+        }
+        if nv > 0 && (nv & MASK_H265 as i32 != 0) {
             codecs.push(CodecInfo {
                 name: "hevc".to_owned(),
                 format: H265,

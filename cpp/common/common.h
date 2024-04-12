@@ -26,6 +26,14 @@ enum DataFormat {
   AV1,
 };
 
+enum FormatMASK {
+  MASK_H264 = 1 << 0,
+  MASK_H265 = 1 << 1,
+  MASK_VP8 = 1 << 2,
+  MASK_VP9 = 1 << 3,
+  MASK_AV1 = 1 << 4,
+};
+
 enum API {
   API_DX11,
 };
