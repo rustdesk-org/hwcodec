@@ -177,7 +177,7 @@ impl Decoder {
         unsafe { (&*INSTANCE.as_ptr()).clone() }
     }
 
-    fn available_decoders_(sdk: Option<String>) -> Vec<CodecInfo> {
+    fn available_decoders_(_sdk: Option<String>) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
@@ -185,13 +185,14 @@ impl Decoder {
         };
 
         let (nv, _, _) = crate::common::supported_gpu(false);
-        let contains = |driver: Driver, format: DataFormat| {
+        let contains = |_driver: Driver, _format: DataFormat| {
             #[cfg(all(windows, feature = "vram"))]
             {
-                if let Some(sdk) = sdk.as_ref() {
-                    if !sdk.is_empty() {
-                        if let Ok(available) = crate::native::Available::deserialize(sdk.as_str()) {
-                            return available.contains(false, driver, format);
+                if let Some(_sdk) = _sdk.as_ref() {
+                    if !_sdk.is_empty() {
+                        if let Ok(available) = crate::native::Available::deserialize(_sdk.as_str())
+                        {
+                            return available.contains(false, _driver, _format);
                         }
                     }
                 }

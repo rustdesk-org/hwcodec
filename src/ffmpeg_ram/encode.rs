@@ -169,19 +169,20 @@ impl Encoder {
         }
     }
 
-    fn available_encoders_(ctx: EncodeContext, sdk: Option<String>) -> Vec<CodecInfo> {
+    fn available_encoders_(ctx: EncodeContext, _sdk: Option<String>) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
-        let contains = |driver: Driver, format: DataFormat| {
+        let contains = |_driver: Driver, _format: DataFormat| {
             #[cfg(all(windows, feature = "vram"))]
             {
-                if let Some(sdk) = sdk.as_ref() {
-                    if !sdk.is_empty() {
-                        if let Ok(available) = crate::native::Available::deserialize(sdk.as_str()) {
-                            return available.contains(true, driver, format);
+                if let Some(_sdk) = _sdk.as_ref() {
+                    if !_sdk.is_empty() {
+                        if let Ok(available) = crate::native::Available::deserialize(_sdk.as_str())
+                        {
+                            return available.contains(true, _driver, _format);
                         }
                     }
                 }
