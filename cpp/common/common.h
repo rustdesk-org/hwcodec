@@ -34,6 +34,4 @@ struct AdapterDesc {
   int64_t luid;
 };
 
-void hwcodec_get_bin_file(int32_t is265, uint8_t **p, int32_t *len);
-
 #endif // COMMON_H

@@ -1,5 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
+    ffmpeg::{AVHWDeviceType::*, AVPixelFormat::*},
     ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
         encode::{EncodeContext, Encoder},
@@ -7,7 +8,6 @@ use hwcodec::{
         Quality::*,
         RateControl::*,
     },
-    ffmpeg::{AVHWDeviceType::*, AVPixelFormat::*},
 };
 use std::{
     fs::File,
@@ -21,7 +21,7 @@ fn main() {
         name: String::from("h264_nvenc"),
         width: 1920,
         height: 1080,
-        pixfmt: AV_PIX_FMT_YUV420P,
+        pixfmt: AV_PIX_FMT_NV12,
         align: 0,
         bitrate: 0,
         timebase: [1, 30],

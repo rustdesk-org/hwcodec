@@ -16,11 +16,11 @@ fn main() {
 
     let ctx = EncodeContext {
         name: String::from(""),
-        width: 1920,
-        height: 1080,
+        width: 1280,
+        height: 720,
         pixfmt: AVPixelFormat::AV_PIX_FMT_NV12,
         align: 0,
-        bitrate: 20000000,
+        bitrate: 1000000,
         timebase: [1, 30],
         gop: 60,
         quality: Quality_Default,

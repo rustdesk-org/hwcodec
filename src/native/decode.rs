@@ -1,12 +1,10 @@
 use crate::{
-    common::{hwcodec_get_bin_file, AdapterDesc, DataFormat::*},
+    common::{AdapterDesc, DataFormat::*},
     native::{amf, inner::DecodeCalls, nv, vpl, DecodeContext, DecodeDriver},
 };
 use log::{error, trace};
 use std::{
     ffi::c_void,
-    os::raw::c_int,
-    slice::from_raw_parts,
     sync::{Arc, Mutex},
     thread,
 };
@@ -122,20 +120,8 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
         luid: 0,
     });
     let outputs = Arc::new(Mutex::new(Vec::<DecodeContext>::new()));
-    let mut p_bin_264: *mut u8 = std::ptr::null_mut();
-    let mut len_bin_264: c_int = 0;
-    let buf264;
-    let mut p_bin_265: *mut u8 = std::ptr::null_mut();
-    let mut len_bin_265: c_int = 0;
-    let buf265;
-    unsafe {
-        hwcodec_get_bin_file(0, &mut p_bin_264 as _, &mut len_bin_264 as _);
-        hwcodec_get_bin_file(1, &mut p_bin_265 as _, &mut len_bin_265 as _);
-        buf264 = from_raw_parts(p_bin_264, len_bin_264 as _);
-        buf265 = from_raw_parts(p_bin_265, len_bin_265 as _);
-    }
-    let buf264 = Arc::new(buf264);
-    let buf265 = Arc::new(buf265);
+    let buf264 = Arc::new(crate::common::DATA_H264_720P);
+    let buf265 = Arc::new(crate::common::DATA_H265_720P);
     let mut handles = vec![];
     for input in inputs {
         let outputs = outputs.clone();

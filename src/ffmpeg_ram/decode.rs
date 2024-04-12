@@ -6,11 +6,10 @@ use crate::{
         AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
     },
     ffmpeg_ram::{
-        ffmpeg_ram_decode, ffmpeg_ram_free_decoder, ffmpeg_ram_new_decoder, hwcodec_get_bin_file,
-        CodecInfo, AV_NUM_DATA_POINTERS,
+        ffmpeg_ram_decode, ffmpeg_ram_free_decoder, ffmpeg_ram_new_decoder, CodecInfo,
+        AV_NUM_DATA_POINTERS,
     },
 };
-use core::slice;
 use log::{error, trace};
 use std::{
     ffi::{c_void, CString},
@@ -234,22 +233,8 @@ impl Decoder {
         }
 
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
-
-        let mut p_bin_264: *mut u8 = std::ptr::null_mut();
-        let mut len_bin_264: c_int = 0;
-        let buf264;
-        let mut p_bin_265: *mut u8 = std::ptr::null_mut();
-        let mut len_bin_265: c_int = 0;
-        let buf265;
-        unsafe {
-            hwcodec_get_bin_file(0, &mut p_bin_264 as _, &mut len_bin_264 as _);
-            hwcodec_get_bin_file(1, &mut p_bin_265 as _, &mut len_bin_265 as _);
-            buf264 = slice::from_raw_parts(p_bin_264, len_bin_264 as _);
-            buf265 = slice::from_raw_parts(p_bin_265, len_bin_265 as _);
-        }
-
-        let buf264 = Arc::new(buf264);
-        let buf265 = Arc::new(buf265);
+        let buf264 = Arc::new(crate::common::DATA_H264_720P);
+        let buf265 = Arc::new(crate::common::DATA_H265_720P);
         let mut handles = vec![];
         for codec in codecs {
             let infos = infos.clone();
