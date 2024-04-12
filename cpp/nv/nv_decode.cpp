@@ -698,6 +698,9 @@ int nv_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
         AdapterDesc *desc = descs + count;
         desc->luid = LUID(adapter.get()->desc1_);
         count += 1;
+        p->destroy();
+        delete p;
+        p = nullptr;
         if (count >= maxDescNum)
           break;
       }

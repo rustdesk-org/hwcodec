@@ -156,11 +156,13 @@ public:
     // but has 6 surfaces associated with it. This is OK if there are references
     // to the device outside AMF"
 
-    // if (AMFConverter_ != NULL) {
-    //   AMFConverter_->Terminate();
-    //   AMFConverter_ = NULL;
-    // }
+    if (AMFConverter_ != NULL) {
+      AMFConverter_->Drain();
+      AMFConverter_->Terminate();
+      AMFConverter_ = NULL;
+    }
     if (AMFDecoder_ != NULL) {
+      AMFDecoder_->Drain();
       AMFDecoder_->Terminate();
       AMFDecoder_ = NULL;
     }
@@ -196,7 +198,8 @@ public:
       AMF_CHECK_RETURN(res, "InitDX11 failed");
       break;
     default:
-      LOG_ERROR("unsupported memory type: %d", AMFMemoryType_);
+      LOG_ERROR("unsupported memory type: " +
+                std::to_string((int)AMFMemoryType_));
       return AMF_FAIL;
     }
 
@@ -425,6 +428,9 @@ int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
         AdapterDesc *desc = descs + count;
         desc->luid = LUID(adapter.get()->desc1_);
         count += 1;
+        p->destroy();
+        delete p;
+        p = nullptr;
         if (count >= maxDescNum)
           break;
       }
