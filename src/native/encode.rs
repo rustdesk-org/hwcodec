@@ -1,9 +1,6 @@
 use crate::{
-    common::AdapterDesc,
-    native::{
-        amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, EncodeDriver::*,
-        FeatureContext,
-    },
+    common::{AdapterDesc, Driver::*},
+    native::{amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, FeatureContext},
 };
 use log::trace;
 use std::{
@@ -30,7 +27,7 @@ impl Encoder {
             return Err(());
         }
         let calls = match ctx.f.driver {
-            NVENC => nv::encode_calls(),
+            NV => nv::encode_calls(),
             AMF => amf::encode_calls(),
             VPL => vpl::encode_calls(),
         };
@@ -133,7 +130,7 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     natives.append(
         &mut nv::possible_support_encoders()
             .drain(..)
-            .map(|n| (NVENC, n))
+            .map(|n| (NV, n))
             .collect(),
     );
     natives.append(
@@ -163,7 +160,7 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
         let outputs = outputs.clone();
         let handle = thread::spawn(move || {
             let test = match input.f.driver {
-                NVENC => nv::encode_calls().test,
+                NV => nv::encode_calls().test,
                 AMF => amf::encode_calls().test,
                 VPL => vpl::encode_calls().test,
             };

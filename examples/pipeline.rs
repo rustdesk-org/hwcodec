@@ -1,9 +1,8 @@
 use capture::dxgi;
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
-use hwcodec::common::{DataFormat, API::*, MAX_GOP};
+use hwcodec::common::{DataFormat, Driver, API::*, MAX_GOP};
 use hwcodec::native::{
-    decode::Decoder, encode::Encoder, DecodeContext, DecodeDriver, DynamicContext, EncodeContext,
-    EncodeDriver, FeatureContext,
+    decode::Decoder, encode::Encoder, DecodeContext, DynamicContext, EncodeContext, FeatureContext,
 };
 use render::Render;
 use std::{
@@ -24,7 +23,7 @@ fn main() {
 
         let en_ctx = EncodeContext {
             f: FeatureContext {
-                driver: EncodeDriver::VPL,
+                driver: Driver::VPL,
                 api: API_DX11,
                 data_format,
                 luid,
@@ -44,7 +43,7 @@ fn main() {
             } else {
                 Some(render.device())
             },
-            driver: DecodeDriver::VPL,
+            driver: Driver::VPL,
             api: API_DX11,
             data_format,
             output_shared_handle,

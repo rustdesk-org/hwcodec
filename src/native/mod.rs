@@ -7,29 +7,15 @@ pub(crate) mod vpl;
 
 pub(crate) const MAX_ADATER_NUM_ONE_VENDER: usize = 4;
 
-use crate::common::{DataFormat, API};
+use crate::common::{DataFormat, Driver, API};
 pub use serde;
 pub use serde_derive;
 use serde_derive::{Deserialize, Serialize};
 use std::ffi::c_void;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub enum EncodeDriver {
-    NVENC,
-    AMF,
-    VPL,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
-pub enum DecodeDriver {
-    CUVID,
-    AMF,
-    VPL,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct FeatureContext {
-    pub driver: EncodeDriver,
+    pub driver: Driver,
     pub luid: i64,
     pub api: API,
     pub data_format: DataFormat,
@@ -59,7 +45,7 @@ pub struct EncodeContext {
 pub struct DecodeContext {
     #[serde(skip)]
     pub device: Option<*mut c_void>,
-    pub driver: DecodeDriver,
+    pub driver: Driver,
     pub luid: i64,
     pub api: API,
     pub data_format: DataFormat,
@@ -87,6 +73,18 @@ impl Available {
         match serde_json::from_str(s) {
             Ok(c) => Ok(c),
             Err(_) => Err(()),
+        }
+    }
+
+    pub fn contains(&self, encode: bool, driver: Driver, data_format: DataFormat) -> bool {
+        if encode {
+            self.e
+                .iter()
+                .any(|f| f.driver == driver && f.data_format == data_format)
+        } else {
+            self.d
+                .iter()
+                .any(|d| d.driver == driver && d.data_format == data_format)
         }
     }
 }

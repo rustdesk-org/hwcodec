@@ -1,5 +1,8 @@
 use crate::{
-    common::DataFormat::*,
+    common::{
+        DataFormat::{self, *},
+        Driver,
+    },
     ffmpeg::{
         av_log_get_level, av_log_set_level,
         AVHWDeviceType::{self, *},
@@ -160,19 +163,21 @@ impl Decoder {
         }
     }
 
-    pub fn available_decoders() -> Vec<CodecInfo> {
+    pub fn available_decoders(sdk: Option<String>) -> Vec<CodecInfo> {
         use std::{mem::MaybeUninit, sync::Once};
 
         static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
         static ONCE: Once = Once::new();
 
         ONCE.call_once(|| unsafe {
-            INSTANCE.as_mut_ptr().write(Decoder::available_decoders_());
+            INSTANCE
+                .as_mut_ptr()
+                .write(Decoder::available_decoders_(sdk));
         });
         unsafe { (&*INSTANCE.as_ptr()).clone() }
     }
 
-    fn available_decoders_() -> Vec<CodecInfo> {
+    fn available_decoders_(sdk: Option<String>) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
@@ -180,14 +185,29 @@ impl Decoder {
         };
 
         let (nv, _, _) = crate::common::supported_gpu(false);
+        let contains = |driver: Driver, format: DataFormat| {
+            #[cfg(all(windows, feature = "vram"))]
+            {
+                if let Some(sdk) = sdk.as_ref() {
+                    if !sdk.is_empty() {
+                        if let Ok(available) = crate::native::Available::deserialize(sdk.as_str()) {
+                            return available.contains(false, driver, format);
+                        }
+                    }
+                }
+            }
+            true
+        };
         let mut codecs = vec![];
-        if nv {
+        if nv && contains(Driver::NV, H264) {
             codecs.push(CodecInfo {
                 name: "h264".to_owned(),
                 format: H264,
                 hwdevice: AV_HWDEVICE_TYPE_CUDA,
                 score: 94,
             });
+        }
+        if nv && contains(Driver::NV, H265) {
             codecs.push(CodecInfo {
                 name: "hevc".to_owned(),
                 format: H265,

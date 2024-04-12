@@ -1,6 +1,6 @@
 use crate::{
-    common::{AdapterDesc, DataFormat::*},
-    native::{amf, inner::DecodeCalls, nv, vpl, DecodeContext, DecodeDriver},
+    common::{AdapterDesc, DataFormat::*, Driver::*},
+    native::{amf, inner::DecodeCalls, nv, vpl, DecodeContext},
 };
 use log::{error, trace};
 use std::{
@@ -8,7 +8,6 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
-use DecodeDriver::*;
 
 pub struct Decoder {
     calls: DecodeCalls,
@@ -23,7 +22,7 @@ unsafe impl Sync for Decoder {}
 impl Decoder {
     pub fn new(ctx: DecodeContext) -> Result<Self, ()> {
         let calls = match ctx.driver {
-            CUVID => nv::decode_calls(),
+            NV => nv::decode_calls(),
             AMF => amf::decode_calls(),
             VPL => vpl::decode_calls(),
         };
@@ -96,7 +95,7 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
     natives.append(
         &mut nv::possible_support_decoders()
             .drain(..)
-            .map(|n| (CUVID, n))
+            .map(|n| (NV, n))
             .collect(),
     );
     natives.append(
@@ -129,7 +128,7 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
         let buf265 = buf265.clone();
         let handle = thread::spawn(move || {
             let test = match input.driver {
-                CUVID => nv::decode_calls().test,
+                NV => nv::decode_calls().test,
                 AMF => amf::decode_calls().test,
                 VPL => vpl::decode_calls().test,
             };

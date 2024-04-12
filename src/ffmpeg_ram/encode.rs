@@ -1,5 +1,8 @@
 use crate::{
-    common::DataFormat::{self, *},
+    common::{
+        DataFormat::{self, *},
+        Driver,
+    },
     ffmpeg::{av_log_get_level, av_log_set_level, AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC},
     ffmpeg_ram::{
         ffmpeg_linesize_offset_length, ffmpeg_ram_encode, ffmpeg_ram_free_encoder,
@@ -153,34 +156,50 @@ impl Encoder {
         Err(())
     }
 
-    pub fn available_encoders(ctx: EncodeContext) -> Vec<CodecInfo> {
+    pub fn available_encoders(ctx: EncodeContext, sdk: Option<String>) -> Vec<CodecInfo> {
         static mut INSTANCE: Vec<CodecInfo> = vec![];
         static mut CACHED_CTX: Option<EncodeContext> = None;
 
         unsafe {
             if CACHED_CTX.clone().take() != Some(ctx.clone()) {
                 CACHED_CTX = Some(ctx.clone());
-                INSTANCE = Encoder::available_encoders_(ctx);
+                INSTANCE = Encoder::available_encoders_(ctx, sdk);
             }
             INSTANCE.clone()
         }
     }
 
-    fn available_encoders_(ctx: EncodeContext) -> Vec<CodecInfo> {
+    fn available_encoders_(ctx: EncodeContext, sdk: Option<String>) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
+        let contains = |driver: Driver, format: DataFormat| {
+            #[cfg(all(windows, feature = "vram"))]
+            {
+                if let Some(sdk) = sdk.as_ref() {
+                    if !sdk.is_empty() {
+                        if let Ok(available) = crate::native::Available::deserialize(sdk.as_str()) {
+                            return available.contains(true, driver, format);
+                        }
+                    }
+                }
+            }
+            true
+        };
+
         let (nv, amf, _vpl) = crate::common::supported_gpu(true);
         let mut codecs = vec![];
-        if nv {
+        if nv && contains(Driver::NV, H264) {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
                 score: 92,
                 ..Default::default()
             });
+        }
+        if nv && contains(Driver::NV, H265) {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
@@ -188,13 +207,16 @@ impl Encoder {
                 ..Default::default()
             });
         }
-        if amf {
+        if amf && contains(Driver::AMF, H264) {
             codecs.push(CodecInfo {
                 name: "h264_amf".to_owned(),
                 format: H264,
                 score: 92,
                 ..Default::default()
             });
+        }
+        if amf {
+            // sdk not use h265
             codecs.push(CodecInfo {
                 name: "hevc_amf".to_owned(),
                 format: H265,
@@ -204,13 +226,15 @@ impl Encoder {
         }
         #[cfg(target_os = "linux")]
         {
-            if _vpl {
+            if _vpl && contains(Driver::VPL, H264) {
                 codecs.push(CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,
                     score: 90,
                     ..Default::default()
                 });
+            }
+            if _vpl && contains(Driver::VPL, H265) {
                 codecs.push(CodecInfo {
                     name: "hevc_qsv".to_owned(),
                     format: H265,

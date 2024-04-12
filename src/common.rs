@@ -8,6 +8,13 @@ include!(concat!(env!("OUT_DIR"), "/common_ffi.rs"));
 pub(crate) const DATA_H264_720P: &[u8] = include_bytes!("res/720p.h264");
 pub(crate) const DATA_H265_720P: &[u8] = include_bytes!("res/720p.h265");
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+pub enum Driver {
+    NV,
+    AMF,
+    VPL,
+}
+
 pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
     #[cfg(target_os = "linux")]
     use std::ffi::c_int;
