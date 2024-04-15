@@ -1,9 +1,21 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    ffmpeg_ram::decode::{DecodeContext, Decoder},
-    ffmpeg::AVHWDeviceType::*,
+    common::MAX_GOP,
+    ffmpeg::{
+        AVHWDeviceType::{self, *},
+        AVPixelFormat::*,
+    },
+    ffmpeg_ram::{
+        decode::{DecodeContext, Decoder},
+        encode::{EncodeContext, Encoder},
+        Quality::*,
+        RateControl::*,
+    },
 };
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
 
 fn main() {
     let gpu = true;
@@ -13,31 +25,78 @@ fn main() {
     let codec = if h264 { "h264" } else { "hevc" };
 
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
+    let device_type = AV_HWDEVICE_TYPE_CUDA;
     let decode_ctx = DecodeContext {
         name: String::from(codec),
-        device_type: AV_HWDEVICE_TYPE_D3D11VA,
+        device_type,
         thread_count: 4,
     };
     let mut video_decoder = Decoder::new(decode_ctx).unwrap();
 
-    decode(
+    decode_encode(
         &mut video_decoder,
         0,
-        &format!("input/data_and_line/{}_1600_900.{}", hw_type, file_type),
-        &format!("input/data_and_line/{}_1600_900_{}.txt", hw_type, file_type),
+        hw_type,
+        file_type,
+        1600,
+        900,
+        h264,
+        device_type,
     );
-
-    decode(
+    decode_encode(
         &mut video_decoder,
         1,
-        &format!("input/data_and_line/{}_1440_900.{}", hw_type, file_type),
-        &format!("input/data_and_line/{}_1440_900_{}.txt", hw_type, file_type),
+        hw_type,
+        file_type,
+        1440,
+        900,
+        h264,
+        device_type,
     );
 }
 
-fn decode(video_decoder: &mut Decoder, index: usize, filename: &str, len_filename: &str) {
+fn decode_encode(
+    video_decoder: &mut Decoder,
+    index: usize,
+    hw_type: &str,
+    file_type: &str,
+    width: usize,
+    height: usize,
+    h264: bool,
+    device_type: AVHWDeviceType,
+) {
+    let input_enc_filename = format!("input/data_and_line/{hw_type}_{width}_{height}.{file_type}");
+    let len_filename = format!("input/data_and_line/{hw_type}_{width}_{height}_{file_type}.txt");
+    let enc_ctx = EncodeContext {
+        name: if h264 {
+            "h264_nvenc".to_owned()
+        } else {
+            "hevc_nvenc".to_owned()
+        },
+        width: width as _,
+        height: height as _,
+        pixfmt: if device_type == AV_HWDEVICE_TYPE_NONE {
+            AV_PIX_FMT_YUV420P
+        } else {
+            AV_PIX_FMT_NV12
+        },
+        align: 0,
+        bitrate: 1_000_000,
+        timebase: [1, 30],
+        gop: MAX_GOP as _,
+        quality: Quality_Default,
+        rc: RC_DEFAULT,
+        thread_count: 4,
+    };
+    let mut video_encoder = Encoder::new(enc_ctx).unwrap();
+    let mut encode_file =
+        File::create(format!("output/{hw_type}_{width}_{height}.{file_type}")).unwrap();
+
+    let mut yuv_file =
+        File::create(format!("output/{hw_type}_{width}_{height}_decode.yuv")).unwrap();
+
     let mut file_lens = File::open(len_filename).unwrap();
-    let mut file = File::open(filename).unwrap();
+    let mut file = File::open(input_enc_filename).unwrap();
     let mut file_lens_buf = Vec::new();
     file_lens.read_to_end(&mut file_lens_buf).unwrap();
     let file_lens_str = String::from_utf8_lossy(&file_lens_buf).to_string();
@@ -51,8 +110,19 @@ fn decode(video_decoder: &mut Decoder, index: usize, filename: &str, len_filenam
         file.read(&mut buf).unwrap();
         let frames = video_decoder.decode(&buf).unwrap();
         println!(
-            "file{}, w:{}, h:{}",
-            index, frames[0].width, frames[0].height
+            "file{}, w:{}, h:{}, fmt:{:?}, linesize:{:?}",
+            index, frames[0].width, frames[0].height, frames[0].pixfmt, frames[0].linesize
         );
+        assert!(frames.len() == 1);
+        let mut encode_buf = Vec::new();
+        for d in &mut frames[0].data {
+            encode_buf.append(d);
+        }
+        yuv_file.write_all(&encode_buf).unwrap();
+        let frames = video_encoder.encode(&encode_buf).unwrap();
+        assert_eq!(frames.len(), 1);
+        for f in frames {
+            encode_file.write_all(&f.data).unwrap();
+        }
     }
 }
