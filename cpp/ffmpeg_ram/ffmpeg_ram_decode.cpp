@@ -106,15 +106,19 @@ public:
       c_->pkt_timebase = av_make_q(1, 30);
     }
 
-    ret = av_hwdevice_ctx_create(&hw_device_ctx_, device_type_, NULL, NULL, 0);
-    if (ret < 0) {
-      LOG_ERROR("av_hwdevice_ctx_create failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-    c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
-    if (!(sw_frame_ = av_frame_alloc())) {
-      LOG_ERROR("av_frame_alloc failed");
-      return -1;
+    if (hwaccel_) {
+      ret =
+          av_hwdevice_ctx_create(&hw_device_ctx_, device_type_, NULL, NULL, 0);
+      if (ret < 0) {
+        LOG_ERROR("av_hwdevice_ctx_create failed, ret = " +
+                  std::to_string(ret));
+        return -1;
+      }
+      c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
+      if (!(sw_frame_ = av_frame_alloc())) {
+        LOG_ERROR("av_frame_alloc failed");
+        return -1;
+      }
     }
     if (!(sw_parser_ctx_ = av_parser_init(codec->id))) {
       LOG_ERROR("av_parser_init failed");

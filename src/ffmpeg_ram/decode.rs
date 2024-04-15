@@ -200,6 +200,20 @@ impl Decoder {
             true
         };
         let mut codecs = vec![];
+        // ffmpeg native software decoders
+        codecs.push(CodecInfo {
+            name: "h264".to_owned(),
+            format: H264,
+            hwdevice: AV_HWDEVICE_TYPE_NONE,
+            score: 60,
+        });
+        codecs.push(CodecInfo {
+            name: "hevc".to_owned(),
+            format: H265,
+            hwdevice: AV_HWDEVICE_TYPE_NONE,
+            score: 60,
+        });
+
         if nv && contains(Driver::NV, H264) {
             codecs.push(CodecInfo {
                 name: "h264".to_owned(),
