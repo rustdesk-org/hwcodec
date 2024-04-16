@@ -239,9 +239,15 @@ private:
       out_++;
       LOG_DEBUG("delay DO: in:" + in_ + " out:" + out_);
 #endif
+#if FF_API_FRAME_KEY
+      int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;
+#else
+      int key_frame = frame_->key_frame;
+#endif
+
       callback_(obj, sw_parser_ctx_->width, sw_parser_ctx_->height,
                 (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
-                tmp_frame->data, tmp_frame->key_frame);
+                tmp_frame->data, key_frame);
     }
   _exit:
     av_packet_unref(pkt_);

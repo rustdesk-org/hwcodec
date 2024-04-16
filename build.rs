@@ -87,39 +87,67 @@ impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
     }
 }
 
+// android: both #[cfg(target_os = "linux")] and cfg!("target_os = "linux) is true, CARGO_CFG_TARGET_OS is android
 fn get_ffmpeg_arch() -> String {
     let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    #[cfg(target_os = "windows")]
-    {
-        let arch_dir = if target_arch == "x86_64" {
-            "windows-x86_64"
-        } else if target_arch == "x86" {
-            "windows-i686"
-        } else {
-            panic!("unsupported target_arch: {target_arch}");
-        };
-        return arch_dir.to_string();
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let arch_dir = if target_arch == "x86_64" {
-            "linux-x86_64"
-        } else if target_arch == "aarch64" {
-            "linux-aarch64"
-        } else {
-            "linux-armv7"
-        };
-        return arch_dir.to_string();
-    }
-    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
-    {
-        panic!("unsupported os");
-    }
+    // https://doc.rust-lang.org/reference/conditional-compilation.html#target_os
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    println!("ffmpeg: target_os: {target_os}, target_arch: {target_arch}");
+    let arch_dir = match target_os.as_str() {
+        "windows" => {
+            if target_arch == "x86_64" {
+                "windows-x86_64"
+            } else if target_arch == "x86" {
+                "windows-i686"
+            } else {
+                panic!("unsupported target_arch: {target_arch}");
+            }
+        }
+        "linux" => {
+            if target_arch == "x86_64" {
+                "linux-x86_64"
+            } else if target_arch == "aarch64" {
+                "linux-aarch64"
+            } else if target_arch == "armv7" {
+                "linux-armv7"
+            } else {
+                panic!("unsupported target_arch: {target_arch}");
+            }
+        }
+        "macos" => {
+            if target_arch == "aarch64" {
+                "macos-aarch64"
+            } else if target_arch == "x86_64" {
+                "macos-x86_64"
+            } else {
+                panic!("unsupported target_arch: {target_arch}");
+            }
+        }
+        "android" => {
+            if target_arch == "aarch64" {
+                "android-aarch64"
+            } else if target_arch == "arm" {
+                "android-armv7"
+            } else {
+                panic!("unsupported target_arch: {target_arch}");
+            }
+        }
+        "ios" => {
+            if target_arch == "aarch64" {
+                "ios-aarch64"
+            } else {
+                panic!("unsupported target_arch: {target_arch}");
+            }
+        }
+        _ => panic!("unsupported os"),
+    };
+    arch_dir.to_string()
 }
 
 #[cfg(feature = "ffmpeg")]
 mod ffmpeg {
+    use core::panic;
+
     use super::*;
 
     pub fn build_ffmpeg(builder: &mut Build) {
@@ -144,24 +172,37 @@ mod ffmpeg {
             .unwrap();
 
         let arch_dir = get_ffmpeg_arch();
-        #[cfg(target_os = "windows")]
-        {
-            println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-            let static_libs = ["avcodec", "avfilter", "avutil", "avformat", "avdevice"];
-            static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-            let dyn_libs = ["User32", "bcrypt", "ole32", "advapi32"];
-            dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-            builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
-        }
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
+        let static_libs = ["avcodec", "avutil", "avformat"];
+        static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        let dyn_libs: Vec<&str> = if target_os == "windows" {
+            ["User32", "bcrypt", "ole32", "advapi32"].to_vec()
+        } else if target_os == "linux" {
+            let mut v = ["va", "va-drm", "va-x11", "vdpau", "X11", "stdc++"].to_vec();
+            if target_arch == "x86_64" {
+                v.push("z");
+            }
+            v
+        } else if target_os == "macos" || target_os == "ios" {
+            ["c++", "m"].to_vec()
+        } else if target_os == "android" {
+            ["z", "m", "android", "atomic"].to_vec()
+        } else {
+            panic!("unsupported os");
+        };
+        dyn_libs
+            .iter()
+            .map(|lib| println!("cargo:rustc-link-lib={}", lib))
+            .count();
+        builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
 
-        #[cfg(target_os = "linux")]
-        {
-            println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-            let static_libs = ["avcodec", "avfilter", "avutil", "avdevice", "avformat"];
-            static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
-            let dyn_libs = ["va", "va-drm", "va-x11", "vdpau", "X11", "z", "stdc++"];
-            dyn_libs.map(|lib| println!("cargo:rustc-link-lib={}", lib));
-            builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
+        if target_os == "macos" || target_os == "ios" {
+            println!("cargo:rustc-link-lib=framework=CoreFoundation");
+            println!("cargo:rustc-link-lib=framework=CoreVideo");
+            println!("cargo:rustc-link-lib=framework=CoreMedia");
+            builder.flag("-std=c++11");
         }
     }
 

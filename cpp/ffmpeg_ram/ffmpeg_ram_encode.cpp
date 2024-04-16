@@ -236,7 +236,7 @@ int set_rate_control(void *priv_data, const char *name, int rc) {
 }
 
 int set_gpu(void *priv_data, const char *name, int gpu) {
-  int ret;
+  int ret = -1;
   if (gpu < 0)
     return -1;
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {

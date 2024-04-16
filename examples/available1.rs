@@ -34,7 +34,7 @@ fn main() {
     log::info!("best encoders:{:?}", CodecInfo::score(encoders));
 
     let start = Instant::now();
-    let decoders = Decoder::available_decoders(None);
+    let decoders = Decoder::available_decoders(None, true);
     log::info!("available_decoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", decoders.len(), decoders);
     log::info!("best decoders:{:?}", CodecInfo::score(decoders));

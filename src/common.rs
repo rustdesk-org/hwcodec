@@ -27,13 +27,19 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
 
     #[allow(unused_unsafe)]
     unsafe {
-        #[cfg(all(windows, feature = "vram"))]
-        return (
-            _encode && crate::native::nv::nv_encode_driver_support() == 0
-                || !_encode && crate::native::nv::nv_decode_driver_support() == 0,
-            crate::native::amf::amf_driver_support() == 0,
-            crate::native::vpl::vpl_driver_support() == 0,
-        );
+        #[cfg(windows)]
+        {
+            #[cfg(feature = "vram")]
+            return (
+                _encode && crate::native::nv::nv_encode_driver_support() == 0
+                    || !_encode && crate::native::nv::nv_decode_driver_support() == 0,
+                crate::native::amf::amf_driver_support() == 0,
+                crate::native::vpl::vpl_driver_support() == 0,
+            );
+            #[cfg(not(feature = "vram"))]
+            return (true, true, true);
+        }
+
         #[cfg(target_os = "linux")]
         return (
             linux_support_nv() == 0,
@@ -41,6 +47,6 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
             linux_support_intel() == 0,
         );
         #[allow(unreachable_code)]
-        (true, true, true)
+        (false, false, false)
     }
 }

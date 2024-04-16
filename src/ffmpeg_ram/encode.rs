@@ -170,6 +170,10 @@ impl Encoder {
     }
 
     fn available_encoders_(ctx: EncodeContext, _sdk: Option<String>) -> Vec<CodecInfo> {
+        if !(cfg!(windows) || cfg!(target_os = "linux")) {
+            return vec![];
+        }
+
         let log_level;
         unsafe {
             log_level = av_log_get_level();

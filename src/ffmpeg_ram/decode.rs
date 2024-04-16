@@ -163,7 +163,7 @@ impl Decoder {
         }
     }
 
-    pub fn available_decoders(sdk: Option<String>) -> Vec<CodecInfo> {
+    pub fn available_decoders(sdk: Option<String>, do_check: bool) -> Vec<CodecInfo> {
         use std::{mem::MaybeUninit, sync::Once};
 
         static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
@@ -172,63 +172,67 @@ impl Decoder {
         ONCE.call_once(|| unsafe {
             INSTANCE
                 .as_mut_ptr()
-                .write(Decoder::available_decoders_(sdk));
+                .write(Decoder::available_decoders_(sdk, do_check));
         });
         unsafe { (&*INSTANCE.as_ptr()).clone() }
     }
 
-    fn available_decoders_(_sdk: Option<String>) -> Vec<CodecInfo> {
+    fn available_decoders_(_sdk: Option<String>, do_check: bool) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
+        // ffmpeg native software decoders
+        let mut codecs = vec![
+            CodecInfo {
+                name: "h264".to_owned(),
+                format: H264,
+                hwdevice: AV_HWDEVICE_TYPE_NONE,
+                score: 60,
+            },
+            CodecInfo {
+                name: "hevc".to_owned(),
+                format: H265,
+                hwdevice: AV_HWDEVICE_TYPE_NONE,
+                score: 60,
+            },
+        ];
 
-        let (nv, _, _) = crate::common::supported_gpu(false);
-        let contains = |_driver: Driver, _format: DataFormat| {
-            #[cfg(all(windows, feature = "vram"))]
-            {
-                if let Some(_sdk) = _sdk.as_ref() {
-                    if !_sdk.is_empty() {
-                        if let Ok(available) = crate::native::Available::deserialize(_sdk.as_str())
-                        {
-                            return available.contains(false, _driver, _format);
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        {
+            let (nv, _, _) = crate::common::supported_gpu(false);
+            let contains = |_driver: Driver, _format: DataFormat| {
+                #[cfg(all(windows, feature = "vram"))]
+                {
+                    if let Some(_sdk) = _sdk.as_ref() {
+                        if !_sdk.is_empty() {
+                            if let Ok(available) =
+                                crate::native::Available::deserialize(_sdk.as_str())
+                            {
+                                return available.contains(false, _driver, _format);
+                            }
                         }
                     }
                 }
+                true
+            };
+            if nv && contains(Driver::NV, H264) {
+                codecs.push(CodecInfo {
+                    name: "h264".to_owned(),
+                    format: H264,
+                    hwdevice: AV_HWDEVICE_TYPE_CUDA,
+                    score: 94,
+                });
             }
-            true
-        };
-        let mut codecs = vec![];
-        // ffmpeg native software decoders
-        codecs.push(CodecInfo {
-            name: "h264".to_owned(),
-            format: H264,
-            hwdevice: AV_HWDEVICE_TYPE_NONE,
-            score: 60,
-        });
-        codecs.push(CodecInfo {
-            name: "hevc".to_owned(),
-            format: H265,
-            hwdevice: AV_HWDEVICE_TYPE_NONE,
-            score: 60,
-        });
-
-        if nv && contains(Driver::NV, H264) {
-            codecs.push(CodecInfo {
-                name: "h264".to_owned(),
-                format: H264,
-                hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                score: 94,
-            });
-        }
-        if nv && contains(Driver::NV, H265) {
-            codecs.push(CodecInfo {
-                name: "hevc".to_owned(),
-                format: H265,
-                hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                score: 95,
-            });
+            if nv && contains(Driver::NV, H265) {
+                codecs.push(CodecInfo {
+                    name: "hevc".to_owned(),
+                    format: H265,
+                    hwdevice: AV_HWDEVICE_TYPE_CUDA,
+                    score: 95,
+                });
+            }
         }
 
         #[cfg(target_os = "windows")]
@@ -265,6 +269,10 @@ impl Decoder {
                     score: 70,
                 },
             ]);
+        }
+
+        if !do_check {
+            return codecs;
         }
 
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
@@ -329,9 +337,7 @@ impl Decoder {
         for handle in handles {
             handle.join().ok();
         }
-        #[cfg(windows)]
-        let res = infos.lock().unwrap().clone();
-        #[cfg(target_os = "linux")]
+        #[allow(unused_mut)]
         let mut res = infos.lock().unwrap().clone();
 
         #[cfg(target_os = "linux")]
