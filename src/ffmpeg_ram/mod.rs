@@ -2,8 +2,11 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use crate::common::DataFormat;
-use crate::ffmpeg::{AVHWDeviceType, AVPixelFormat};
+use crate::common::DataFormat::{self, *};
+use crate::ffmpeg::{
+    AVHWDeviceType::{self, *},
+    AVPixelFormat,
+};
 use serde_derive::{Deserialize, Serialize};
 use std::ffi::c_int;
 
@@ -12,11 +15,19 @@ include!(concat!(env!("OUT_DIR"), "/ffmpeg_ram_ffi.rs"));
 pub mod decode;
 pub mod encode;
 
+pub enum Priority {
+    Best = 0,
+    Good = 1,
+    Normal = 2,
+    Soft = 3,
+    Bad = 4,
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CodecInfo {
     pub name: String,
     pub format: DataFormat,
-    pub score: i32,
+    pub priority: i32,
     pub hwdevice: AVHWDeviceType,
 }
 
@@ -25,14 +36,14 @@ impl Default for CodecInfo {
         Self {
             name: Default::default(),
             format: DataFormat::H264,
-            score: Default::default(),
+            priority: Default::default(),
             hwdevice: AVHWDeviceType::AV_HWDEVICE_TYPE_NONE,
         }
     }
 }
 
 impl CodecInfo {
-    pub fn score(coders: Vec<CodecInfo>) -> CodecInfos {
+    pub fn prioritized(coders: Vec<CodecInfo>) -> CodecInfos {
         let mut h264: Option<CodecInfo> = None;
         let mut h265: Option<CodecInfo> = None;
 
@@ -40,7 +51,7 @@ impl CodecInfo {
             match coder.format {
                 DataFormat::H264 => match &h264 {
                     Some(old) => {
-                        if old.score < coder.score {
+                        if old.priority > coder.priority {
                             h264 = Some(coder)
                         }
                     }
@@ -48,18 +59,35 @@ impl CodecInfo {
                 },
                 DataFormat::H265 => match &h265 {
                     Some(old) => {
-                        if old.score < coder.score {
+                        if old.priority > coder.priority {
                             h265 = Some(coder)
                         }
                     }
                     None => h265 = Some(coder),
                 },
                 _ => {
-                    log::error!("CodecInfo::score() called with non H264 or H265 format");
+                    log::error!("CodecInfo::prioritized() called with non H264 or H265 format");
                 }
             }
         }
         CodecInfos { h264, h265 }
+    }
+
+    pub fn soft() -> CodecInfos {
+        CodecInfos {
+            h264: Some(CodecInfo {
+                name: "h264".to_owned(),
+                format: H264,
+                hwdevice: AV_HWDEVICE_TYPE_NONE,
+                priority: Priority::Soft as _,
+            }),
+            h265: Some(CodecInfo {
+                name: "hevc".to_owned(),
+                format: H265,
+                hwdevice: AV_HWDEVICE_TYPE_NONE,
+                priority: Priority::Soft as _,
+            }),
+        }
     }
 }
 

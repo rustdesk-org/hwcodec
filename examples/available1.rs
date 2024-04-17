@@ -31,11 +31,15 @@ fn main() {
     let encoders = Encoder::available_encoders(ctx.clone(), None);
     log::info!("available_encoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", encoders.len(), encoders);
-    log::info!("best encoders:{:?}", CodecInfo::score(encoders));
+    log::info!("best encoders:{:?}", CodecInfo::prioritized(encoders));
 
     let start = Instant::now();
-    let decoders = Decoder::available_decoders(None, true);
+    let decoders = Decoder::available_decoders(None);
     log::info!("available_decoders:{:?}", start.elapsed());
     log::info!("count:{}, {:?}", decoders.len(), decoders);
-    log::info!("best decoders:{:?}", CodecInfo::score(decoders));
+    log::info!(
+        "best decoders:{:?}",
+        CodecInfo::prioritized(decoders.clone())
+    );
+    log::info!("soft decoders:{:?}", CodecInfo::soft());
 }

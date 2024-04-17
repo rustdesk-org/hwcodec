@@ -21,6 +21,8 @@ use std::{
     time::Instant,
 };
 
+use super::Priority;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodeContext {
     pub name: String,
@@ -200,7 +202,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
-                score: 92,
+                priority: Priority::Best as _,
                 ..Default::default()
             });
         }
@@ -208,7 +210,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
-                score: 94,
+                priority: Priority::Best as _,
                 ..Default::default()
             });
         }
@@ -216,7 +218,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "h264_amf".to_owned(),
                 format: H264,
-                score: 92,
+                priority: Priority::Best as _,
                 ..Default::default()
             });
         }
@@ -225,7 +227,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "hevc_amf".to_owned(),
                 format: H265,
-                score: 94,
+                priority: Priority::Best as _,
                 ..Default::default()
             });
         }
@@ -235,7 +237,7 @@ impl Encoder {
                 codecs.push(CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,
-                    score: 90,
+                    priority: Priority::Best as _,
                     ..Default::default()
                 });
             }
@@ -243,7 +245,7 @@ impl Encoder {
                 codecs.push(CodecInfo {
                     name: "hevc_qsv".to_owned(),
                     format: H265,
-                    score: 90,
+                    priority: Priority::Best as _,
                     ..Default::default()
                 });
             }

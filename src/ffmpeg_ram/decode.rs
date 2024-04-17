@@ -1,12 +1,15 @@
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+use super::Priority;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+use crate::common::{DataFormat, Driver};
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+use crate::ffmpeg::AVHWDeviceType::*;
+
 use crate::{
-    common::{
-        DataFormat::{self, *},
-        Driver,
-    },
+    common::DataFormat::*,
     ffmpeg::{
-        av_log_get_level, av_log_set_level,
-        AVHWDeviceType::{self, *},
-        AVPixelFormat, AV_LOG_ERROR, AV_LOG_PANIC,
+        av_log_get_level, av_log_set_level, AVHWDeviceType, AVPixelFormat, AV_LOG_ERROR,
+        AV_LOG_PANIC,
     },
     ffmpeg_ram::{
         ffmpeg_ram_decode, ffmpeg_ram_free_decoder, ffmpeg_ram_new_decoder, CodecInfo,
@@ -163,7 +166,7 @@ impl Decoder {
         }
     }
 
-    pub fn available_decoders(sdk: Option<String>, do_check: bool) -> Vec<CodecInfo> {
+    pub fn available_decoders(sdk: Option<String>) -> Vec<CodecInfo> {
         use std::{mem::MaybeUninit, sync::Once};
 
         static mut INSTANCE: MaybeUninit<Vec<CodecInfo>> = MaybeUninit::uninit();
@@ -172,33 +175,19 @@ impl Decoder {
         ONCE.call_once(|| unsafe {
             INSTANCE
                 .as_mut_ptr()
-                .write(Decoder::available_decoders_(sdk, do_check));
+                .write(Decoder::available_decoders_(sdk));
         });
         unsafe { (&*INSTANCE.as_ptr()).clone() }
     }
 
-    fn available_decoders_(_sdk: Option<String>, do_check: bool) -> Vec<CodecInfo> {
+    fn available_decoders_(_sdk: Option<String>) -> Vec<CodecInfo> {
         let log_level;
         unsafe {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
-        // ffmpeg native software decoders
-        let mut codecs = vec![
-            CodecInfo {
-                name: "h264".to_owned(),
-                format: H264,
-                hwdevice: AV_HWDEVICE_TYPE_NONE,
-                score: 60,
-            },
-            CodecInfo {
-                name: "hevc".to_owned(),
-                format: H265,
-                hwdevice: AV_HWDEVICE_TYPE_NONE,
-                score: 60,
-            },
-        ];
-
+        #[allow(unused_mut)]
+        let mut codecs: Vec<CodecInfo> = vec![];
         #[cfg(any(target_os = "windows", target_os = "linux"))]
         {
             let (nv, _, _) = crate::common::supported_gpu(false);
@@ -222,7 +211,7 @@ impl Decoder {
                     name: "h264".to_owned(),
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                    score: 94,
+                    priority: Priority::Best as _,
                 });
             }
             if nv && contains(Driver::NV, H265) {
@@ -230,7 +219,7 @@ impl Decoder {
                     name: "hevc".to_owned(),
                     format: H265,
                     hwdevice: AV_HWDEVICE_TYPE_CUDA,
-                    score: 95,
+                    priority: Priority::Best as _,
                 });
             }
         }
@@ -242,13 +231,13 @@ impl Decoder {
                     name: "h264".to_owned(),
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
-                    score: 91,
+                    priority: Priority::Good as _,
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
-                    score: 91,
+                    priority: Priority::Good as _,
                 },
             ]);
         }
@@ -260,19 +249,15 @@ impl Decoder {
                     name: "h264".to_owned(),
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
-                    score: 70,
+                    priority: Priority::Normal as _,
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
-                    score: 70,
+                    priority: Priority::Normal as _,
                 },
             ]);
-        }
-
-        if !do_check {
-            return codecs;
         }
 
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
@@ -352,12 +337,19 @@ impl Decoder {
                 {
                     res.iter_mut()
                         .filter(|c| c.hwdevice == AV_HWDEVICE_TYPE_VAAPI)
-                        .map(|c| c.score = 91)
+                        .map(|c| c.priority = Priority::Good as _)
                         .count();
                 }
             }
         }
 
+        let soft = CodecInfo::soft();
+        if let Some(c) = soft.h264 {
+            res.push(c);
+        }
+        if let Some(c) = soft.h265 {
+            res.push(c);
+        }
         unsafe {
             av_log_set_level(log_level);
         }
