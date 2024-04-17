@@ -215,6 +215,7 @@ public:
     }
     if (cuContext_) {
       cuda_dl_->cuCtxDestroy(cuContext_);
+      cuContext_ = nullptr;
     }
     free_driver(&cuda_dl_, &nvenc_dl_);
   }

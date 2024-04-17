@@ -42,5 +42,9 @@ fn main() {
     }
 
     // crate
-    builder.cpp(false).warnings(false).compile("render");
+    builder
+        .cpp(false)
+        .static_crt(true)
+        .warnings(false)
+        .compile("render");
 }

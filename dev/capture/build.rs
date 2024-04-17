@@ -43,5 +43,9 @@ fn main() {
     }
 
     // crate
-    builder.cpp(false).warnings(false).compile("capture");
+    builder
+        .cpp(false)
+        .static_crt(true)
+        .warnings(false)
+        .compile("capture");
 }

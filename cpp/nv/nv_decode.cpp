@@ -236,15 +236,19 @@ public:
   void destroy() {
     if (dec_) {
       delete dec_;
+      dec_ = nullptr;
     }
     if (cudl_ && cuContext_) {
       cudl_->cuCtxPushCurrent(cuContext_);
       for (int i = 0; i < 2; i++) {
-        if (cuResource_[i])
+        if (cuResource_[i]) {
           cudl_->cuGraphicsUnregisterResource(cuResource_[i]);
+          cuResource_[i] = NULL;
+        }
       }
       cudl_->cuCtxPopCurrent(NULL);
       cudl_->cuCtxDestroy(cuContext_);
+      cuContext_ = NULL;
     }
     free_driver(&cudl_, &cvdl_);
   }
