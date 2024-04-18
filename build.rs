@@ -108,7 +108,7 @@ fn get_ffmpeg_arch() -> String {
                 "linux-x86_64"
             } else if target_arch == "aarch64" {
                 "linux-aarch64"
-            } else if target_arch == "armv7" {
+            } else if target_arch == "arm" {
                 "linux-armv7"
             } else {
                 panic!("unsupported target_arch: {target_arch}");
