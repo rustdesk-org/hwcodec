@@ -264,11 +264,17 @@ impl Decoder {
         let buf264 = Arc::new(crate::common::DATA_H264_720P);
         let buf265 = Arc::new(crate::common::DATA_H265_720P);
         let mut handles = vec![];
+        let cu_mutex = Arc::new(Mutex::new(0));
         for codec in codecs {
             let infos = infos.clone();
             let buf264 = buf264.clone();
             let buf265 = buf265.clone();
+            let cu_mutex = cu_mutex.clone();
             let handle = thread::spawn(move || {
+                let _cu_lock;
+                if codec.hwdevice == AV_HWDEVICE_TYPE_CUDA {
+                    _cu_lock = cu_mutex.lock().unwrap();
+                }
                 let c = DecodeContext {
                     name: codec.name.clone(),
                     device_type: codec.hwdevice,
