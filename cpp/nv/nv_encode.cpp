@@ -61,7 +61,6 @@ public:
   NvEncoderD3D11 *pEnc_ = nullptr;
   CudaFunctions *cuda_dl_ = nullptr;
   NvencFunctions *nvenc_dl_ = nullptr;
-  CUcontext cuContext_ = nullptr;
 
   void *handle_ = nullptr;
   int64_t luid_;
@@ -127,10 +126,6 @@ public:
     CUdevice cuDevice = 0;
     if (!ck(cuda_dl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
       LOG_ERROR("Failed to get cuDevice");
-      return false;
-    }
-    if (!ck(cuda_dl_->cuCtxCreate(&cuContext_, 0, cuDevice))) {
-      LOG_TRACE("cuCtxCreate failed");
       return false;
     }
 
@@ -212,10 +207,6 @@ public:
       pEnc_->DestroyEncoder();
       delete pEnc_;
       pEnc_ = nullptr;
-    }
-    if (cuContext_) {
-      cuda_dl_->cuCtxDestroy(cuContext_);
-      cuContext_ = nullptr;
     }
     free_driver(&cuda_dl_, &nvenc_dl_);
   }
