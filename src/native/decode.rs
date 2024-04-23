@@ -122,11 +122,17 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
     let buf264 = Arc::new(crate::common::DATA_H264_720P);
     let buf265 = Arc::new(crate::common::DATA_H265_720P);
     let mut handles = vec![];
+    let cu_mutex = Arc::new(Mutex::new(0));
     for input in inputs {
         let outputs = outputs.clone();
         let buf264 = buf264.clone();
         let buf265 = buf265.clone();
+        let cu_mutex = cu_mutex.clone();
         let handle = thread::spawn(move || {
+            let _cu_lock;
+            if input.driver == NV {
+                _cu_lock = cu_mutex.lock().unwrap();
+            }
             let test = match input.driver {
                 NV => nv::decode_calls().test,
                 AMF => amf::decode_calls().test,

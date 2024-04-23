@@ -156,9 +156,15 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     });
     let outputs = Arc::new(Mutex::new(Vec::<EncodeContext>::new()));
     let mut handles = vec![];
+    let cu_mutex = Arc::new(Mutex::new(0));
     for input in inputs {
         let outputs = outputs.clone();
+        let cu_mutex = cu_mutex.clone();
         let handle = thread::spawn(move || {
+            let _cu_lock;
+            if input.f.driver == NV {
+                _cu_lock = cu_mutex.lock().unwrap();
+            }
             let test = match input.f.driver {
                 NV => nv::encode_calls().test,
                 AMF => amf::encode_calls().test,
