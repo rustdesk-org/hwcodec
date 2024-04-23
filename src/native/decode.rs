@@ -1,6 +1,8 @@
+#[cfg(feature = "nv")]
+use crate::native::nv;
 use crate::{
     common::{AdapterDesc, DataFormat::*, Driver::*},
-    native::{amf, inner::DecodeCalls, nv, vpl, DecodeContext},
+    native::{amf, inner::DecodeCalls, vpl, DecodeContext},
 };
 use log::{error, trace};
 use std::{
@@ -22,6 +24,7 @@ unsafe impl Sync for Decoder {}
 impl Decoder {
     pub fn new(ctx: DecodeContext) -> Result<Self, ()> {
         let calls = match ctx.driver {
+            #[cfg(feature = "nv")]
             NV => nv::decode_calls(),
             AMF => amf::decode_calls(),
             VPL => vpl::decode_calls(),
@@ -92,6 +95,7 @@ pub struct DecodeFrame {
 pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
     // to-do: log control
     let mut natives: Vec<_> = vec![];
+    #[cfg(feature = "nv")]
     natives.append(
         &mut nv::possible_support_decoders()
             .drain(..)
@@ -122,18 +126,23 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
     let buf264 = Arc::new(crate::common::DATA_H264_720P);
     let buf265 = Arc::new(crate::common::DATA_H265_720P);
     let mut handles = vec![];
+    #[cfg(feature = "nv")]
     let cu_mutex = Arc::new(Mutex::new(0));
     for input in inputs {
         let outputs = outputs.clone();
         let buf264 = buf264.clone();
         let buf265 = buf265.clone();
+        #[cfg(feature = "nv")]
         let cu_mutex = cu_mutex.clone();
         let handle = thread::spawn(move || {
+            #[cfg(feature = "nv")]
             let _cu_lock;
+            #[cfg(feature = "nv")]
             if input.driver == NV {
                 _cu_lock = cu_mutex.lock().unwrap();
             }
             let test = match input.driver {
+                #[cfg(feature = "nv")]
                 NV => nv::decode_calls().test,
                 AMF => amf::decode_calls().test,
                 VPL => vpl::decode_calls().test,

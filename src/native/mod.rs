@@ -2,6 +2,7 @@ pub(crate) mod amf;
 pub mod decode;
 pub mod encode;
 mod inner;
+#[cfg(feature = "nv")]
 pub(crate) mod nv;
 pub(crate) mod vpl;
 

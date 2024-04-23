@@ -1,10 +1,7 @@
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use super::Priority;
 #[cfg(any(target_os = "windows", target_os = "linux"))]
-use crate::common::{DataFormat, Driver};
-#[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::ffmpeg::AVHWDeviceType::*;
-
 use crate::{
     common::DataFormat::*,
     ffmpeg::{
@@ -189,7 +186,9 @@ impl Decoder {
         #[allow(unused_mut)]
         let mut codecs: Vec<CodecInfo> = vec![];
         #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(feature = "nv")]
         {
+            use crate::common::{DataFormat, Driver};
             let (nv, _, _) = crate::common::supported_gpu(false);
             let contains = |_driver: Driver, _format: DataFormat| {
                 #[cfg(all(windows, feature = "vram"))]
@@ -264,14 +263,18 @@ impl Decoder {
         let buf264 = Arc::new(crate::common::DATA_H264_720P);
         let buf265 = Arc::new(crate::common::DATA_H265_720P);
         let mut handles = vec![];
+        #[cfg(feature = "nv")]
         let cu_mutex = Arc::new(Mutex::new(0));
         for codec in codecs {
             let infos = infos.clone();
             let buf264 = buf264.clone();
             let buf265 = buf265.clone();
+            #[cfg(feature = "nv")]
             let cu_mutex = cu_mutex.clone();
             let handle = thread::spawn(move || {
+                #[cfg(feature = "nv")]
                 let _cu_lock;
+                #[cfg(feature = "nv")]
                 if codec.hwdevice == AV_HWDEVICE_TYPE_CUDA {
                     _cu_lock = cu_mutex.lock().unwrap();
                 }

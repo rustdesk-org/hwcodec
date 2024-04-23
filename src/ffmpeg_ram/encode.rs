@@ -196,9 +196,10 @@ impl Encoder {
             true
         };
 
-        let (nv, amf, _vpl) = crate::common::supported_gpu(true);
+        let (_nv, amf, _vpl) = crate::common::supported_gpu(true);
         let mut codecs = vec![];
-        if nv && contains(Driver::NV, H264) {
+        #[cfg(feature = "nv")]
+        if _nv && contains(Driver::NV, H264) {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
@@ -206,7 +207,8 @@ impl Encoder {
                 ..Default::default()
             });
         }
-        if nv && contains(Driver::NV, H265) {
+        #[cfg(feature = "nv")]
+        if _nv && contains(Driver::NV, H265) {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
@@ -264,6 +266,7 @@ impl Encoder {
         let mut res = vec![];
 
         let start = Instant::now();
+        #[cfg(feature = "nv")]
         let cu_mutex = Arc::new(Mutex::new(0));
         if let Ok(yuv) = Encoder::dummy_yuv(ctx.clone()) {
             log::debug!("prepare yuv {:?}", start.elapsed());
@@ -272,9 +275,12 @@ impl Encoder {
             for codec in codecs {
                 let yuv = yuv.clone();
                 let infos = infos.clone();
+                #[cfg(feature = "nv")]
                 let cu_mutex = cu_mutex.clone();
                 let handle = thread::spawn(move || {
+                    #[cfg(feature = "nv")]
                     let _cu_lock;
+                    #[cfg(feature = "nv")]
                     if codec.name.contains("nvenc") {
                         _cu_lock = cu_mutex.lock().unwrap();
                     }

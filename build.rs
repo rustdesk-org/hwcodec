@@ -267,10 +267,12 @@ mod sdk {
         };
         println!("cargo:rustc-link-search=native=deps/sdk/{arch_dir}");
         build_amf(builder);
+        #[cfg(feature = "nv")]
         build_nv(builder);
         build_vpl(builder);
     }
 
+    #[cfg(feature = "nv")]
     fn build_nv(builder: &mut Build) {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let externals_dir = manifest_dir.join("externals");

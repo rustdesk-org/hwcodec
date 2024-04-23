@@ -10,6 +10,7 @@ pub(crate) const DATA_H265_720P: &[u8] = include_bytes!("res/720p.h265");
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Driver {
+    #[cfg(feature = "nv")]
     NV,
     AMF,
     VPL,
@@ -30,22 +31,29 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
         #[cfg(windows)]
         {
             #[cfg(feature = "vram")]
-            return (
-                _encode && crate::native::nv::nv_encode_driver_support() == 0
-                    || !_encode && crate::native::nv::nv_decode_driver_support() == 0,
-                crate::native::amf::amf_driver_support() == 0,
-                crate::native::vpl::vpl_driver_support() == 0,
-            );
+            {
+                #[cfg(feature = "nv")]
+                let nv = _encode && crate::native::nv::nv_encode_driver_support() == 0
+                    || !_encode && crate::native::nv::nv_decode_driver_support() == 0;
+                #[cfg(not(feature = "nv"))]
+                let nv = false;
+                return (
+                    nv,
+                    crate::native::amf::amf_driver_support() == 0,
+                    crate::native::vpl::vpl_driver_support() == 0,
+                );
+            }
             #[cfg(not(feature = "vram"))]
-            return (true, true, true);
+            return (cfg!(feature = "nv"), true, true);
         }
-
         #[cfg(target_os = "linux")]
-        return (
-            linux_support_nv() == 0,
-            linux_support_amd() == 0,
-            linux_support_intel() == 0,
-        );
+        {
+            #[cfg(feature = "nv")]
+            let nv = linux_support_nv() == 0;
+            #[cfg(not(feature = "nv"))]
+            let nv = false;
+            return (nv, linux_support_amd() == 0, linux_support_intel() == 0);
+        }
         #[allow(unreachable_code)]
         (false, false, false)
     }

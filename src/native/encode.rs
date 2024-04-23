@@ -1,6 +1,8 @@
+#[cfg(feature = "nv")]
+use crate::native::nv;
 use crate::{
     common::{AdapterDesc, Driver::*},
-    native::{amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, FeatureContext},
+    native::{amf, inner::EncodeCalls, vpl, DynamicContext, EncodeContext, FeatureContext},
 };
 use log::trace;
 use std::{
@@ -27,6 +29,7 @@ impl Encoder {
             return Err(());
         }
         let calls = match ctx.f.driver {
+            #[cfg(feature = "nv")]
             NV => nv::encode_calls(),
             AMF => amf::encode_calls(),
             VPL => vpl::encode_calls(),
@@ -127,6 +130,7 @@ impl Display for EncodeFrame {
 
 pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     let mut natives: Vec<_> = vec![];
+    #[cfg(feature = "nv")]
     natives.append(
         &mut nv::possible_support_encoders()
             .drain(..)
@@ -156,16 +160,21 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     });
     let outputs = Arc::new(Mutex::new(Vec::<EncodeContext>::new()));
     let mut handles = vec![];
+    #[cfg(feature = "nv")]
     let cu_mutex = Arc::new(Mutex::new(0));
     for input in inputs {
         let outputs = outputs.clone();
+        #[cfg(feature = "nv")]
         let cu_mutex = cu_mutex.clone();
         let handle = thread::spawn(move || {
+            #[cfg(feature = "nv")]
             let _cu_lock;
+            #[cfg(feature = "nv")]
             if input.f.driver == NV {
                 _cu_lock = cu_mutex.lock().unwrap();
             }
             let test = match input.f.driver {
+                #[cfg(feature = "nv")]
                 NV => nv::encode_calls().test,
                 AMF => amf::encode_calls().test,
                 VPL => vpl::encode_calls().test,
