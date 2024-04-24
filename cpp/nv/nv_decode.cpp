@@ -25,6 +25,8 @@ using namespace DirectX;
 
 namespace {
 
+#define succ(call) ((call) == 0)
+
 class CUVIDAutoUnmapper {
   CudaFunctions *cudl_ = NULL;
   CUgraphicsResource *pCuResource_ = NULL;
@@ -32,13 +34,13 @@ class CUVIDAutoUnmapper {
 public:
   CUVIDAutoUnmapper(CudaFunctions *cudl, CUgraphicsResource *pCuResource)
       : cudl_(cudl), pCuResource_(pCuResource) {
-    if (!ck(cudl->cuGraphicsMapResources(1, pCuResource, 0))) {
+    if (!succ(cudl->cuGraphicsMapResources(1, pCuResource, 0))) {
       LOG_TRACE("cuGraphicsMapResources failed");
       NVDEC_THROW_ERROR("cuGraphicsMapResources failed", CUDA_ERROR_UNKNOWN);
     }
   }
   ~CUVIDAutoUnmapper() {
-    if (!ck(cudl_->cuGraphicsUnmapResources(1, pCuResource_, 0))) {
+    if (!succ(cudl_->cuGraphicsUnmapResources(1, pCuResource_, 0))) {
       LOG_TRACE("cuGraphicsUnmapResources failed");
       // NVDEC_THROW_ERROR("cuGraphicsUnmapResources failed",
       // CUDA_ERROR_UNKNOWN);
@@ -51,13 +53,13 @@ class CUVIDAutoCtxPopper {
 
 public:
   CUVIDAutoCtxPopper(CudaFunctions *cudl, CUcontext cuContext) : cudl_(cudl) {
-    if (!ck(cudl->cuCtxPushCurrent(cuContext))) {
+    if (!succ(cudl->cuCtxPushCurrent(cuContext))) {
       LOG_TRACE("cuCtxPushCurrent failed");
       NVDEC_THROW_ERROR("cuCtxPopCurrent failed", CUDA_ERROR_UNKNOWN);
     }
   }
   ~CUVIDAutoCtxPopper() {
-    if (!ck(cudl_->cuCtxPopCurrent(NULL))) {
+    if (!succ(cudl_->cuCtxPopCurrent(NULL))) {
       LOG_TRACE("cuCtxPopCurrent failed");
       // NVDEC_THROW_ERROR("cuCtxPopCurrent failed", CUDA_ERROR_UNKNOWN);
     }
@@ -135,7 +137,7 @@ public:
   ~CuvidDecoder() {}
 
   bool init() {
-    if (!ck(cudl_->cuInit(0))) {
+    if (!succ(cudl_->cuInit(0))) {
       LOG_ERROR("cuInit failed");
       return false;
     }
@@ -145,12 +147,12 @@ public:
       LOG_ERROR("Failed to init native device");
       return false;
     }
-    if (!ck(cudl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
+    if (!succ(cudl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
       LOG_ERROR("Failed to get cuDevice");
       return false;
     }
 
-    if (!ck(cudl_->cuCtxCreate(&cuContext_, 0, cuDevice))) {
+    if (!succ(cudl_->cuCtxCreate(&cuContext_, 0, cuDevice))) {
       LOG_ERROR("Failed to create cuContext");
       return false;
     }
@@ -311,7 +313,7 @@ private:
     for (int i = 0; i < 2; i++) {
       CUarray dstArray;
       CUVIDAutoUnmapper unmapper(cudl_, &cuResource_[i]);
-      if (!ck(cudl_->cuGraphicsSubResourceGetMappedArray(&dstArray,
+      if (!succ(cudl_->cuGraphicsSubResourceGetMappedArray(&dstArray,
                                                          cuResource_[i], 0, 0)))
         return false;
       CUDA_MEMCPY2D m = {0};
@@ -322,7 +324,7 @@ private:
       m.dstArray = dstArray;
       m.WidthInBytes = width;
       m.Height = i == 0 ? height : chromaHeight;
-      if (!ck(cudl_->cuMemcpy2D(&m)))
+      if (!succ(cudl_->cuMemcpy2D(&m)))
         return false;
     }
     return true;
@@ -568,13 +570,13 @@ private:
 
     bool ret = true;
     for (int i = 0; i < 2; i++) {
-      if (!ck(cudl_->cuGraphicsD3D11RegisterResource(
+      if (!succ(cudl_->cuGraphicsD3D11RegisterResource(
               &cuResource_[i], textures_[i].Get(),
               CU_GRAPHICS_REGISTER_FLAGS_NONE))) {
         ret = false;
         break;
       }
-      if (!ck(cudl_->cuGraphicsResourceSetMapFlags(
+      if (!succ(cudl_->cuGraphicsResourceSetMapFlags(
               cuResource_[i], CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD))) {
         ret = false;
         break;

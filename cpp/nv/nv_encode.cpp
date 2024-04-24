@@ -33,6 +33,8 @@ namespace {
 
 // #define CONFIG_NV_OPTIMUS_FOR_DEV
 
+#define succ(call) ((call) == 0)
+
 void load_driver(CudaFunctions **pp_cuda_dl, NvencFunctions **pp_nvenc_dl) {
   if (cuda_load_functions(pp_cuda_dl, NULL) < 0) {
     LOG_TRACE("cuda_load_functions failed");
@@ -107,7 +109,7 @@ public:
                 std::to_string(dataFormat_));
       return false;
     }
-    if (!ck(cuda_dl_->cuInit(0))) {
+    if (!succ(cuda_dl_->cuInit(0))) {
       LOG_TRACE("cuInit failed");
       return false;
     }
@@ -124,7 +126,7 @@ public:
 #endif
 
     CUdevice cuDevice = 0;
-    if (!ck(cuda_dl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
+    if (!succ(cuda_dl_->cuD3D11GetDevice(&cuDevice, native_->adapter_.Get()))) {
       LOG_ERROR("Failed to get cuDevice");
       return false;
     }
