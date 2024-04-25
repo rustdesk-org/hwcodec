@@ -195,9 +195,11 @@ impl Encoder {
             true
         };
 
-        let (nv, amf, _vpl) = crate::common::supported_gpu(true);
+        let (_nv, amf, _vpl) = crate::common::supported_gpu(true);
         let mut codecs = vec![];
-        if nv && contains(Driver::NV, H264) {
+        // windows disable nvenc to avoid gpu stuck
+        #[cfg(target_os = "linux")]
+        if _nv && contains(Driver::NV, H264) {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
@@ -205,7 +207,8 @@ impl Encoder {
                 ..Default::default()
             });
         }
-        if nv && contains(Driver::NV, H265) {
+        #[cfg(target_os = "linux")]
+        if _nv && contains(Driver::NV, H265) {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,

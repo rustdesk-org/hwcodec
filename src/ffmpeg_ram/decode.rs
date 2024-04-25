@@ -1,6 +1,6 @@
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use super::Priority;
-#[cfg(any(target_os = "windows", target_os = "linux"))]
+#[cfg(target_os = "linux")]
 use crate::common::{DataFormat, Driver};
 #[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::ffmpeg::AVHWDeviceType::*;
@@ -188,7 +188,8 @@ impl Decoder {
         };
         #[allow(unused_mut)]
         let mut codecs: Vec<CodecInfo> = vec![];
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        // windows disable nvdec to avoid gpu stuck
+        #[cfg(target_os = "linux")]
         {
             let (nv, _, _) = crate::common::supported_gpu(false);
             let contains = |_driver: Driver, _format: DataFormat| {
