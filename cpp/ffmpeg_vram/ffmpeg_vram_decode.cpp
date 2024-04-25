@@ -396,6 +396,8 @@ extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
             break;
         }
       }
+      if (count >= maxDescNum)
+        break;
     }
     *outDescNum = count;
     return 0;

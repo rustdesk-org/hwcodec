@@ -6,7 +6,7 @@ mod inner;
 pub(crate) mod nv;
 pub(crate) mod vpl;
 
-pub(crate) const MAX_ADATERS: usize = 8;
+pub(crate) const MAX_ADATERS: usize = 16;
 
 use crate::common::{DataFormat, Driver, API};
 pub use serde;
