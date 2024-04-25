@@ -203,7 +203,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
-                priority: Priority::Best as _,
+                priority: Priority::Good as _,
                 ..Default::default()
             });
         }
@@ -212,7 +212,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
-                priority: Priority::Best as _,
+                priority: Priority::Good as _,
                 ..Default::default()
             });
         }
