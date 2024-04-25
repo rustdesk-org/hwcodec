@@ -173,9 +173,7 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
                 _ => return,
             };
             let mut descs: Vec<AdapterDesc> = vec![];
-            descs.resize(crate::vram::MAX_ADATER_NUM_ONE_VENDER, unsafe {
-                std::mem::zeroed()
-            });
+            descs.resize(crate::vram::MAX_ADATERS, unsafe { std::mem::zeroed() });
             let mut desc_count: i32 = 0;
             if 0 == unsafe {
                 test(

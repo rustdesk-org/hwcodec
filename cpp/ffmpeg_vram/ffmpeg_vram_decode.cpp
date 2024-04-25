@@ -376,25 +376,29 @@ extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
     //   return -1;
     // }
     AdapterDesc *descs = (AdapterDesc *)outDescs;
-    Adapters adapters;
-    if (!adapters.Init(ADAPTER_VENDOR_INTEL))
-      return -1;
     int count = 0;
-    for (auto &adapter : adapters.adapters_) {
-      FFmpegVRamDecoder *p = (FFmpegVRamDecoder *)ffmpeg_vram_new_decoder(
-          nullptr, LUID(adapter.get()->desc1_), api, dataFormat,
-          outputSharedHandle);
-      if (!p)
+    AdapterVendor vendors[] = {ADAPTER_VENDOR_INTEL, ADAPTER_VENDOR_NVIDIA,
+                               ADAPTER_VENDOR_AMD};
+    for (auto vendor : vendors) {
+      Adapters adapters;
+      if (!adapters.Init(vendor))
         continue;
-      if (ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0) {
-        AdapterDesc *desc = descs + count;
-        desc->luid = LUID(adapter.get()->desc1_);
-        count += 1;
-        p->destroy();
-        delete p;
-        p = nullptr;
-        if (count >= maxDescNum)
-          break;
+      for (auto &adapter : adapters.adapters_) {
+        FFmpegVRamDecoder *p = (FFmpegVRamDecoder *)ffmpeg_vram_new_decoder(
+            nullptr, LUID(adapter.get()->desc1_), api, dataFormat,
+            outputSharedHandle);
+        if (!p)
+          continue;
+        if (ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0) {
+          AdapterDesc *desc = descs + count;
+          desc->luid = LUID(adapter.get()->desc1_);
+          count += 1;
+          p->destroy();
+          delete p;
+          p = nullptr;
+          if (count >= maxDescNum)
+            break;
+        }
       }
     }
     *outDescNum = count;

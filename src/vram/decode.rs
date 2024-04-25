@@ -147,9 +147,7 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
                 FFMPEG => ffmpeg::decode_calls().test,
             };
             let mut descs: Vec<AdapterDesc> = vec![];
-            descs.resize(crate::vram::MAX_ADATER_NUM_ONE_VENDER, unsafe {
-                std::mem::zeroed()
-            });
+            descs.resize(crate::vram::MAX_ADATERS, unsafe { std::mem::zeroed() });
             let mut desc_count: i32 = 0;
             let data = match input.data_format {
                 H264 => &buf264[..],
