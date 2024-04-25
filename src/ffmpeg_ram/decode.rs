@@ -2,7 +2,6 @@
 use super::Priority;
 #[cfg(target_os = "linux")]
 use crate::common::{DataFormat, Driver};
-#[cfg(any(target_os = "windows", target_os = "linux"))]
 use crate::ffmpeg::AVHWDeviceType::*;
 
 use crate::{
