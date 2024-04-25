@@ -10,6 +10,10 @@ void *ffmpeg_vram_new_decoder(void *device, int64_t luid, int32_t api,
                               int32_t codecID, bool outputSharedHandle);
 int ffmpeg_vram_decode(void *decoder, uint8_t *data, int len,
                        DecodeCallback callback, void *obj);
-void ffmpeg_vram_free_decoder(void *decoder);
+int ffmpeg_vram_destroy_decoder(void *decoder);
+int ffmpeg_vram_test_decode(void *outDescs, int32_t maxDescNum,
+                            int32_t *outDescNum, int32_t api,
+                            int32_t dataFormat, bool outputSharedHandle,
+                            uint8_t *data, int32_t length);
 
 #endif // FFMPEG_VRAM_FFI_H

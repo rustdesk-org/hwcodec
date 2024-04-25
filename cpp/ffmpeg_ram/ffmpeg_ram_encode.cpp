@@ -124,7 +124,7 @@ int set_lantency_free(void *priv_data, const char *name) {
 }
 
 int set_quality(void *priv_data, const char *name, int quality) {
-  int ret;
+  int ret = -1;
 
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
     switch (quality) {

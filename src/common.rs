@@ -13,6 +13,7 @@ pub enum Driver {
     NV,
     AMF,
     VPL,
+    FFMPEG,
 }
 
 pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
@@ -31,10 +32,10 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
         {
             #[cfg(feature = "vram")]
             return (
-                _encode && crate::native::nv::nv_encode_driver_support() == 0
-                    || !_encode && crate::native::nv::nv_decode_driver_support() == 0,
-                crate::native::amf::amf_driver_support() == 0,
-                crate::native::vpl::vpl_driver_support() == 0,
+                _encode && crate::vram::nv::nv_encode_driver_support() == 0
+                    || !_encode && crate::vram::nv::nv_decode_driver_support() == 0,
+                crate::vram::amf::amf_driver_support() == 0,
+                crate::vram::vpl::vpl_driver_support() == 0,
             );
             #[cfg(not(feature = "vram"))]
             return (true, true, true);

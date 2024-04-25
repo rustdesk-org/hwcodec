@@ -197,7 +197,7 @@ impl Decoder {
                     if let Some(_sdk) = _sdk.as_ref() {
                         if !_sdk.is_empty() {
                             if let Ok(available) =
-                                crate::native::Available::deserialize(_sdk.as_str())
+                                crate::vram::Available::deserialize(_sdk.as_str())
                             {
                                 return available.contains(false, _driver, _format);
                             }

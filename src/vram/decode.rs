@@ -1,6 +1,6 @@
 use crate::{
     common::{AdapterDesc, DataFormat::*, Driver::*},
-    native::{amf, inner::DecodeCalls, nv, vpl, DecodeContext},
+    vram::{amf, ffmpeg, inner::DecodeCalls, nv, vpl, DecodeContext},
 };
 use log::{error, trace};
 use std::{
@@ -25,6 +25,7 @@ impl Decoder {
             NV => nv::decode_calls(),
             AMF => amf::decode_calls(),
             VPL => vpl::decode_calls(),
+            FFMPEG => ffmpeg::decode_calls(),
         };
         unsafe {
             let codec = (calls.new)(
@@ -90,27 +91,33 @@ pub struct DecodeFrame {
 }
 
 pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
-    // to-do: log control
-    let mut natives: Vec<_> = vec![];
-    natives.append(
-        &mut nv::possible_support_decoders()
+    let mut codecs: Vec<_> = vec![];
+    // disable nv sdk decode
+    // natives.append(
+    //     &mut nv::possible_support_decoders()
+    //         .drain(..)
+    //         .map(|n| (NV, n))
+    //         .collect(),
+    // );
+    codecs.append(
+        &mut ffmpeg::possible_support_decoders()
             .drain(..)
-            .map(|n| (NV, n))
+            .map(|n| (FFMPEG, n))
             .collect(),
     );
-    natives.append(
+    codecs.append(
         &mut amf::possible_support_decoders()
             .drain(..)
             .map(|n| (AMF, n))
             .collect(),
     );
-    natives.append(
+    codecs.append(
         &mut vpl::possible_support_decoders()
             .drain(..)
             .map(|n| (VPL, n))
             .collect(),
     );
-    let inputs = natives.drain(..).map(|(driver, n)| DecodeContext {
+    let inputs = codecs.drain(..).map(|(driver, n)| DecodeContext {
         device: None,
         driver,
         data_format: n.data_format,
@@ -137,9 +144,10 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
                 NV => nv::decode_calls().test,
                 AMF => amf::decode_calls().test,
                 VPL => vpl::decode_calls().test,
+                FFMPEG => ffmpeg::decode_calls().test,
             };
             let mut descs: Vec<AdapterDesc> = vec![];
-            descs.resize(crate::native::MAX_ADATER_NUM_ONE_VENDER, unsafe {
+            descs.resize(crate::vram::MAX_ADATER_NUM_ONE_VENDER, unsafe {
                 std::mem::zeroed()
             });
             let mut desc_count: i32 = 0;

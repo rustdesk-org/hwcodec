@@ -1,6 +1,6 @@
 use crate::{
     common::{AdapterDesc, Driver::*},
-    native::{amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, FeatureContext},
+    vram::{amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, FeatureContext},
 };
 use log::trace;
 use std::{
@@ -30,6 +30,7 @@ impl Encoder {
             NV => nv::encode_calls(),
             AMF => amf::encode_calls(),
             VPL => vpl::encode_calls(),
+            _ => return Err(()),
         };
         unsafe {
             let codec = (calls.new)(
@@ -169,9 +170,10 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
                 NV => nv::encode_calls().test,
                 AMF => amf::encode_calls().test,
                 VPL => vpl::encode_calls().test,
+                _ => return,
             };
             let mut descs: Vec<AdapterDesc> = vec![];
-            descs.resize(crate::native::MAX_ADATER_NUM_ONE_VENDER, unsafe {
+            descs.resize(crate::vram::MAX_ADATER_NUM_ONE_VENDER, unsafe {
                 std::mem::zeroed()
             });
             let mut desc_count: i32 = 0;

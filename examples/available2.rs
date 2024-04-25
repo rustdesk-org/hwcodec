@@ -1,6 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::common::MAX_GOP;
-use hwcodec::native::{decode, encode, DynamicContext};
+use hwcodec::vram::{decode, encode, DynamicContext};
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "trace"));

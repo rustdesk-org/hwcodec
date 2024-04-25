@@ -3,12 +3,10 @@ pub mod common;
 pub mod ffmpeg;
 #[cfg(feature = "ffmpeg")]
 pub mod ffmpeg_ram;
-#[cfg(all(feature = "ffmpeg", feature = "vram"))]
-pub mod ffmpeg_vram;
 #[cfg(feature = "ffmpeg")]
 pub mod mux;
 #[cfg(all(windows, feature = "vram"))]
-pub mod native;
+pub mod vram;
 
 #[no_mangle]
 pub extern "C" fn hwcodec_log(level: i32, message: *const std::os::raw::c_char) {

@@ -1,6 +1,7 @@
 pub(crate) mod amf;
 pub mod decode;
 pub mod encode;
+pub(crate) mod ffmpeg;
 mod inner;
 pub(crate) mod nv;
 pub(crate) mod vpl;

@@ -9,6 +9,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 }
+// #include <VersionHelpers.h>
 #include <libavutil/hwcontext_d3d11va.h>
 
 #include "../common/callback.h"
@@ -78,7 +79,7 @@ public:
 
   ~FFmpegVRamDecoder() {}
 
-  void free_decoder() {
+  void destroy() {
     if (frame_)
       av_frame_free(&frame_);
     if (pkt_)
@@ -105,7 +106,7 @@ public:
     ready_decode_ = false;
   }
   int reset() {
-    free_decoder();
+    destroy();
     if (!native_) {
       native_ = std::make_unique<NativeDevice>();
       if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
@@ -219,11 +220,6 @@ private:
         }
         goto _exit;
       }
-#if FF_API_FRAME_KEY
-      int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;
-#else
-      int key_frame = frame_->key_frame;
-#endif
       if (frame_->format != AV_PIX_FMT_D3D11) {
         LOG_ERROR("only AV_PIX_FMT_D3D11 is supported");
         goto _exit;
@@ -255,7 +251,6 @@ private:
   bool convert(AVFrame *frame, DecodeCallback callback, const void *obj) {
 
     ID3D11Texture2D *texture = (ID3D11Texture2D *)frame->data[0];
-    LOG_INFO("data[1]" + std::to_string((int)frame->data[1]));
     if (!texture) {
       LOG_ERROR("texture is NULL");
       return false;
@@ -321,16 +316,18 @@ private:
 
 } // namespace
 
-extern "C" void ffmpeg_vram_free_decoder(FFmpegVRamDecoder *decoder) {
+extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
   try {
     if (!decoder)
-      return;
-    decoder->free_decoder();
+      return 0;
+    decoder->destroy();
     delete decoder;
     decoder = NULL;
+    return 0;
   } catch (const std::exception &e) {
     LOG_ERROR("ffmpeg_ram_free_decoder exception:" + e.what());
   }
+  return -1;
 }
 
 extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
@@ -350,7 +347,7 @@ extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
     LOG_ERROR("new decoder exception:" + e.what());
   }
   if (decoder) {
-    decoder->free_decoder();
+    decoder->destroy();
     delete decoder;
     decoder = NULL;
   }
@@ -364,6 +361,46 @@ extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
     return decoder->decode(data, length, callback, obj);
   } catch (const std::exception &e) {
     LOG_ERROR("ffmpeg_ram_decode exception:" + e.what());
+  }
+  return -1;
+}
+
+extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
+                                       int32_t maxDescNum, int32_t *outDescNum,
+                                       API api, DataFormat dataFormat,
+                                       bool outputSharedHandle, uint8_t *data,
+                                       int32_t length) {
+  try {
+    // if (!IsWindows10OrGreater()) {
+    //   LOG_ERROR("Windows 10 or greater is required");
+    //   return -1;
+    // }
+    AdapterDesc *descs = (AdapterDesc *)outDescs;
+    Adapters adapters;
+    if (!adapters.Init(ADAPTER_VENDOR_INTEL))
+      return -1;
+    int count = 0;
+    for (auto &adapter : adapters.adapters_) {
+      FFmpegVRamDecoder *p = (FFmpegVRamDecoder *)ffmpeg_vram_new_decoder(
+          nullptr, LUID(adapter.get()->desc1_), api, dataFormat,
+          outputSharedHandle);
+      if (!p)
+        continue;
+      if (ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0) {
+        AdapterDesc *desc = descs + count;
+        desc->luid = LUID(adapter.get()->desc1_);
+        count += 1;
+        p->destroy();
+        delete p;
+        p = nullptr;
+        if (count >= maxDescNum)
+          break;
+      }
+    }
+    *outDescNum = count;
+    return 0;
+  } catch (const std::exception &e) {
+    std::cerr << e.what() << '\n';
   }
   return -1;
 }

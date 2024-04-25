@@ -186,8 +186,7 @@ impl Encoder {
             {
                 if let Some(_sdk) = _sdk.as_ref() {
                     if !_sdk.is_empty() {
-                        if let Ok(available) = crate::native::Available::deserialize(_sdk.as_str())
-                        {
+                        if let Ok(available) = crate::vram::Available::deserialize(_sdk.as_str()) {
                             return available.contains(true, _driver, _format);
                         }
                     }

@@ -6,7 +6,7 @@ include!(concat!(env!("OUT_DIR"), "/amf_ffi.rs"));
 
 use crate::{
     common::{DataFormat::*, API::*},
-    native::inner::{DecodeCalls, EncodeCalls, InnerDecodeContext, InnerEncodeContext},
+    vram::inner::{DecodeCalls, EncodeCalls, InnerDecodeContext, InnerEncodeContext},
 };
 
 pub fn encode_calls() -> EncodeCalls {
