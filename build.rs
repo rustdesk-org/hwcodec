@@ -153,6 +153,7 @@ mod ffmpeg {
     pub fn build_ffmpeg(builder: &mut Build) {
         link_ffmpeg(builder);
         build_ffmpeg_ram(builder);
+        #[cfg(feature = "vram")]
         build_ffmpeg_vram(builder);
         build_mux(builder);
     }
