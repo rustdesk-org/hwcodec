@@ -9,7 +9,6 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 }
-// #include <VersionHelpers.h>
 #include <libavutil/hwcontext_d3d11va.h>
 
 #include "../common/callback.h"
@@ -371,10 +370,6 @@ extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
                                        bool outputSharedHandle, uint8_t *data,
                                        int32_t length) {
   try {
-    // if (!IsWindows10OrGreater()) {
-    //   LOG_ERROR("Windows 10 or greater is required");
-    //   return -1;
-    // }
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     int count = 0;
     AdapterVendor vendors[] = {ADAPTER_VENDOR_INTEL, ADAPTER_VENDOR_NVIDIA,
