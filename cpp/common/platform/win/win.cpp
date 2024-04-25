@@ -203,7 +203,8 @@ bool NativeDevice::Query() {
 bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
                            D3D11_VIDEO_PROCESSOR_CONTENT_DESC content_desc,
                            DXGI_COLOR_SPACE_TYPE colorSpace_in,
-                           DXGI_COLOR_SPACE_TYPE colorSpace_out) {
+                           DXGI_COLOR_SPACE_TYPE colorSpace_out,
+                           int arraySlice) {
   D3D11_TEXTURE2D_DESC inDesc = {0};
   D3D11_TEXTURE2D_DESC outDesc = {0};
   in->GetDesc(&inDesc);
@@ -250,7 +251,7 @@ bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
   InputViewDesc.FourCC = 0;
   InputViewDesc.ViewDimension = D3D11_VPIV_DIMENSION_TEXTURE2D;
   InputViewDesc.Texture2D.MipSlice = 0;
-  InputViewDesc.Texture2D.ArraySlice = 0;
+  InputViewDesc.Texture2D.ArraySlice = arraySlice;
   ComPtr<ID3D11VideoProcessorInputView> inputView = nullptr;
   HRB(video_device_->CreateVideoProcessorInputView(
       in, video_processor_enumerator_.Get(), &InputViewDesc,
@@ -304,7 +305,7 @@ bool NativeDevice::ToNV12(ID3D11Texture2D *texture, int width, int height,
   contentDesc.OutputFrameRate.Denominator = 1;
 
   return Process(texture, nv12_texture_.Get(), contentDesc, colorSpace_in,
-                 colorSpace_out);
+                 colorSpace_out, 0);
 }
 bool Adapter::Init(IDXGIAdapter1 *adapter1) {
   HRESULT hr = S_OK;

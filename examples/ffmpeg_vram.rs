@@ -1,9 +1,12 @@
-use capture::dxgi;
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
-use hwcodec::common::{DataFormat, Driver, API::*, MAX_GOP};
-use hwcodec::native::{
-    decode::Decoder, encode::Encoder, DecodeContext, DynamicContext, EncodeContext, FeatureContext,
+use hwcodec::{
+    ffmpeg::{AVHWDeviceType::*, AVPixelFormat::*},
+    ffmpeg_vram::{decode::Decoder, DecodeContext},
 };
+
+use capture::dxgi;
+use hwcodec::common::{DataFormat, Driver, API::*, MAX_GOP};
+use hwcodec::native::{encode::Encoder, DynamicContext, EncodeContext, FeatureContext};
 use render::Render;
 use std::{
     io::Write,
@@ -13,7 +16,7 @@ use std::{
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "trace"));
-    let luid = 75410; // 63444; // 59677
+    let luid = 75410; // 69674; // 59677
     unsafe {
         // one luid create render failed on my pc, wouldn't happen in rustdesk
         let output_shared_handle = false;

@@ -61,7 +61,7 @@ public:
   bool Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
                D3D11_VIDEO_PROCESSOR_CONTENT_DESC content_desc,
                DXGI_COLOR_SPACE_TYPE colorSpace_in,
-               DXGI_COLOR_SPACE_TYPE colorSpace_out);
+               DXGI_COLOR_SPACE_TYPE colorSpace_out, int arraySlice);
   bool ToNV12(ID3D11Texture2D *texture, int width, int height,
               DXGI_COLOR_SPACE_TYPE colorSpace_in,
               DXGI_COLOR_SPACE_TYPE colorSpace_outt);

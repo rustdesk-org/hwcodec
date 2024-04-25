@@ -93,7 +93,8 @@ public:
     }
 
     c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
-    c_->thread_count = thread_count_;
+    c_->thread_count =
+        device_type_ != AV_HWDEVICE_TYPE_NONE ? 1 : thread_count_;
     c_->thread_type = FF_THREAD_SLICE;
 
     if (strcmp(name_, "h264_qsv") == 0 || strcmp(name_, "hevc_qsv") == 0) {

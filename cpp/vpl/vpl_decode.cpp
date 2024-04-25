@@ -374,7 +374,7 @@ private:
       }
     }
     if (!native_->Process(texture, native_->GetCurrentTexture(), contentDesc,
-                          colorSpace_in, colorSpace_out)) {
+                          colorSpace_in, colorSpace_out, 0)) {
       LOG_ERROR("Failed to process");
       native_->EndQuery();
       return false;

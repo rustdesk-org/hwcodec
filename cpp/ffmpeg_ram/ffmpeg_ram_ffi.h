@@ -38,6 +38,5 @@ int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width, int height,
                                           int align, int *linesize, int *offset,
                                           int *length);
 int ffmpeg_ram_set_bitrate(void *encoder, int bitrate);
-void hwcodec_get_bin_file(int is265, uint8_t **p, int *len);
 
 #endif // FFMPEG_RAM_FFI_H

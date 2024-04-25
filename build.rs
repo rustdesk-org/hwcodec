@@ -153,6 +153,7 @@ mod ffmpeg {
     pub fn build_ffmpeg(builder: &mut Build) {
         link_ffmpeg(builder);
         build_ffmpeg_ram(builder);
+        build_ffmpeg_vram(builder);
         build_mux(builder);
     }
 
@@ -224,6 +225,24 @@ mod ffmpeg {
         builder.files(
             ["ffmpeg_ram_encode.cpp", "ffmpeg_ram_decode.cpp"].map(|f| ffmpeg_ram_dir.join(f)),
         );
+    }
+
+    fn build_ffmpeg_vram(builder: &mut Build) {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let ffmpeg_ram_dir = manifest_dir.join("cpp").join("ffmpeg_vram");
+        let ffi_header = ffmpeg_ram_dir
+            .join("ffmpeg_vram_ffi.h")
+            .to_string_lossy()
+            .to_string();
+        bindgen::builder()
+            .header(ffi_header)
+            .rustified_enum("*")
+            .generate()
+            .unwrap()
+            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_vram_ffi.rs"))
+            .unwrap();
+
+        builder.files(["ffmpeg_vram_decode.cpp"].map(|f| ffmpeg_ram_dir.join(f)));
     }
 
     fn build_mux(builder: &mut Build) {

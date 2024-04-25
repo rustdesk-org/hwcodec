@@ -3,6 +3,8 @@ pub mod common;
 pub mod ffmpeg;
 #[cfg(feature = "ffmpeg")]
 pub mod ffmpeg_ram;
+#[cfg(all(feature = "ffmpeg", feature = "vram"))]
+pub mod ffmpeg_vram;
 #[cfg(feature = "ffmpeg")]
 pub mod mux;
 #[cfg(all(windows, feature = "vram"))]
