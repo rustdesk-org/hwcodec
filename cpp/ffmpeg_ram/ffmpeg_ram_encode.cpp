@@ -375,7 +375,8 @@ public:
     set_gpu(c_->priv_data, name_, gpu_);
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)));
+      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)) +
+                ", name: " + name_);
       return false;
     }
     first_ms_ = 0;
