@@ -16,6 +16,6 @@ fn main() {
     });
     encoders.iter().map(|e| println!("{:?}", e)).count();
     println!("decoders:");
-    let decoders = decode::available(false);
+    let decoders = decode::available();
     decoders.iter().map(|e| println!("{:?}", e)).count();
 }

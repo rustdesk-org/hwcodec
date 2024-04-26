@@ -16,10 +16,9 @@ fn main() {
     let luid = 75410; // 63444; // 59677
     unsafe {
         // one luid create render failed on my pc, wouldn't happen in rustdesk
-        let output_shared_handle = false;
         let data_format = DataFormat::H265;
         let mut capturer = dxgi::Capturer::new(luid).unwrap();
-        let mut render = Render::new(luid, output_shared_handle).unwrap();
+        let mut render = Render::new(luid, false).unwrap();
 
         let en_ctx = EncodeContext {
             f: FeatureContext {
@@ -38,15 +37,10 @@ fn main() {
             },
         };
         let de_ctx = DecodeContext {
-            device: if output_shared_handle {
-                None
-            } else {
-                Some(render.device())
-            },
+            device: Some(render.device()),
             driver: Driver::FFMPEG,
             api: API_DX11,
             data_format,
-            output_shared_handle,
             luid,
         };
 

@@ -43,7 +43,6 @@ private:
   int last_width_ = 0;
   int last_height_ = 0;
   amf_wstring codec_;
-  bool outputSharedHandle_;
   bool full_range_ = false;
   bool bt709_ = false;
 
@@ -52,14 +51,12 @@ private:
 
 public:
   AMFDecoder(void *device, int64_t luid, amf::AMF_MEMORY_TYPE memoryTypeOut,
-             amf_wstring codec, amf::AMF_SURFACE_FORMAT textureFormatOut,
-             bool outputSharedHandle) {
+             amf_wstring codec, amf::AMF_SURFACE_FORMAT textureFormatOut) {
     device_ = device;
     luid_ = luid;
     AMFMemoryType_ = memoryTypeOut;
     textureFormatOut_ = textureFormatOut;
     codec_ = codec;
-    outputSharedHandle_ = outputSharedHandle;
   }
 
   ~AMFDecoder() {}
@@ -119,20 +116,8 @@ public:
           LOG_ERROR("SetTexture failed");
           return AMF_FAIL;
         }
-        void *output = nullptr;
-        if (outputSharedHandle_) {
-          HANDLE sharedHandle = nativeDevice_->GetSharedHandle();
-          if (!sharedHandle) {
-            LOG_ERROR("GetSharedHandle failed");
-            return AMF_FAIL;
-          }
-          output = sharedHandle;
-        } else {
-          output = nativeDevice_->GetCurrentTexture();
-        }
-
         if (callback)
-          callback(output, obj);
+          callback(nativeDevice_->GetCurrentTexture(), obj);
         decoded = true;
       } break;
       case amf::AMF_MEMORY_OPENCL: {
@@ -368,7 +353,7 @@ int amf_destroy_decoder(void *decoder) {
 }
 
 void *amf_new_decoder(void *device, int64_t luid, API api,
-                      DataFormat dataFormat, bool outputSharedHandle) {
+                      DataFormat dataFormat) {
   AMFDecoder *dec = NULL;
   try {
     amf_wstring codecStr;
@@ -380,8 +365,7 @@ void *amf_new_decoder(void *device, int64_t luid, API api,
     if (!convert_codec(dataFormat, codecStr)) {
       return NULL;
     }
-    dec = new AMFDecoder(device, luid, memory, codecStr, amf::AMF_SURFACE_BGRA,
-                         outputSharedHandle);
+    dec = new AMFDecoder(device, luid, memory, codecStr, amf::AMF_SURFACE_BGRA);
     if (dec) {
       if (dec->initialize() == AMF_OK) {
         return dec;
@@ -411,7 +395,7 @@ int amf_decode(void *decoder, uint8_t *data, int32_t length,
 
 int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
                     int32_t *outDescNum, API api, DataFormat dataFormat,
-                    bool outputSharedHandle, uint8_t *data, int32_t length) {
+                    uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
@@ -419,9 +403,8 @@ int amf_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
-      AMFDecoder *p =
-          (AMFDecoder *)amf_new_decoder(nullptr, LUID(adapter.get()->desc1_),
-                                        api, dataFormat, outputSharedHandle);
+      AMFDecoder *p = (AMFDecoder *)amf_new_decoder(
+          nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
       if (p->decode(data, length, nullptr, nullptr) == AMF_OK) {

@@ -40,7 +40,6 @@ public:
   void *device_ = nullptr;
   int64_t luid_ = 0;
   DataFormat dataFormat_;
-  bool outputSharedHandle_;
   char name_[128] = {0};
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
 
@@ -49,12 +48,11 @@ public:
   bool bt709_ = false;
   bool full_range_ = false;
 
-  FFmpegVRamDecoder(void *device, int64_t luid, API api, DataFormat dataFormat,
-                    bool outputSharedHandle) {
+  FFmpegVRamDecoder(void *device, int64_t luid, API api,
+                    DataFormat dataFormat) {
     device_ = device;
     luid_ = luid;
     dataFormat_ = dataFormat;
-    outputSharedHandle_ = outputSharedHandle;
     switch (dataFormat) {
     case H264:
       snprintf(this->name_, sizeof(this->name_), "h264");
@@ -228,19 +226,8 @@ private:
         LOG_ERROR("Failed to convert");
         goto _exit;
       }
-      void *output = nullptr;
-      if (outputSharedHandle_) {
-        HANDLE sharedHandle = native_->GetSharedHandle();
-        if (!sharedHandle) {
-          LOG_ERROR("Failed to GetSharedHandle");
-          break;
-        }
-        output = sharedHandle;
-      } else {
-        output = native_->GetCurrentTexture();
-      }
       if (callback)
-        callback(output, obj);
+        callback(native_->GetCurrentTexture(), obj);
       decoded = true;
     }
   _exit:
@@ -332,12 +319,10 @@ extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
 
 extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
                                                       int64_t luid, API api,
-                                                      DataFormat dataFormat,
-                                                      bool outputSharedHandle) {
+                                                      DataFormat dataFormat) {
   FFmpegVRamDecoder *decoder = NULL;
   try {
-    decoder = new FFmpegVRamDecoder(device, luid, api, dataFormat,
-                                    outputSharedHandle);
+    decoder = new FFmpegVRamDecoder(device, luid, api, dataFormat);
     if (decoder) {
       if (decoder->reset() == 0) {
         return decoder;
@@ -368,8 +353,7 @@ extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
 extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
                                        int32_t maxDescNum, int32_t *outDescNum,
                                        API api, DataFormat dataFormat,
-                                       bool outputSharedHandle, uint8_t *data,
-                                       int32_t length) {
+                                       uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     int count = 0;
@@ -381,8 +365,7 @@ extern "C" int ffmpeg_vram_test_decode(AdapterDesc *outDescs,
         continue;
       for (auto &adapter : adapters.adapters_) {
         FFmpegVRamDecoder *p = (FFmpegVRamDecoder *)ffmpeg_vram_new_decoder(
-            nullptr, LUID(adapter.get()->desc1_), api, dataFormat,
-            outputSharedHandle);
+            nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
         if (!p)
           continue;
         if (ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0) {

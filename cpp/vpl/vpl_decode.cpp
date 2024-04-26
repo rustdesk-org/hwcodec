@@ -39,18 +39,15 @@ public:
   int64_t luid_;
   API api_;
   DataFormat codecID_;
-  bool outputSharedHandle_;
 
   bool bt709_ = false;
   bool full_range_ = false;
 
-  VplDecoder(void *device, int64_t luid, API api, DataFormat codecID,
-             bool outputSharedHandle) {
+  VplDecoder(void *device, int64_t luid, API api, DataFormat codecID) {
     device_ = device;
     luid_ = luid;
     api_ = api;
     codecID_ = codecID;
-    outputSharedHandle_ = outputSharedHandle;
     ZeroMemory(&mfxVideoParams_, sizeof(mfxVideoParams_));
     ZeroMemory(&mfxResponse_, sizeof(mfxResponse_));
   }
@@ -117,7 +114,6 @@ public:
     mfxStatus sts = MFX_ERR_NONE;
     mfxSyncPoint syncp;
     mfxFrameSurface1 *pmfxOutSurface = NULL;
-    void *output = nullptr;
     bool decoded = false;
     mfxBitstream mfxBS;
 
@@ -166,18 +162,8 @@ public:
           LOG_ERROR("Failed to convert");
           break;
         }
-        if (outputSharedHandle_) {
-          HANDLE sharedHandle = native_->GetSharedHandle();
-          if (!sharedHandle) {
-            LOG_ERROR("Failed to GetSharedHandle");
-            break;
-          }
-          output = sharedHandle;
-        } else {
-          output = native_->GetCurrentTexture();
-        }
         if (callback)
-          callback(output, obj);
+          callback(native_->GetCurrentTexture(), obj);
         decoded = true;
         break;
       } else if (MFX_WRN_DEVICE_BUSY == sts) {
@@ -404,11 +390,10 @@ int vpl_destroy_decoder(void *decoder) {
   return 0;
 }
 
-void *vpl_new_decoder(void *device, int64_t luid, API api, DataFormat codecID,
-                      bool outputSharedHandle) {
+void *vpl_new_decoder(void *device, int64_t luid, API api, DataFormat codecID) {
   VplDecoder *p = NULL;
   try {
-    p = new VplDecoder(device, luid, api, codecID, outputSharedHandle);
+    p = new VplDecoder(device, luid, api, codecID);
     if (p) {
       if (p->init() == MFX_ERR_NONE) {
         return p;
@@ -439,7 +424,7 @@ int vpl_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
 
 int vpl_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
                     int32_t *outDescNum, API api, DataFormat dataFormat,
-                    bool outputSharedHandle, uint8_t *data, int32_t length) {
+                    uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
@@ -447,9 +432,8 @@ int vpl_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
-      VplDecoder *p =
-          (VplDecoder *)vpl_new_decoder(nullptr, LUID(adapter.get()->desc1_),
-                                        api, dataFormat, outputSharedHandle);
+      VplDecoder *p = (VplDecoder *)vpl_new_decoder(
+          nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
       if (vpl_decode(p, data, length, nullptr, nullptr) == 0) {

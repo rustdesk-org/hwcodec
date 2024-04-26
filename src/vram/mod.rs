@@ -50,7 +50,6 @@ pub struct DecodeContext {
     pub luid: i64,
     pub api: API,
     pub data_format: DataFormat,
-    pub output_shared_handle: bool,
 }
 
 unsafe impl Send for DecodeContext {}

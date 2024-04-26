@@ -113,7 +113,6 @@ public:
   int64_t luid_;
   API api_;
   DataFormat dataFormat_;
-  bool outputSharedHandle_;
 
   bool prepare_tried_ = false;
   bool prepare_ok_ = false;
@@ -123,13 +122,11 @@ public:
   CUVIDEOFORMAT last_video_format_ = {};
 
 public:
-  CuvidDecoder(void *device, int64_t luid, API api, DataFormat dataFormat,
-               bool outputSharedHandle) {
+  CuvidDecoder(void *device, int64_t luid, API api, DataFormat dataFormat) {
     device_ = device;
     luid_ = luid;
     api_ = api;
     dataFormat_ = dataFormat;
-    outputSharedHandle_ = outputSharedHandle;
     ZeroMemory(&last_video_format_, sizeof(last_video_format_));
     load_driver(&cudl_, &cvdl_);
   }
@@ -216,20 +213,8 @@ public:
         LOG_ERROR("Query failed");
       }
 
-      void *opaque = nullptr;
-      if (outputSharedHandle_) {
-        HANDLE sharedHandle = native_->GetSharedHandle();
-        if (!sharedHandle) {
-          LOG_ERROR("GetSharedHandle failed");
-          return -1;
-        }
-        opaque = sharedHandle;
-      } else {
-        opaque = native_->GetCurrentTexture();
-      }
-
       if (callback)
-        callback(opaque, obj);
+        callback(native_->GetCurrentTexture(), obj);
       decoded = true;
     }
     return decoded ? 0 : -1;
@@ -313,8 +298,8 @@ private:
     for (int i = 0; i < 2; i++) {
       CUarray dstArray;
       CUVIDAutoUnmapper unmapper(cudl_, &cuResource_[i]);
-      if (!succ(cudl_->cuGraphicsSubResourceGetMappedArray(&dstArray,
-                                                         cuResource_[i], 0, 0)))
+      if (!succ(cudl_->cuGraphicsSubResourceGetMappedArray(
+              &dstArray, cuResource_[i], 0, 0)))
         return false;
       CUDA_MEMCPY2D m = {0};
       m.srcMemoryType = CU_MEMORYTYPE_DEVICE;
@@ -650,11 +635,11 @@ int nv_destroy_decoder(void *decoder) {
   return -1;
 }
 
-void *nv_new_decoder(void *device, int64_t luid, API api, DataFormat dataFormat,
-                     bool outputSharedHandle) {
+void *nv_new_decoder(void *device, int64_t luid, API api,
+                     DataFormat dataFormat) {
   CuvidDecoder *p = NULL;
   try {
-    p = new CuvidDecoder(device, luid, api, dataFormat, outputSharedHandle);
+    p = new CuvidDecoder(device, luid, api, dataFormat);
     if (!p) {
       goto _exit;
     }
@@ -687,7 +672,7 @@ int nv_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
 
 int nv_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
                    int32_t *outDescNum, API api, DataFormat dataFormat,
-                   bool outputSharedHandle, uint8_t *data, int32_t length) {
+                   uint8_t *data, int32_t length) {
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     Adapters adapters;
@@ -695,9 +680,8 @@ int nv_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
-      CuvidDecoder *p =
-          (CuvidDecoder *)nv_new_decoder(nullptr, LUID(adapter.get()->desc1_),
-                                         api, dataFormat, outputSharedHandle);
+      CuvidDecoder *p = (CuvidDecoder *)nv_new_decoder(
+          nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
       if (nv_decode(p, data, length, nullptr, nullptr) == 0) {

@@ -33,7 +33,6 @@ impl Decoder {
                 ctx.luid,
                 ctx.api as i32,
                 ctx.data_format as i32,
-                ctx.output_shared_handle,
             );
             if codec.is_null() {
                 return Err(());
@@ -90,7 +89,7 @@ pub struct DecodeFrame {
     pub texture: *mut c_void,
 }
 
-pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
+pub fn available() -> Vec<DecodeContext> {
     let mut codecs: Vec<_> = vec![];
     // disable nv sdk decode
     // natives.append(
@@ -122,7 +121,6 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
         driver,
         data_format: n.data_format,
         api: n.api,
-        output_shared_handle,
         luid: 0,
     });
     let outputs = Arc::new(Mutex::new(Vec::<DecodeContext>::new()));
@@ -161,7 +159,6 @@ pub fn available(output_shared_handle: bool) -> Vec<DecodeContext> {
                     &mut desc_count,
                     input.api as _,
                     input.data_format as i32,
-                    input.output_shared_handle,
                     data.as_ptr() as *mut u8,
                     data.len() as _,
                 )

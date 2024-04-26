@@ -16,7 +16,7 @@ int amf_encode(void *encoder, void *texture, EncodeCallback callback,
 int amf_destroy_encoder(void *encoder);
 
 void *amf_new_decoder(void *device, int64_t luid, int32_t api,
-                      int32_t dataFormat, bool outputSharedHandle);
+                      int32_t dataFormat);
 
 int amf_decode(void *decoder, uint8_t *data, int32_t length,
                DecodeCallback callback, void *obj);
@@ -29,8 +29,8 @@ int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
                     int32_t gop);
 
 int amf_test_decode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
-                    int32_t api, int32_t dataFormat, bool outputSharedHandle,
-                    uint8_t *data, int32_t length);
+                    int32_t api, int32_t dataFormat, uint8_t *data,
+                    int32_t length);
 
 int amf_set_bitrate(void *encoder, int32_t kbs);
 
