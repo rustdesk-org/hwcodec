@@ -488,8 +488,8 @@ private:
 
   bool set_shader() {
 // https://gist.github.com/RomiTT/9c05d36fe339b899793a3252297a5624
-#include "nv_pixel_shader_601.h"
-#include "nv_vertex_shader.h"
+#include "pixel_shader_601.h"
+#include "vertex_shader.h"
     native_->device_->CreateVertexShader(
         g_VS, ARRAYSIZE(g_VS), nullptr, vertexShader_.ReleaseAndGetAddressOf());
     native_->device_->CreatePixelShader(g_PS, ARRAYSIZE(g_PS), nullptr,
