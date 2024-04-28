@@ -22,6 +22,8 @@
     }                                                                          \
   }
 
+#define USE_SHADER
+
 namespace {
 
 class VplDecoder {
@@ -328,6 +330,18 @@ private:
       return false;
     }
     native_->next(); // comment out to remove picture shaking
+#ifdef USE_SHADER
+    native_->BeginQuery();
+    if (!native_->Nv12ToBgra(pmfxOutSurface->Info.CropW,
+                             pmfxOutSurface->Info.Height, texture,
+                             native_->GetCurrentTexture(), 0)) {
+      LOG_ERROR("Failed to Nv12ToBgra");
+      native_->EndQuery();
+      return false;
+    }
+    native_->EndQuery();
+    native_->Query();
+#else
     native_->BeginQuery();
 
     // nv12 -> bgra
@@ -372,6 +386,7 @@ private:
       LOG_ERROR("Failed to query");
       return false;
     }
+#endif
     return true;
   }
 };
