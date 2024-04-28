@@ -1,3 +1,4 @@
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -11,6 +12,13 @@
 #include <dxgi.h>
 
 #include "win.h"
+
+#define NUMVERTICES 6
+
+typedef struct _VERTEX {
+  DirectX::XMFLOAT3 Pos;
+  DirectX::XMFLOAT2 TexCoord;
+} VERTEX;
 
 bool NativeDevice::Init(int64_t luid, ID3D11Device *device, int pool_size) {
   if (device) {
@@ -118,6 +126,197 @@ bool NativeDevice::InitVideoDevice() {
   HRB(device_.As(&video_device_));
   HRB(context_.As(&video_context_));
   HRB(video_context_.As(&video_context1_));
+  return true;
+}
+
+bool NativeDevice::Nv12ToBgra(int width, int height,
+                              ID3D11Texture2D *nv12Texture,
+                              ID3D11Texture2D *bgraTexture,
+                              int nv12ArrayIndex) {
+  if (width != last_nv12_to_bgra_width_ ||
+      height != last_nv12_to_bgra_height_) {
+    if (!nv12_to_bgra_set_srv(nv12Texture, width, height))
+      return false;
+    if (!nv12_to_bgra_set_view_port(width, height))
+      return false;
+    if (!nv12_to_bgra_set_sample())
+      return false;
+    if (!nv12_to_bgra_set_shader())
+      return false;
+    if (!nv12_to_bgra_set_vertex_buffer())
+      return false;
+  }
+  last_nv12_to_bgra_width_ = width;
+  last_nv12_to_bgra_height_ = height;
+  if (!nv12_to_bgra_set_rtv(bgraTexture, width, height))
+    return false;
+
+  D3D11_BOX srcBox;
+  srcBox.left = 0;
+  srcBox.top = 0;
+  srcBox.right = width;
+  srcBox.bottom = height;
+  srcBox.front = 0;
+  srcBox.back = 1;
+  context_->CopySubresourceRegion(nv12SrvTexture_.Get(), 0, 0, 0, 0,
+                                  nv12Texture, nv12ArrayIndex, &srcBox);
+  if (!nv12_to_bgra_draw())
+    return false;
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_set_srv(ID3D11Texture2D *nv12Texture, int width,
+                                        int height) {
+  SRV_[0].Reset();
+  SRV_[1].Reset();
+
+  D3D11_TEXTURE2D_DESC texDesc = {};
+  nv12Texture->GetDesc(&texDesc);
+  texDesc.MipLevels = 1;
+  texDesc.ArraySize = 1;
+  texDesc.Format = DXGI_FORMAT_NV12;
+  texDesc.SampleDesc.Quality = 0;
+  texDesc.SampleDesc.Count = 1;
+  texDesc.Usage = D3D11_USAGE_DEFAULT;
+  texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+  texDesc.CPUAccessFlags = 0;
+  texDesc.MiscFlags = 0;
+
+  texDesc.Width = width;
+  texDesc.Height = height;
+
+  nv12SrvTexture_.Reset();
+  HRB(device_->CreateTexture2D(&texDesc, nullptr,
+                               nv12SrvTexture_.ReleaseAndGetAddressOf()));
+
+  D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+  srvDesc = CD3D11_SHADER_RESOURCE_VIEW_DESC(nv12SrvTexture_.Get(),
+                                             D3D11_SRV_DIMENSION_TEXTURE2D,
+                                             DXGI_FORMAT_R8_UNORM);
+  HRB(device_->CreateShaderResourceView(nv12SrvTexture_.Get(), &srvDesc,
+                                        SRV_[0].ReleaseAndGetAddressOf()));
+
+  srvDesc = CD3D11_SHADER_RESOURCE_VIEW_DESC(nv12SrvTexture_.Get(),
+                                             D3D11_SRV_DIMENSION_TEXTURE2D,
+                                             DXGI_FORMAT_R8G8_UNORM);
+  HRB(device_->CreateShaderResourceView(nv12SrvTexture_.Get(), &srvDesc,
+                                        SRV_[1].ReleaseAndGetAddressOf()));
+
+  // set SRV
+  std::array<ID3D11ShaderResourceView *, 2> const textureViews = {
+      SRV_[0].Get(), SRV_[1].Get()};
+  context_->PSSetShaderResources(0, textureViews.size(), textureViews.data());
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_set_rtv(ID3D11Texture2D *bgraTexture, int width,
+                                        int height) {
+  RTV_.Reset();
+
+  D3D11_RENDER_TARGET_VIEW_DESC rtDesc;
+  rtDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+  rtDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+  rtDesc.Texture2D.MipSlice = 0;
+  HRB(device_->CreateRenderTargetView(bgraTexture, &rtDesc,
+                                      RTV_.ReleaseAndGetAddressOf()));
+
+  const float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // clear as black
+  context_->ClearRenderTargetView(RTV_.Get(), clearColor);
+  context_->OMSetRenderTargets(1, RTV_.GetAddressOf(), NULL);
+
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_set_view_port(int width, int height) {
+
+  D3D11_VIEWPORT vp;
+  vp.Width = (FLOAT)(width);
+  vp.Height = (FLOAT)(height);
+  vp.MinDepth = 0.0f;
+  vp.MaxDepth = 1.0f;
+  vp.TopLeftX = 0;
+  vp.TopLeftY = 0;
+  context_->RSSetViewports(1, &vp);
+
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_set_sample() {
+  samplerLinear_.Reset();
+
+  D3D11_SAMPLER_DESC sampleDesc = CD3D11_SAMPLER_DESC(CD3D11_DEFAULT());
+  HRB(device_->CreateSamplerState(&sampleDesc,
+                                  samplerLinear_.ReleaseAndGetAddressOf()));
+  context_->PSSetSamplers(0, 1, samplerLinear_.GetAddressOf());
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_set_shader() {
+  vertexShader_.Reset();
+  pixelShader_.Reset();
+
+// https://gist.github.com/RomiTT/9c05d36fe339b899793a3252297a5624
+#include "pixel_shader_601.h"
+#include "vertex_shader.h"
+  device_->CreateVertexShader(g_VS, ARRAYSIZE(g_VS), nullptr,
+                              vertexShader_.ReleaseAndGetAddressOf());
+  device_->CreatePixelShader(g_PS, ARRAYSIZE(g_PS), nullptr,
+                             pixelShader_.ReleaseAndGetAddressOf());
+
+  // set InputLayout
+  constexpr std::array<D3D11_INPUT_ELEMENT_DESC, 2> Layout = {{
+      {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
+       D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12,
+       D3D11_INPUT_PER_VERTEX_DATA, 0},
+  }};
+  ComPtr<ID3D11InputLayout> inputLayout = NULL;
+  HRB(device_->CreateInputLayout(Layout.data(), Layout.size(), g_VS,
+                                 ARRAYSIZE(g_VS), inputLayout.GetAddressOf()));
+  context_->IASetInputLayout(inputLayout.Get());
+
+  context_->VSSetShader(vertexShader_.Get(), NULL, 0);
+  context_->PSSetShader(pixelShader_.Get(), NULL, 0);
+
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_set_vertex_buffer() {
+  UINT Stride = sizeof(VERTEX);
+  UINT Offset = 0;
+  FLOAT blendFactor[4] = {0.f, 0.f, 0.f, 0.f};
+  context_->OMSetBlendState(nullptr, blendFactor, 0xffffffff);
+  context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  // set VertexBuffers
+  VERTEX Vertices[NUMVERTICES] = {
+      {XMFLOAT3(-1.0f, -1.0f, 0), XMFLOAT2(0.0f, 1.0f)},
+      {XMFLOAT3(-1.0f, 1.0f, 0), XMFLOAT2(0.0f, 0.0f)},
+      {XMFLOAT3(1.0f, -1.0f, 0), XMFLOAT2(1.0f, 1.0f)},
+      {XMFLOAT3(1.0f, -1.0f, 0), XMFLOAT2(1.0f, 1.0f)},
+      {XMFLOAT3(-1.0f, 1.0f, 0), XMFLOAT2(0.0f, 0.0f)},
+      {XMFLOAT3(1.0f, 1.0f, 0), XMFLOAT2(1.0f, 0.0f)},
+  };
+  D3D11_BUFFER_DESC BufferDesc;
+  RtlZeroMemory(&BufferDesc, sizeof(BufferDesc));
+  BufferDesc.Usage = D3D11_USAGE_DEFAULT;
+  BufferDesc.ByteWidth = sizeof(VERTEX) * NUMVERTICES;
+  BufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+  BufferDesc.CPUAccessFlags = 0;
+  D3D11_SUBRESOURCE_DATA InitData;
+  RtlZeroMemory(&InitData, sizeof(InitData));
+  InitData.pSysMem = Vertices;
+  ComPtr<ID3D11Buffer> VertexBuffer = nullptr;
+  // Create vertex buffer
+  HRB(device_->CreateBuffer(&BufferDesc, &InitData, &VertexBuffer));
+  context_->IASetVertexBuffers(0, 1, VertexBuffer.GetAddressOf(), &Stride,
+                               &Offset);
+
+  return true;
+}
+
+bool NativeDevice::nv12_to_bgra_draw() {
+  context_->Draw(NUMVERTICES, 0);
+  context_->Flush();
   return true;
 }
 
@@ -279,14 +478,14 @@ bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
 bool NativeDevice::ToNV12(ID3D11Texture2D *texture, int width, int height,
                           DXGI_COLOR_SPACE_TYPE colorSpace_in,
                           DXGI_COLOR_SPACE_TYPE colorSpace_out) {
-  if (!nv12_texture_) {
+  if (!to_nv12_texture_) {
     D3D11_TEXTURE2D_DESC desc;
     ZeroMemory(&desc, sizeof(desc));
     texture->GetDesc(&desc);
     desc.Format = DXGI_FORMAT_NV12;
     desc.MiscFlags = 0;
     HRB(device_->CreateTexture2D(&desc, NULL,
-                                 nv12_texture_.ReleaseAndGetAddressOf()));
+                                 to_nv12_texture_.ReleaseAndGetAddressOf()));
   }
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC contentDesc;
   ZeroMemory(&contentDesc, sizeof(contentDesc));
@@ -304,9 +503,24 @@ bool NativeDevice::ToNV12(ID3D11Texture2D *texture, int width, int height,
   contentDesc.OutputFrameRate.Numerator = 60;
   contentDesc.OutputFrameRate.Denominator = 1;
 
-  return Process(texture, nv12_texture_.Get(), contentDesc, colorSpace_in,
+  return Process(texture, to_nv12_texture_.Get(), contentDesc, colorSpace_in,
                  colorSpace_out, 0);
 }
+
+AdapterVendor NativeDevice::GetVendor() {
+  DXGI_ADAPTER_DESC1 desc1 = DXGI_ADAPTER_DESC1();
+  adapter1_->GetDesc1(&desc1);
+  if (desc1.VendorId == ADAPTER_VENDOR_NVIDIA) {
+    return ADAPTER_VENDOR_NVIDIA;
+  } else if (desc1.VendorId == ADAPTER_VENDOR_AMD) {
+    return ADAPTER_VENDOR_AMD;
+  } else if (desc1.VendorId == ADAPTER_VENDOR_INTEL) {
+    return ADAPTER_VENDOR_INTEL;
+  } else {
+    return ADAPTER_VENDOR_UNKNOWN;
+  }
+}
+
 bool Adapter::Init(IDXGIAdapter1 *adapter1) {
   HRESULT hr = S_OK;
 

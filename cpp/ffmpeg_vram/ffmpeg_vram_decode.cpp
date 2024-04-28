@@ -10,21 +10,23 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 #include <libavutil/hwcontext_d3d11va.h>
+#include <memory>
+#include <mutex>
+#include <stdbool.h>
 
-#include "../common/callback.h"
+#include "callback.h"
 #include "common.h"
 #include "system.h"
-#include <stdbool.h>
 
 #define LOG_MODULE "FFMPEG_VRAM_DEC"
 #include <log.h>
-#include <memory>
 
 namespace {
 
-void lockContext(void *lock_ctx) {}
+#define USE_SHADER
 
-void unlockContext(void *lock_ctx) {}
+void lockContext(void *lock_ctx);
+void unlockContext(void *lock_ctx);
 
 class FFmpegVRamDecoder {
 public:
@@ -44,6 +46,7 @@ public:
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
 
   bool ready_decode_ = false;
+  std::mutex mtx;
 
   bool bt709_ = false;
   bool full_range_ = false;
@@ -106,7 +109,7 @@ public:
     destroy();
     if (!native_) {
       native_ = std::make_unique<NativeDevice>();
-      if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
+      if (!native_->Init(luid_, (ID3D11Device *)device_, 16)) {
         LOG_ERROR("Failed to init native device");
         return -1;
       }
@@ -203,6 +206,7 @@ private:
   int do_decode(DecodeCallback callback, const void *obj) {
     int ret;
     bool decoded = false;
+    bool locked = false;
 
     ret = avcodec_send_packet(c_, pkt_);
     if (ret < 0) {
@@ -222,6 +226,8 @@ private:
         LOG_ERROR("only AV_PIX_FMT_D3D11 is supported");
         goto _exit;
       }
+      lockContext(this);
+      locked = true;
       if (!convert(frame_, callback, obj)) {
         LOG_ERROR("Failed to convert");
         goto _exit;
@@ -231,6 +237,9 @@ private:
       decoded = true;
     }
   _exit:
+    if (locked) {
+      unlockContext(this);
+    }
     av_packet_unref(pkt_);
     return decoded ? 0 : -1;
   }
@@ -254,6 +263,19 @@ private:
       return false;
     }
     native_->next(); // comment out to remove picture shaking
+#ifdef USE_SHADER
+    native_->BeginQuery();
+    if (!native_->Nv12ToBgra(sw_parser_ctx_->width, sw_parser_ctx_->height,
+                             texture, native_->GetCurrentTexture(),
+                             (int)frame->data[1])) {
+      LOG_ERROR("Failed to Nv12ToBgra");
+      native_->EndQuery();
+      return false;
+    }
+    native_->EndQuery();
+    native_->Query();
+
+#else
     native_->BeginQuery();
 
     // nv12 -> bgra
@@ -297,9 +319,24 @@ private:
       LOG_ERROR("Failed to query");
       return false;
     }
+#endif
     return true;
   }
 };
+
+void lockContext(void *lock_ctx) {
+  FFmpegVRamDecoder *decoder = (FFmpegVRamDecoder *)lock_ctx;
+  if (decoder) {
+    decoder->mtx.lock();
+  }
+}
+
+void unlockContext(void *lock_ctx) {
+  FFmpegVRamDecoder *decoder = (FFmpegVRamDecoder *)lock_ctx;
+  if (decoder) {
+    decoder->mtx.unlock();
+  }
+}
 
 } // namespace
 

@@ -172,7 +172,7 @@ public:
       LOG_ERROR("failed to convert to NV12");
       return -1;
     }
-    encSurf->Data.MemId = native_->nv12_texture_.Get();
+    encSurf->Data.MemId = native_->to_nv12_texture_.Get();
 #else
     encSurf->Data.MemId = tex;
 #endif

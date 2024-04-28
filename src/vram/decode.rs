@@ -92,7 +92,7 @@ pub struct DecodeFrame {
 pub fn available() -> Vec<DecodeContext> {
     let mut codecs: Vec<_> = vec![];
     // disable nv sdk decode
-    // natives.append(
+    // codecs.append(
     //     &mut nv::possible_support_decoders()
     //         .drain(..)
     //         .map(|n| (NV, n))

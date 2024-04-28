@@ -1,8 +1,10 @@
 #ifndef WIN_H
 #define WIN_H
 
+#include <DirectXMath.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
+#include <directxcolors.h>
 #include <iostream>
 #include <vector>
 #include <wrl/client.h>
@@ -11,6 +13,7 @@
 
 using Microsoft::WRL::ComPtr;
 using namespace std;
+using namespace DirectX;
 
 #define IF_FAILED_RETURN(X)                                                    \
   if (FAILED(hr = (X))) {                                                      \
@@ -65,6 +68,9 @@ public:
   bool ToNV12(ID3D11Texture2D *texture, int width, int height,
               DXGI_COLOR_SPACE_TYPE colorSpace_in,
               DXGI_COLOR_SPACE_TYPE colorSpace_outt);
+  AdapterVendor GetVendor();
+  bool Nv12ToBgra(int width, int height, ID3D11Texture2D *nv12Texture,
+                  ID3D11Texture2D *bgraTexture, int nv12ArrayIndex);
 
 private:
   bool InitFromLuid(int64_t luid);
@@ -72,6 +78,17 @@ private:
   bool SetMultithreadProtected();
   bool InitQuery();
   bool InitVideoDevice();
+
+  // nv12 to bgra
+  bool nv12_to_bgra_set_srv(ID3D11Texture2D *nv12Texture, int width,
+                            int height);
+  bool nv12_to_bgra_set_rtv(ID3D11Texture2D *bgraTexture, int width,
+                            int height);
+  bool nv12_to_bgra_set_view_port(int width, int height);
+  bool nv12_to_bgra_set_sample();
+  bool nv12_to_bgra_set_shader();
+  bool nv12_to_bgra_set_vertex_buffer();
+  bool nv12_to_bgra_draw();
 
 public:
   // Direct3D 11
@@ -87,10 +104,20 @@ public:
   ComPtr<ID3D11VideoProcessorEnumerator> video_processor_enumerator_ = nullptr;
   ComPtr<ID3D11VideoProcessor> video_processor_ = nullptr;
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC last_content_desc_ = {};
-  ComPtr<ID3D11Texture2D> nv12_texture_ = nullptr;
+  ComPtr<ID3D11Texture2D> to_nv12_texture_ = nullptr;
+
+  ComPtr<ID3D11RenderTargetView> RTV_ = NULL;
+  ComPtr<ID3D11ShaderResourceView> SRV_[2] = {NULL, NULL};
+  ComPtr<ID3D11VertexShader> vertexShader_ = NULL;
+  ComPtr<ID3D11PixelShader> pixelShader_ = NULL;
+  ComPtr<ID3D11SamplerState> samplerLinear_ = NULL;
+  ComPtr<ID3D11Texture2D> nv12SrvTexture_ = nullptr;
 
   int count_;
   int index_ = 0;
+
+  int last_nv12_to_bgra_width_ = 0;
+  int last_nv12_to_bgra_height_ = 0;
 
 private:
   std::vector<ComPtr<ID3D11Texture2D>> texture_;
