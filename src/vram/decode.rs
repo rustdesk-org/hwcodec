@@ -1,6 +1,6 @@
 use crate::{
     common::{AdapterDesc, DataFormat::*, Driver::*},
-    vram::{amf, ffmpeg, inner::DecodeCalls, nv, vpl, DecodeContext},
+    vram::{amf, ffmpeg, inner::DecodeCalls, mfx, nv, DecodeContext},
 };
 use log::{error, trace};
 use std::{
@@ -24,7 +24,7 @@ impl Decoder {
         let calls = match ctx.driver {
             NV => nv::decode_calls(),
             AMF => amf::decode_calls(),
-            VPL => vpl::decode_calls(),
+            MFX => mfx::decode_calls(),
             FFMPEG => ffmpeg::decode_calls(),
         };
         unsafe {
@@ -111,9 +111,9 @@ pub fn available() -> Vec<DecodeContext> {
             .collect(),
     );
     codecs.append(
-        &mut vpl::possible_support_decoders()
+        &mut mfx::possible_support_decoders()
             .drain(..)
-            .map(|n| (VPL, n))
+            .map(|n| (MFX, n))
             .collect(),
     );
     let inputs = codecs.drain(..).map(|(driver, n)| DecodeContext {
@@ -127,21 +127,21 @@ pub fn available() -> Vec<DecodeContext> {
     let buf264 = Arc::new(crate::common::DATA_H264_720P);
     let buf265 = Arc::new(crate::common::DATA_H265_720P);
     let mut handles = vec![];
-    let cu_mutex = Arc::new(Mutex::new(0));
+    let mutex = Arc::new(Mutex::new(0));
     for input in inputs {
         let outputs = outputs.clone();
         let buf264 = buf264.clone();
         let buf265 = buf265.clone();
-        let cu_mutex = cu_mutex.clone();
+        let mutex = mutex.clone();
         let handle = thread::spawn(move || {
-            let _cu_lock;
-            if input.driver == NV {
-                _cu_lock = cu_mutex.lock().unwrap();
+            let _lock;
+            if input.driver == NV || input.driver == FFMPEG {
+                _lock = mutex.lock().unwrap();
             }
             let test = match input.driver {
                 NV => nv::decode_calls().test,
                 AMF => amf::decode_calls().test,
-                VPL => vpl::decode_calls().test,
+                MFX => mfx::decode_calls().test,
                 FFMPEG => ffmpeg::decode_calls().test,
             };
             let mut descs: Vec<AdapterDesc> = vec![];

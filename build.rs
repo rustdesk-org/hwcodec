@@ -294,7 +294,7 @@ mod sdk {
         println!("cargo:rustc-link-search=native=deps/sdk/{arch_dir}");
         build_amf(builder);
         build_nv(builder);
-        build_vpl(builder);
+        build_mfx(builder);
     }
 
     fn build_nv(builder: &mut Build) {
@@ -376,36 +376,57 @@ mod sdk {
         builder.files(["amf_encode.cpp", "amf_decode.cpp"].map(|f| amf_dir.join(f)));
     }
 
-    fn build_vpl(builder: &mut Build) {
+    fn build_mfx(builder: &mut Build) {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let externals_dir = manifest_dir.join("externals");
-        let vpl_dir = manifest_dir.join("cpp").join("vpl");
+        let mfx_dir = manifest_dir.join("cpp").join("mfx");
         println!("cargo:rerun-if-changed=src");
         println!("cargo:rerun-if-changed={}", externals_dir.display());
         bindgen::builder()
-            .header(&vpl_dir.join("vpl_ffi.h").to_string_lossy().to_string())
+            .header(&mfx_dir.join("mfx_ffi.h").to_string_lossy().to_string())
             .rustified_enum("*")
             .generate()
             .unwrap()
-            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("vpl_ffi.rs"))
+            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("mfx_ffi.rs"))
             .unwrap();
 
-        let sdk_path = externals_dir.join("libvpl_v2023.4.0");
+        // MediaSDK
+        let sdk_path = externals_dir.join("MediaSDK_22.5.4");
 
-        // libvpl
-        println!("cargo:rustc-link-lib=static=vpl");
-        let libvpl_path = sdk_path.join("libvpl");
-        let api_path = sdk_path.join("api");
-        let legacy_tool_path = sdk_path.join("tools").join("legacy");
-        let samples_common_path = legacy_tool_path.join("sample_common");
+        // mfx_dispatch
+        let mfx_path = sdk_path.join("api").join("mfx_dispatch");
+        // include headers and reuse static lib
+        builder.include(mfx_path.join("windows").join("include"));
+        let arch_dir = get_ffmpeg_arch();
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
+        println!("cargo:rustc-link-lib=static=mfx");
 
-        builder.includes([
-            &libvpl_path,
-            &api_path,
-            &samples_common_path.join("include"),
-            &samples_common_path.join("include").join("vm"),
-            &legacy_tool_path.join("media_sdk_compatibility_headers"),
-        ]);
+        let sample_path = sdk_path.join("samples").join("sample_common");
+        builder
+            .includes([
+                sdk_path.join("api").join("include"),
+                sample_path.join("include"),
+            ])
+            .files(
+                [
+                    "sample_utils.cpp",
+                    "base_allocator.cpp",
+                    "d3d11_allocator.cpp",
+                    "avc_bitstream.cpp",
+                    "avc_spl.cpp",
+                    "avc_nal_spl.cpp",
+                ]
+                .map(|f| sample_path.join("src").join(f)),
+            )
+            .files(
+                [
+                    "time.cpp",
+                    "atomic.cpp",
+                    "shared_object.cpp",
+                    "thread_windows.cpp",
+                ]
+                .map(|f| sample_path.join("src").join("vm").join(f)),
+            );
 
         // link
         [
@@ -415,7 +436,7 @@ mod sdk {
         .map(|lib| println!("cargo:rustc-link-lib={}", lib));
 
         builder
-            .files(["vpl_encode.cpp", "vpl_decode.cpp"].map(|f| vpl_dir.join(f)))
+            .files(["mfx_encode.cpp", "mfx_decode.cpp"].map(|f| mfx_dir.join(f)))
             .define("NOMINMAX", None)
             .define("MFX_DEPRECATED_OFF", None)
             .define("MFX_D3D11_SUPPORT", None);

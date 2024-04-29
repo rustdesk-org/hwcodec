@@ -13,7 +13,7 @@ use std::{
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "trace"));
-    let luid = 75410; // 63444; // 59677
+    let luid = 69524; // 63444; // 59677
     unsafe {
         // one luid create render failed on my pc, wouldn't happen in rustdesk
         let data_format = DataFormat::H265;
@@ -22,7 +22,7 @@ fn main() {
 
         let en_ctx = EncodeContext {
             f: FeatureContext {
-                driver: Driver::VPL,
+                driver: Driver::FFMPEG,
                 api: API_DX11,
                 data_format,
                 luid,

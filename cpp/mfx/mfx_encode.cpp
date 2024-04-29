@@ -8,7 +8,7 @@
 #include "common.h"
 #include "system.h"
 
-#define LOG_MODULE "VPLENC"
+#define LOG_MODULE "MFXENC"
 #include "log.h"
 
 // #define CONFIG_USE_VPP
@@ -550,12 +550,12 @@ private:
 
 extern "C" {
 
-int vpl_driver_support() {
+int mfx_driver_support() {
   MFXVideoSession session;
   return InitSession(session) == MFX_ERR_NONE ? 0 : -1;
 }
 
-int vpl_destroy_encoder(void *encoder) {
+int mfx_destroy_encoder(void *encoder) {
   VplEncoder *p = (VplEncoder *)encoder;
   if (p) {
     p->destroy();
@@ -565,7 +565,7 @@ int vpl_destroy_encoder(void *encoder) {
   return 0;
 }
 
-void *vpl_new_encoder(void *handle, int64_t luid, API api,
+void *mfx_new_encoder(void *handle, int64_t luid, API api,
                       DataFormat dataFormat, int32_t w, int32_t h, int32_t kbs,
                       int32_t framerate, int32_t gop) {
   VplEncoder *p = NULL;
@@ -593,7 +593,7 @@ void *vpl_new_encoder(void *handle, int64_t luid, API api,
   return NULL;
 }
 
-int vpl_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
+int mfx_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
                void *obj) {
   try {
     return ((VplEncoder *)encoder)->encode(tex, callback, obj);
@@ -603,7 +603,7 @@ int vpl_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
   return -1;
 }
 
-int vpl_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
+int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
                     API api, DataFormat dataFormat, int32_t width,
                     int32_t height, int32_t kbs, int32_t framerate,
                     int32_t gop) {
@@ -614,14 +614,14 @@ int vpl_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
-      VplEncoder *e = (VplEncoder *)vpl_new_encoder(
+      VplEncoder *e = (VplEncoder *)mfx_new_encoder(
           (void *)adapter.get()->device_.Get(), LUID(adapter.get()->desc1_),
           api, dataFormat, width, height, kbs, framerate, gop);
       if (!e)
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
-        if (vpl_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr) ==
+        if (mfx_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr) ==
             0) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
@@ -646,7 +646,7 @@ int vpl_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
 // https://github.com/Intel-Media-SDK/MediaSDK/blob/master/doc/mediasdk-man.md#dynamic-bitrate-change
 // https://github.com/Intel-Media-SDK/MediaSDK/blob/master/doc/mediasdk-man.md#mfxinfomfx
 // https://spec.oneapi.io/onevpl/2.4.0/programming_guide/VPL_prg_encoding.html#configuration-change
-int vpl_set_bitrate(void *encoder, int32_t kbs) {
+int mfx_set_bitrate(void *encoder, int32_t kbs) {
   try {
     VplEncoder *p = (VplEncoder *)encoder;
     mfxStatus sts = MFX_ERR_NONE;
@@ -664,7 +664,7 @@ int vpl_set_bitrate(void *encoder, int32_t kbs) {
   return -1;
 }
 
-int vpl_set_framerate(void *encoder, int32_t framerate) {
+int mfx_set_framerate(void *encoder, int32_t framerate) {
   LOG_WARN("not support change framerate");
   return -1;
 }

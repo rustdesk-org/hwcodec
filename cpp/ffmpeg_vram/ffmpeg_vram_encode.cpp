@@ -175,6 +175,8 @@ public:
   AVCodecContext *c_ = NULL;
   AVBufferRef *hw_device_ctx_ = NULL;
   AVFrame *frame_ = NULL;
+  AVFrame *mapped_frame_ = NULL;
+  ID3D11Texture2D *encode_texture_ = NULL; // no free
   AVPacket *pkt_ = NULL;
   char name_[128] = {0};
   std::unique_ptr<NativeDevice> native_ = nullptr;
@@ -193,7 +195,8 @@ public:
 
   const int align_ = 0;
   const AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
-  const AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_D3D11;
+  AVHWDeviceType derived_device_type_ = AV_HWDEVICE_TYPE_NONE;
+  AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_D3D11;
   const AVPixelFormat sw_pixfmt_ = AV_PIX_FMT_NV12;
   const bool full_range_ = false;
   const bool bt709_ = false;
@@ -248,6 +251,8 @@ public:
         return false;
       }
     } else if (ADAPTER_VENDOR_INTEL == vendor) {
+      derived_device_type_ = AV_HWDEVICE_TYPE_QSV;
+      hw_pixfmt_ = AV_PIX_FMT_QSV;
       if (dataFormat_ == H264) {
         snprintf(name_, sizeof(name_), "h264_qsv");
       } else if (dataFormat_ == H265) {
@@ -311,8 +316,7 @@ public:
       c_->profile = FF_PROFILE_HEVC_MAIN;
     }
 
-    // av_hwdevice_ctx_create_derived
-    hw_device_ctx_ = av_hwdevice_ctx_alloc(device_type_);
+    hw_device_ctx_ = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_D3D11VA);
     if (!hw_device_ctx_) {
       LOG_ERROR("av_hwdevice_ctx_create failed");
       return false;
@@ -332,10 +336,23 @@ public:
       LOG_ERROR("av_hwdevice_ctx_init failed, ret = " + std::to_string(ret));
       return false;
     }
+    if (derived_device_type_ != AV_HWDEVICE_TYPE_NONE) {
+      AVBufferRef *derived_context = nullptr;
+      auto err = av_hwdevice_ctx_create_derived(
+          &derived_context, derived_device_type_, hw_device_ctx_, 0);
+      if (err) {
+        LOG_ERROR("av_hwdevice_ctx_create_derived failed, err = " +
+                  std::to_string(err));
+        return false;
+      }
+      av_buffer_unref(&hw_device_ctx_);
+      hw_device_ctx_ = derived_context;
+    }
     c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
     if (!set_hwframe_ctx()) {
       return false;
     }
+    LOG_INFO("========== 2");
 
     if (!(pkt_ = av_packet_alloc())) {
       LOG_ERROR("Could not allocate video packet");
@@ -365,18 +382,30 @@ public:
       LOG_ERROR("av_frame_get_buffer failed, ret = " + std::to_string((ret)));
       return false;
     }
+    if (frame_->format == AV_PIX_FMT_QSV) {
+      mapped_frame_ = av_frame_alloc();
+      if (!mapped_frame_) {
+        LOG_ERROR("Could not allocate mapped video frame");
+        return false;
+      }
+      mapped_frame_->format = AV_PIX_FMT_D3D11;
+      auto err =
+          av_hwframe_map(mapped_frame_, frame_,
+                         AV_HWFRAME_MAP_WRITE | AV_HWFRAME_MAP_OVERWRITE);
+      if (err) {
+        LOG_ERROR("av_hwframe_map failed, err = " + std::to_string(err));
+        return false;
+      }
+      encode_texture_ = (ID3D11Texture2D *)mapped_frame_->data[0];
+    } else {
+      encode_texture_ = (ID3D11Texture2D *)frame_->data[0];
+    }
 
     return true;
   }
 
   int encode(void *texture, EncodeCallback callback, void *obj) {
-    int ret;
 
-    if ((ret = av_frame_make_writable(frame_)) != 0) {
-      LOG_ERROR("av_frame_make_writable failed, ret = " +
-                std::to_string((ret)));
-      return ret;
-    }
     if (!convert(texture))
       return -1;
 
@@ -388,6 +417,8 @@ public:
       av_packet_free(&pkt_);
     if (frame_)
       av_frame_free(&frame_);
+    if (mapped_frame_)
+      av_frame_free(&mapped_frame_);
     if (c_)
       avcodec_free_context(&c_);
     if (hw_device_ctx_) {
@@ -439,18 +470,15 @@ private:
   }
 
   bool convert(void *texture) {
-    if (frame_->format == AV_PIX_FMT_D3D11) {
-      ID3D11Texture2D *texture2D = (ID3D11Texture2D *)frame_->data[0];
+    if (frame_->format == AV_PIX_FMT_D3D11 ||
+        frame_->format == AV_PIX_FMT_QSV) {
+      ID3D11Texture2D *texture2D = (ID3D11Texture2D *)encode_texture_;
       D3D11_TEXTURE2D_DESC desc;
       texture2D->GetDesc(&desc);
-      if (desc.Width != width_ || desc.Height != height_ ||
-          desc.Format != DXGI_FORMAT_NV12) {
-        LOG_ERROR(
-            "convert: texture size mismatch, " + std::to_string(desc.Width) +
-            "x" + std::to_string(desc.Height) +
-            " != " + std::to_string(width_) + "x" + std::to_string(height_) +
-            " or " + std::to_string(desc.Format) +
-            " != " + std::to_string(DXGI_FORMAT_NV12));
+      if (desc.Format != DXGI_FORMAT_NV12) {
+        LOG_ERROR("convert: texture format mismatch, " +
+                  std::to_string(desc.Format) +
+                  " != " + std::to_string(DXGI_FORMAT_NV12));
         return false;
       }
       DXGI_COLOR_SPACE_TYPE colorSpace_in =
@@ -497,11 +525,14 @@ private:
     frames_ctx->sw_format = sw_pixfmt_;
     frames_ctx->width = width_;
     frames_ctx->height = height_;
-    frames_ctx->initial_pool_size = 1;
-    AVD3D11VAFramesContext *frames_hwctx =
-        (AVD3D11VAFramesContext *)frames_ctx->hwctx;
-    frames_hwctx->BindFlags = D3D11_BIND_RENDER_TARGET;
-    frames_hwctx->MiscFlags = 0;
+    frames_ctx->initial_pool_size = 0;
+    if (device_type_ == AV_HWDEVICE_TYPE_D3D11VA) {
+      frames_ctx->initial_pool_size = 1;
+      AVD3D11VAFramesContext *frames_hwctx =
+          (AVD3D11VAFramesContext *)frames_ctx->hwctx;
+      frames_hwctx->BindFlags = D3D11_BIND_RENDER_TARGET;
+      frames_hwctx->MiscFlags = 0;
+    }
     if ((err = av_hwframe_ctx_init(hw_frames_ref)) < 0) {
       LOG_ERROR("av_hwframe_ctx_init failed.");
       av_buffer_unref(&hw_frames_ref);

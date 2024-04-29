@@ -9,7 +9,7 @@
 #include "common.h"
 #include "system.h"
 
-#define LOG_MODULE "VPLDEC"
+#define LOG_MODULE "MFXDEC"
 #include "log.h"
 
 #define CHECK_STATUS(X, MSG)                                                   \
@@ -395,7 +395,7 @@ private:
 
 extern "C" {
 
-int vpl_destroy_decoder(void *decoder) {
+int mfx_destroy_decoder(void *decoder) {
   VplDecoder *p = (VplDecoder *)decoder;
   if (p) {
     p->destroy();
@@ -405,7 +405,7 @@ int vpl_destroy_decoder(void *decoder) {
   return 0;
 }
 
-void *vpl_new_decoder(void *device, int64_t luid, API api, DataFormat codecID) {
+void *mfx_new_decoder(void *device, int64_t luid, API api, DataFormat codecID) {
   VplDecoder *p = NULL;
   try {
     p = new VplDecoder(device, luid, api, codecID);
@@ -426,7 +426,7 @@ void *vpl_new_decoder(void *device, int64_t luid, API api, DataFormat codecID) {
   return NULL;
 }
 
-int vpl_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
+int mfx_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
                void *obj) {
   try {
     VplDecoder *p = (VplDecoder *)decoder;
@@ -437,7 +437,7 @@ int vpl_decode(void *decoder, uint8_t *data, int len, DecodeCallback callback,
   return -1;
 }
 
-int vpl_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
+int mfx_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
                     int32_t *outDescNum, API api, DataFormat dataFormat,
                     uint8_t *data, int32_t length) {
   try {
@@ -447,11 +447,11 @@ int vpl_test_decode(AdapterDesc *outDescs, int32_t maxDescNum,
       return -1;
     int count = 0;
     for (auto &adapter : adapters.adapters_) {
-      VplDecoder *p = (VplDecoder *)vpl_new_decoder(
+      VplDecoder *p = (VplDecoder *)mfx_new_decoder(
           nullptr, LUID(adapter.get()->desc1_), api, dataFormat);
       if (!p)
         continue;
-      if (vpl_decode(p, data, length, nullptr, nullptr) == 0) {
+      if (mfx_decode(p, data, length, nullptr, nullptr) == 0) {
         AdapterDesc *desc = descs + count;
         desc->luid = LUID(adapter.get()->desc1_);
         count += 1;
