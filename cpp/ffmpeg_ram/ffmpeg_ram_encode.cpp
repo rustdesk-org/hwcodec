@@ -236,15 +236,41 @@ int set_rate_control(void *priv_data, const char *name, int rc) {
 }
 
 int set_gpu(void *priv_data, const char *name, int gpu) {
-  int ret = -1;
+  int ret;
   if (gpu < 0)
     return -1;
   if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
     if ((ret = av_opt_set_int(priv_data, "gpu", gpu, 0)) < 0) {
       LOG_ERROR("nvenc set gpu failed, ret = " + std::to_string(ret));
+      return -1;
     }
   }
-  return ret;
+  return 0;
+}
+
+int force_hw(void *priv_data, const char *name) {
+  int ret;
+  if (strcmp(name, "h264_mf") == 0 || strcmp(name, "hevc_mf") == 0) {
+    if ((ret = av_opt_set_int(priv_data, "hw_encoding", 1, 0)) < 0) {
+      LOG_ERROR("mediafoundation set hw_encoding failed, ret = " +
+                std::to_string(ret));
+      return -1;
+    }
+  }
+  return 0;
+}
+
+int set_others(void *priv_data, const char *name) {
+  int ret;
+  if (strcmp(name, "h264_mf") == 0 || strcmp(name, "hevc_mf") == 0) {
+    // ff_eAVScenarioInfo_DisplayRemoting = 1
+    if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {
+      LOG_ERROR("mediafoundation set scenario failed, ret = " +
+                std::to_string(ret));
+      return -1;
+    }
+  }
+  return 0;
 }
 
 class FFmpegRamEncoder {
@@ -366,6 +392,8 @@ public:
     set_quality(c_->priv_data, name_, quality_);
     set_rate_control(c_->priv_data, name_, rc_);
     set_gpu(c_->priv_data, name_, gpu_);
+    force_hw(c_->priv_data, name_);
+    set_others(c_->priv_data, name_);
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
       LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)) +
