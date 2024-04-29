@@ -244,7 +244,9 @@ mod ffmpeg {
             .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_vram_ffi.rs"))
             .unwrap();
 
-        builder.files(["ffmpeg_vram_decode.cpp"].map(|f| ffmpeg_ram_dir.join(f)));
+        builder.files(
+            ["ffmpeg_vram_decode.cpp", "ffmpeg_vram_encode.cpp"].map(|f| ffmpeg_ram_dir.join(f)),
+        );
     }
 
     fn build_mux(builder: &mut Build) {

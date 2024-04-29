@@ -1,6 +1,8 @@
 use crate::{
     common::{AdapterDesc, Driver::*},
-    vram::{amf, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, FeatureContext},
+    vram::{
+        amf, ffmpeg, inner::EncodeCalls, nv, vpl, DynamicContext, EncodeContext, FeatureContext,
+    },
 };
 use log::trace;
 use std::{
@@ -30,7 +32,7 @@ impl Encoder {
             NV => nv::encode_calls(),
             AMF => amf::encode_calls(),
             VPL => vpl::encode_calls(),
-            _ => return Err(()),
+            FFMPEG => ffmpeg::encode_calls(),
         };
         unsafe {
             let codec = (calls.new)(
@@ -129,6 +131,12 @@ impl Display for EncodeFrame {
 pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
     let mut natives: Vec<_> = vec![];
     natives.append(
+        &mut ffmpeg::possible_support_encoders()
+            .drain(..)
+            .map(|n| (FFMPEG, n))
+            .collect(),
+    );
+    natives.append(
         &mut nv::possible_support_encoders()
             .drain(..)
             .map(|n| (NV, n))
@@ -170,7 +178,7 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
                 NV => nv::encode_calls().test,
                 AMF => amf::encode_calls().test,
                 VPL => vpl::encode_calls().test,
-                _ => return,
+                FFMPEG => ffmpeg::encode_calls().test,
             };
             let mut descs: Vec<AdapterDesc> = vec![];
             descs.resize(crate::vram::MAX_ADATERS, unsafe { std::mem::zeroed() });

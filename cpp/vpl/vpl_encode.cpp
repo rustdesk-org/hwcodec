@@ -72,6 +72,7 @@ public:
   mfxVideoParam mfxEncParams_;
   mfxExtBuffer *extbuffers_[1] = {NULL};
   mfxExtVideoSignalInfo signal_info_;
+  ComPtr<ID3D11Texture2D> nv12Texture_ = nullptr;
 
 // vpp
 #ifdef CONFIG_USE_VPP
@@ -168,11 +169,21 @@ public:
         colorSpace_out = DXGI_COLOR_SPACE_YCBCR_STUDIO_G22_LEFT_P601;
       }
     }
-    if (!native_->ToNV12(tex, width_, height_, colorSpace_in, colorSpace_out)) {
+    if (!nv12Texture_) {
+      D3D11_TEXTURE2D_DESC desc;
+      ZeroMemory(&desc, sizeof(desc));
+      tex->GetDesc(&desc);
+      desc.Format = DXGI_FORMAT_NV12;
+      desc.MiscFlags = 0;
+      HRI(native_->device_->CreateTexture2D(
+          &desc, NULL, nv12Texture_.ReleaseAndGetAddressOf()));
+    }
+    if (!native_->BgraToNv12(tex, nv12Texture_.Get(), width_, height_,
+                             colorSpace_in, colorSpace_out)) {
       LOG_ERROR("failed to convert to NV12");
       return -1;
     }
-    encSurf->Data.MemId = native_->to_nv12_texture_.Get();
+    encSurf->Data.MemId = nv12Texture_.Get();
 #else
     encSurf->Data.MemId = tex;
 #endif
@@ -608,20 +619,20 @@ int vpl_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
           api, dataFormat, width, height, kbs, framerate, gop);
       if (!e)
         continue;
-      if (!e->native_->EnsureTexture(e->width_, e->height_))
-        continue;
-      e->native_->next();
-      if (vpl_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr) ==
-          0) {
-        AdapterDesc *desc = descs + count;
-        desc->luid = LUID(adapter.get()->desc1_);
-        count += 1;
-        e->destroy();
-        delete e;
-        e = nullptr;
-        if (count >= maxDescNum)
-          break;
+      if (e->native_->EnsureTexture(e->width_, e->height_)) {
+        e->native_->next();
+        if (vpl_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr) ==
+            0) {
+          AdapterDesc *desc = descs + count;
+          desc->luid = LUID(adapter.get()->desc1_);
+          count += 1;
+        }
       }
+      e->destroy();
+      delete e;
+      e = nullptr;
+      if (count >= maxDescNum)
+        break;
     }
     *outDescNum = count;
     return 0;

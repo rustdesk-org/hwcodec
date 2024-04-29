@@ -475,18 +475,10 @@ bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
   return true;
 }
 
-bool NativeDevice::ToNV12(ID3D11Texture2D *texture, int width, int height,
-                          DXGI_COLOR_SPACE_TYPE colorSpace_in,
-                          DXGI_COLOR_SPACE_TYPE colorSpace_out) {
-  if (!to_nv12_texture_) {
-    D3D11_TEXTURE2D_DESC desc;
-    ZeroMemory(&desc, sizeof(desc));
-    texture->GetDesc(&desc);
-    desc.Format = DXGI_FORMAT_NV12;
-    desc.MiscFlags = 0;
-    HRB(device_->CreateTexture2D(&desc, NULL,
-                                 to_nv12_texture_.ReleaseAndGetAddressOf()));
-  }
+bool NativeDevice::BgraToNv12(ID3D11Texture2D *bgraTexture,
+                              ID3D11Texture2D *nv12Texture, int width,
+                              int height, DXGI_COLOR_SPACE_TYPE colorSpace_in,
+                              DXGI_COLOR_SPACE_TYPE colorSpace_out) {
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC contentDesc;
   ZeroMemory(&contentDesc, sizeof(contentDesc));
   contentDesc.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
@@ -503,7 +495,7 @@ bool NativeDevice::ToNV12(ID3D11Texture2D *texture, int width, int height,
   contentDesc.OutputFrameRate.Numerator = 60;
   contentDesc.OutputFrameRate.Denominator = 1;
 
-  return Process(texture, to_nv12_texture_.Get(), contentDesc, colorSpace_in,
+  return Process(bgraTexture, nv12Texture, contentDesc, colorSpace_in,
                  colorSpace_out, 0);
 }
 

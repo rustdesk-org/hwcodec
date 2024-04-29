@@ -330,13 +330,6 @@ public:
       LOG_ERROR("Could not allocate video packet");
       return false;
     }
-    if ((ret = av_new_packet(
-             pkt_, av_image_get_buffer_size((AVPixelFormat)frame_->format,
-                                            frame_->width, frame_->height,
-                                            align_))) < 0) {
-      LOG_ERROR("av_new_packet failed, ret = " + std::to_string((ret)));
-      return false;
-    }
 
     /* resolution must be a multiple of two */
     c_->width = width_;

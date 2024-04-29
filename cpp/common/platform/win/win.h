@@ -65,12 +65,12 @@ public:
                D3D11_VIDEO_PROCESSOR_CONTENT_DESC content_desc,
                DXGI_COLOR_SPACE_TYPE colorSpace_in,
                DXGI_COLOR_SPACE_TYPE colorSpace_out, int arraySlice);
-  bool ToNV12(ID3D11Texture2D *texture, int width, int height,
-              DXGI_COLOR_SPACE_TYPE colorSpace_in,
-              DXGI_COLOR_SPACE_TYPE colorSpace_outt);
-  AdapterVendor GetVendor();
+  bool BgraToNv12(ID3D11Texture2D *bgraTexture, ID3D11Texture2D *nv12Texture,
+                  int width, int height, DXGI_COLOR_SPACE_TYPE colorSpace_in,
+                  DXGI_COLOR_SPACE_TYPE colorSpace_outt);
   bool Nv12ToBgra(int width, int height, ID3D11Texture2D *nv12Texture,
                   ID3D11Texture2D *bgraTexture, int nv12ArrayIndex);
+  AdapterVendor GetVendor();
 
 private:
   bool InitFromLuid(int64_t luid);
@@ -104,7 +104,6 @@ public:
   ComPtr<ID3D11VideoProcessorEnumerator> video_processor_enumerator_ = nullptr;
   ComPtr<ID3D11VideoProcessor> video_processor_ = nullptr;
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC last_content_desc_ = {};
-  ComPtr<ID3D11Texture2D> to_nv12_texture_ = nullptr;
 
   ComPtr<ID3D11RenderTargetView> RTV_ = NULL;
   ComPtr<ID3D11ShaderResourceView> SRV_[2] = {NULL, NULL};
