@@ -181,7 +181,7 @@ mod ffmpeg {
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
             [
-                "User32", "bcrypt", "ole32", "advapi32", "mfuuid", "strmiids",
+                "User32", "bcrypt", "ole32", "advapi32", "mfuuid", "strmiids", "mfx",
             ]
             .to_vec()
         } else if target_os == "linux" {
