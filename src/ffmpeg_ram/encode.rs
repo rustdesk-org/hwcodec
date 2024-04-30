@@ -198,19 +198,23 @@ impl Encoder {
         let (_nv, amf, _intel) = crate::common::supported_gpu(true);
         let mut codecs = vec![];
         #[cfg(windows)]
-        codecs.push(CodecInfo {
-            name: "h264_qsv".to_owned(),
-            format: H264,
-            priority: Priority::Best as _,
-            ..Default::default()
-        });
+        if _intel && contains(Driver::MFX, H264) {
+            codecs.push(CodecInfo {
+                name: "h264_qsv".to_owned(),
+                format: H264,
+                priority: Priority::Best as _,
+                ..Default::default()
+            });
+        }
         #[cfg(windows)]
-        codecs.push(CodecInfo {
-            name: "hevc_qsv".to_owned(),
-            format: H265,
-            priority: Priority::Best as _,
-            ..Default::default()
-        });
+        if _intel && contains(Driver::MFX, H265) {
+            codecs.push(CodecInfo {
+                name: "hevc_qsv".to_owned(),
+                format: H265,
+                priority: Priority::Best as _,
+                ..Default::default()
+            });
+        }
         #[cfg(windows)]
         codecs.push(CodecInfo {
             name: "h264_mf".to_owned(),
