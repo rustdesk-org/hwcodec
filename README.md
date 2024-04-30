@@ -1,6 +1,31 @@
 # A real-time hardware codec library for [RustDesk](https://github.com/rustdesk/rustdesk) based on FFmpeg
 
 
+## Codec
+
+### Windows
+
+| GPU           | FFmpeg ram | FFmpeg vram | sdk vram |
+| ------------- | ---------- | ----------- | -------- |
+| intel encode  | qsv, mf    | qsv         | Y        |
+| intel decode  | d3d11      | d3d11       | Y        |
+| nvidia encode | mf         | nvenc       | Y        |
+| nvidia decode | d3d11      | amf         | N        |
+| amd encode    | amf        | amf         | Y        |
+| amd decode    | d3d11      | d3d11       | Y        |
+
+
+### Linux
+
+| GPU           | FFmpeg ram |
+| ------------- | ---------- |
+| intel encode  | qsv        |
+| intel decode  | vaapi      |
+| nvidia encode | nvnec      |
+| nvidia decode | nvdec      |
+| amd encode    | amf        |
+| amd decode    | vaapi      |
+
 ## System requirements
 
 * intel
