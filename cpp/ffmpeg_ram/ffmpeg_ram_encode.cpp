@@ -325,9 +325,12 @@ public:
     thread_count_ = thread_count;
     gpu_ = gpu;
     callback_ = callback;
-    if (strcmp(name, "h264_vaapi") == 0 || strcmp(name, "hevc_vaapi") == 0) {
+    if (strstr(name, "vaapi") != NULL) {
       hw_device_type_ = AV_HWDEVICE_TYPE_VAAPI;
       hw_pixfmt_ = AV_PIX_FMT_VAAPI;
+    } else if (strstr(name, "nvenc") != NULL) {
+      hw_device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
+      hw_pixfmt_ = AV_PIX_FMT_D3D11;
     }
   }
 
@@ -349,8 +352,8 @@ public:
     }
 
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
-      ret = av_hwdevice_ctx_create(&hw_device_ctx_, hw_device_type_,
-                                 NULL, NULL, 0);
+      ret = av_hwdevice_ctx_create(&hw_device_ctx_, hw_device_type_, NULL, NULL,
+                                   0);
       if (ret < 0) {
         LOG_ERROR("av_hwdevice_ctx_create failed");
         return false;
@@ -365,15 +368,16 @@ public:
         return false;
       }
       if ((ret = av_hwframe_get_buffer(c_->hw_frames_ctx, hw_frame_, 0)) < 0) {
-        LOG_ERROR("av_hwframe_get_buffer failed, ret = " + std::to_string((ret)));
-            return false;
-        }
-        if (!hw_frame_->hw_frames_ctx) {
-            LOG_ERROR("hw_frame_->hw_frames_ctx is NULL");
-            return false;
-        }
+        LOG_ERROR("av_hwframe_get_buffer failed, ret = " +
+                  std::to_string((ret)));
+        return false;
+      }
+      if (!hw_frame_->hw_frames_ctx) {
+        LOG_ERROR("hw_frame_->hw_frames_ctx is NULL");
+        return false;
+      }
     }
-    
+
     if (!(frame_ = av_frame_alloc())) {
       LOG_ERROR("Could not allocate video frame");
       return false;
@@ -395,7 +399,8 @@ public:
     /* resolution must be a multiple of two */
     c_->width = width_;
     c_->height = height_;
-    c_->pix_fmt = hw_pixfmt_ != AV_PIX_FMT_NONE ? hw_pixfmt_ : (AVPixelFormat)pixfmt_;
+    c_->pix_fmt =
+        hw_pixfmt_ != AV_PIX_FMT_NONE ? hw_pixfmt_ : (AVPixelFormat)pixfmt_;
     c_->sw_pix_fmt = (AVPixelFormat)pixfmt_;
     c_->has_b_frames = 0;
     c_->max_b_frames = 0;
@@ -468,16 +473,16 @@ public:
     }
     if ((ret = fill_frame(frame_, (uint8_t *)data, length, offset_)) != 0)
       return ret;
-    AVFrame * tmp_frame;
+    AVFrame *tmp_frame;
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
       if ((ret = av_hwframe_transfer_data(hw_frame_, frame_, 0)) < 0) {
-          LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
+        LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
                   std::to_string((ret)));
-          return ret;
-        }
-        tmp_frame = hw_frame_;
+        return ret;
+      }
+      tmp_frame = hw_frame_;
     } else {
-        tmp_frame = frame_;
+      tmp_frame = frame_;
     }
 
     return do_encode(tmp_frame, obj, ms);
@@ -508,25 +513,24 @@ public:
   }
 
 private:
-  int set_hwframe_ctx()
-  { 
+  int set_hwframe_ctx() {
     AVBufferRef *hw_frames_ref;
     AVHWFramesContext *frames_ctx = NULL;
     int err = 0;
 
     if (!(hw_frames_ref = av_hwframe_ctx_alloc(hw_device_ctx_))) {
-        LOG_ERROR("av_hwframe_ctx_alloc failed");
-        return -1;
+      LOG_ERROR("av_hwframe_ctx_alloc failed");
+      return -1;
     }
     frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
-    frames_ctx->format    = hw_pixfmt_;
+    frames_ctx->format = hw_pixfmt_;
     frames_ctx->sw_format = (AVPixelFormat)pixfmt_;
-    frames_ctx->width     = width_;
-    frames_ctx->height    = height_;
+    frames_ctx->width = width_;
+    frames_ctx->height = height_;
     frames_ctx->initial_pool_size = 1;
     if ((err = av_hwframe_ctx_init(hw_frames_ref)) < 0) {
-        av_buffer_unref(&hw_frames_ref);
-        return err;
+      av_buffer_unref(&hw_frames_ref);
+      return err;
     }
     c_->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
     if (!c_->hw_frames_ctx) {
@@ -535,7 +539,7 @@ private:
     }
     av_buffer_unref(&hw_frames_ref);
     return err;
-}
+  }
 
   int do_encode(AVFrame *frame, const void *obj, int64_t ms) {
     int ret;

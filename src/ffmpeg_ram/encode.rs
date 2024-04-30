@@ -230,7 +230,7 @@ impl Encoder {
         //     ..Default::default()
         // });
         // windows disable nvenc to avoid gpu stuck
-        #[cfg(target_os = "linux")]
+        #[cfg(any(windows, target_os = "linux"))]
         if _nv && contains(Driver::NV, H264) {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
@@ -239,7 +239,7 @@ impl Encoder {
                 ..Default::default()
             });
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(windows, target_os = "linux"))]
         if _nv && contains(Driver::NV, H265) {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),

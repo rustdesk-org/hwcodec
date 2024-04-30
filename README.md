@@ -7,13 +7,16 @@
 
 | GPU           | FFmpeg ram | FFmpeg vram | sdk vram |
 | ------------- | ---------- | ----------- | -------- |
-| intel encode  | qsv, mf    | qsv         | Y        |
+| intel encode  | qsv        | qsv         | Y        |
 | intel decode  | d3d11      | d3d11       | Y        |
-| nvidia encode | mf         | nvenc       | Y        |
-| nvidia decode | d3d11      | amf         | N        |
+| nvidia encode | nvenc      | nvenc       | Y        |
+| nvidia decode | d3d11      | d3d11       | N        |
 | amd encode    | amf        | amf         | Y        |
 | amd decode    | d3d11      | d3d11       | Y        |
 
+#### Issue or device specific
+
+* amd sdk remove h265 support, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/432
 
 ### Linux
 
@@ -25,6 +28,11 @@
 | nvidia decode | vaapi, nvdec   |
 | amd encode    | vaapi, amf     |
 | amd decode    | vaapi          |
+
+#### Issue or device specific
+
+* vaapi: only tested on intel with `va-driver-all`, and hevc_vaapi encoding not supported on my pc
+* amf: not tested, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/378
 
 ## System requirements
 
