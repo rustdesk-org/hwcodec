@@ -215,20 +215,20 @@ impl Encoder {
                 ..Default::default()
             });
         }
-        #[cfg(windows)]
-        codecs.push(CodecInfo {
-            name: "h264_mf".to_owned(),
-            format: H264,
-            priority: Priority::Good as _,
-            ..Default::default()
-        });
-        #[cfg(windows)]
-        codecs.push(CodecInfo {
-            name: "hevc_mf".to_owned(),
-            format: H265,
-            priority: Priority::Good as _,
-            ..Default::default()
-        });
+        // #[cfg(windows)]
+        // codecs.push(CodecInfo {
+        //     name: "h264_mf".to_owned(),
+        //     format: H264,
+        //     priority: Priority::Good as _,
+        //     ..Default::default()
+        // });
+        // #[cfg(windows)]
+        // codecs.push(CodecInfo {
+        //     name: "hevc_mf".to_owned(),
+        //     format: H265,
+        //     priority: Priority::Good as _,
+        //     ..Default::default()
+        // });
         // windows disable nvenc to avoid gpu stuck
         #[cfg(target_os = "linux")]
         if _nv && contains(Driver::NV, H264) {
