@@ -325,7 +325,8 @@ private:
     ID3D11Texture2D *texture = (ID3D11Texture2D *)pair.first;
     D3D11_TEXTURE2D_DESC desc2D;
     texture->GetDesc(&desc2D);
-    if (!native_->EnsureTexture(desc2D.Width, desc2D.Height)) {
+    if (!native_->EnsureTexture(pmfxOutSurface->Info.CropW,
+                                pmfxOutSurface->Info.CropH)) {
       LOG_ERROR("Failed to EnsureTexture");
       return false;
     }
@@ -333,7 +334,7 @@ private:
 #ifdef USE_SHADER
     native_->BeginQuery();
     if (!native_->Nv12ToBgra(pmfxOutSurface->Info.CropW,
-                             pmfxOutSurface->Info.Height, texture,
+                             pmfxOutSurface->Info.CropH, texture,
                              native_->GetCurrentTexture(), 0)) {
       LOG_ERROR("Failed to Nv12ToBgra");
       native_->EndQuery();
