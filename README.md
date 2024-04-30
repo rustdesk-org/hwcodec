@@ -19,11 +19,11 @@
 
 | GPU           | FFmpeg ram |
 | ------------- | ---------- |
-| intel encode  | qsv        |
+| intel encode  | vaapi      |
 | intel decode  | vaapi      |
 | nvidia encode | nvnec      |
 | nvidia decode | nvdec      |
-| amd encode    | amf        |
+| amd encode    | vaapi      |
 | amd decode    | vaapi      |
 
 ## System requirements

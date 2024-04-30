@@ -263,22 +263,18 @@ impl Encoder {
         }
         #[cfg(target_os = "linux")]
         {
-            if _intel && contains(Driver::MFX, H264) {
-                codecs.push(CodecInfo {
-                    name: "h264_qsv".to_owned(),
-                    format: H264,
-                    priority: Priority::Best as _,
-                    ..Default::default()
-                });
-            }
-            if _intel && contains(Driver::MFX, H265) {
-                codecs.push(CodecInfo {
-                    name: "hevc_qsv".to_owned(),
-                    format: H265,
-                    priority: Priority::Best as _,
-                    ..Default::default()
-                });
-            }
+            codecs.push(CodecInfo {
+                name: "h264_vaapi".to_owned(),
+                format: H264,
+                priority: Priority::Best as _,
+                ..Default::default()
+            });
+            codecs.push(CodecInfo {
+                name: "hevc_vaapi".to_owned(),
+                format: H265,
+                priority: Priority::Best as _,
+                ..Default::default()
+            });
         }
 
         // qsv doesn't support yuv420p
