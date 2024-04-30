@@ -23,7 +23,7 @@
 | intel decode  | vaapi      |
 | nvidia encode | nvnec      |
 | nvidia decode | nvdec      |
-| amd encode    | vaapi      |
+| amd encode    | amf        |
 | amd decode    | vaapi      |
 
 ## System requirements
