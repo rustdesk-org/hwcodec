@@ -17,14 +17,14 @@
 
 ### Linux
 
-| GPU           | FFmpeg ram |
-| ------------- | ---------- |
-| intel encode  | vaapi      |
-| intel decode  | vaapi      |
-| nvidia encode | nvnec      |
-| nvidia decode | nvdec      |
-| amd encode    | amf        |
-| amd decode    | vaapi      |
+| GPU           | FFmpeg ram     |
+| ------------- | -------------- |
+| intel encode  | vaapi          |
+| intel decode  | vaapi          |
+| nvidia encode | vaapi, nvnec   |
+| nvidia decode | vaapi, nvdec   |
+| amd encode    | vaapi, amf     |
+| amd decode    | vaapi          |
 
 ## System requirements
 
