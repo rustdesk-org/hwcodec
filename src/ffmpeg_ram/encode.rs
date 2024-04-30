@@ -294,7 +294,7 @@ impl Encoder {
         let mut res = vec![];
 
         let start = Instant::now();
-        let cu_mutex = Arc::new(Mutex::new(0));
+        let mutex = Arc::new(Mutex::new(0));
         if let Ok(yuv) = Encoder::dummy_yuv(ctx.clone()) {
             log::debug!("prepare yuv {:?}", start.elapsed());
             let yuv = Arc::new(yuv);
@@ -302,11 +302,11 @@ impl Encoder {
             for codec in codecs {
                 let yuv = yuv.clone();
                 let infos = infos.clone();
-                let cu_mutex = cu_mutex.clone();
+                let mutex = mutex.clone();
                 let handle = thread::spawn(move || {
-                    let _cu_lock;
-                    if codec.name.contains("nvenc") {
-                        _cu_lock = cu_mutex.lock().unwrap();
+                    let _lock;
+                    if codec.name.contains("nvenc") || codec.name.contains("mf") {
+                        _lock = mutex.lock().unwrap();
                     }
                     let c = EncodeContext {
                         name: codec.name.clone(),

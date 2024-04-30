@@ -170,6 +170,32 @@ int set_rate_control(void *priv_data, const char *name, int rc) {
 void lockContext(void *lock_ctx);
 void unlockContext(void *lock_ctx);
 
+enum class EncoderDriver {
+  NVENC,
+  AMF,
+  QSV,
+};
+
+class Encoder {
+public:
+  Encoder(EncoderDriver driver, const char *name, AVHWDeviceType device_type,
+          AVHWDeviceType derived_device_type, AVPixelFormat hw_pixfmt,
+          AVPixelFormat sw_pixfmt) {
+    driver_ = driver;
+    name_ = name;
+    device_type_ = device_type;
+    derived_device_type_ = derived_device_type;
+    hw_pixfmt_ = hw_pixfmt;
+    sw_pixfmt_ = sw_pixfmt;
+  };
+  EncoderDriver driver_;
+  std::string name_;
+  AVHWDeviceType device_type_;
+  AVHWDeviceType derived_device_type_;
+  AVPixelFormat hw_pixfmt_;
+  AVPixelFormat sw_pixfmt_;
+};
+
 class FFmpegVRamEncoder {
 public:
   AVCodecContext *c_ = NULL;
@@ -178,10 +204,10 @@ public:
   AVFrame *mapped_frame_ = NULL;
   ID3D11Texture2D *encode_texture_ = NULL; // no free
   AVPacket *pkt_ = NULL;
-  char name_[128] = {0};
   std::unique_ptr<NativeDevice> native_ = nullptr;
   ID3D11Device *d3d11Device_ = NULL;
   ID3D11DeviceContext *d3d11DeviceContext_ = NULL;
+  std::unique_ptr<Encoder> encoder_ = nullptr;
 
   void *handle_ = nullptr;
   int64_t luid_;
@@ -194,10 +220,6 @@ public:
   int32_t gop_;
 
   const int align_ = 0;
-  const AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
-  AVHWDeviceType derived_device_type_ = AV_HWDEVICE_TYPE_NONE;
-  AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_D3D11;
-  const AVPixelFormat sw_pixfmt_ = AV_PIX_FMT_NV12;
   const bool full_range_ = false;
   const bool bt709_ = false;
 
@@ -232,42 +254,11 @@ public:
     d3d11DeviceContext_->AddRef();
 
     AdapterVendor vendor = native_->GetVendor();
-    if (ADAPTER_VENDOR_NVIDIA == vendor) {
-      if (dataFormat_ == H264) {
-        snprintf(name_, sizeof(name_), "h264_nvenc");
-      } else if (dataFormat_ == H265) {
-        snprintf(name_, sizeof(name_), "hevc_nvenc");
-      } else {
-        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
-        return false;
-      }
-    } else if (ADAPTER_VENDOR_AMD == vendor) {
-      if (dataFormat_ == H264) {
-        snprintf(name_, sizeof(name_), "h264_amf");
-      } else if (dataFormat_ == H265) {
-        snprintf(name_, sizeof(name_), "hevc_amf");
-      } else {
-        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
-        return false;
-      }
-    } else if (ADAPTER_VENDOR_INTEL == vendor) {
-      derived_device_type_ = AV_HWDEVICE_TYPE_QSV;
-      hw_pixfmt_ = AV_PIX_FMT_QSV;
-      if (dataFormat_ == H264) {
-        snprintf(name_, sizeof(name_), "h264_qsv");
-      } else if (dataFormat_ == H265) {
-        snprintf(name_, sizeof(name_), "hevc_qsv");
-      } else {
-        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
-        return false;
-      }
-    } else {
-      LOG_ERROR("Unsupported vendor: " + std::to_string(vendor));
+    if (!choose_encoder(vendor)) {
       return false;
     }
-    LOG_INFO("FFmpeg vram encoder name: " + std::string(name_));
-    if (!(codec = avcodec_find_encoder_by_name(name_))) {
-      LOG_ERROR("Codec " + name_ + " not found");
+    if (!(codec = avcodec_find_encoder_by_name(encoder_->name_.c_str()))) {
+      LOG_ERROR("Codec " + encoder_->name_ + " not found");
       return false;
     }
 
@@ -279,14 +270,14 @@ public:
     /* resolution must be a multiple of two */
     c_->width = width_;
     c_->height = height_;
-    c_->pix_fmt = hw_pixfmt_;
-    c_->sw_pix_fmt = sw_pixfmt_;
+    c_->pix_fmt = encoder_->hw_pixfmt_;
+    c_->sw_pix_fmt = encoder_->sw_pixfmt_;
     c_->has_b_frames = 0;
     c_->max_b_frames = 0;
     c_->gop_size = gop_;
     // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
     c_->bit_rate = kbs_ * 1000;
-    if (strcmp(name_, "h264_qsv") == 0 || strcmp(name_, "hevc_qsv") == 0) {
+    if (encoder_->driver_ == EncoderDriver::QSV) {
       c_->rc_max_rate = c_->bit_rate;
     }
     /* frames per second */
@@ -305,18 +296,18 @@ public:
     c_->thread_type = FF_THREAD_SLICE;
     c_->thread_count = c_->slices;
 
-    if (set_lantency_free(c_->priv_data, name_) < 0) {
+    if (set_lantency_free(c_->priv_data, encoder_->name_.c_str()) < 0) {
       return false;
     }
-    set_quality(c_->priv_data, name_, Quality_Medium);
-    set_rate_control(c_->priv_data, name_, RC_CBR);
+    set_quality(c_->priv_data, encoder_->name_.c_str(), Quality_Medium);
+    set_rate_control(c_->priv_data, encoder_->name_.c_str(), RC_CBR);
     if (dataFormat_ == H264) {
       c_->profile = FF_PROFILE_H264_HIGH;
     } else if (dataFormat_ == H265) {
       c_->profile = FF_PROFILE_HEVC_MAIN;
     }
 
-    hw_device_ctx_ = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_D3D11VA);
+    hw_device_ctx_ = av_hwdevice_ctx_alloc(encoder_->device_type_);
     if (!hw_device_ctx_) {
       LOG_ERROR("av_hwdevice_ctx_create failed");
       return false;
@@ -336,10 +327,10 @@ public:
       LOG_ERROR("av_hwdevice_ctx_init failed, ret = " + std::to_string(ret));
       return false;
     }
-    if (derived_device_type_ != AV_HWDEVICE_TYPE_NONE) {
+    if (encoder_->derived_device_type_ != AV_HWDEVICE_TYPE_NONE) {
       AVBufferRef *derived_context = nullptr;
       auto err = av_hwdevice_ctx_create_derived(
-          &derived_context, derived_device_type_, hw_device_ctx_, 0);
+          &derived_context, encoder_->derived_device_type_, hw_device_ctx_, 0);
       if (err) {
         LOG_ERROR("av_hwdevice_ctx_create_derived failed, err = " +
                   std::to_string(err));
@@ -352,7 +343,6 @@ public:
     if (!set_hwframe_ctx()) {
       return false;
     }
-    LOG_INFO("========== 2");
 
     if (!(pkt_ = av_packet_alloc())) {
       LOG_ERROR("Could not allocate video packet");
@@ -361,7 +351,7 @@ public:
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
       LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)) +
-                ", name: " + name_);
+                ", name: " + encoder_->name_);
       return false;
     }
 
@@ -433,17 +423,63 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    if (strcmp(name_, "h264_nvenc") == 0 || strcmp(name_, "hevc_nvenc") == 0 ||
-        strcmp(name_, "h264_amf") == 0 || strcmp(name_, "hevc_amf") == 0) {
+    if (encoder_->driver_ == EncoderDriver::NVENC ||
+        encoder_->driver_ == EncoderDriver::AMF) {
       c_->bit_rate = kbs * 1000;
       return 0;
     }
-    LOG_ERROR("ffmpeg_ram_set_bitrate " + name_ +
+    LOG_ERROR("ffmpeg_ram_set_bitrate " + encoder_->name_ +
               " does not implement bitrate change");
     return -1;
   }
 
 private:
+  bool choose_encoder(AdapterVendor vendor) {
+    if (ADAPTER_VENDOR_NVIDIA == vendor) {
+      const char *name = nullptr;
+      if (dataFormat_ == H264) {
+        name = "h264_nvenc";
+      } else if (dataFormat_ == H265) {
+        name = "hevc_nvenc";
+      } else {
+        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
+        return false;
+      }
+      encoder_ = std::make_unique<Encoder>(
+          EncoderDriver::NVENC, name, AV_HWDEVICE_TYPE_D3D11VA,
+          AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_D3D11, AV_PIX_FMT_NV12);
+    } else if (ADAPTER_VENDOR_AMD == vendor) {
+      const char *name = nullptr;
+      if (dataFormat_ == H264) {
+        name = "h264_amf";
+      } else if (dataFormat_ == H265) {
+        name = "hevc_amf";
+      } else {
+        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
+        return false;
+      }
+      encoder_ = std::make_unique<Encoder>(
+          EncoderDriver::AMF, name, AV_HWDEVICE_TYPE_D3D11VA,
+          AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_D3D11, AV_PIX_FMT_NV12);
+    } else if (ADAPTER_VENDOR_INTEL == vendor) {
+      const char *name = nullptr;
+      if (dataFormat_ == H264) {
+        name = "h264_qsv";
+      } else if (dataFormat_ == H265) {
+        name = "hevc_qsv";
+      } else {
+        LOG_ERROR("Unsupported data format: " + std::to_string(dataFormat_));
+        return false;
+      }
+      encoder_ = std::make_unique<Encoder>(
+          EncoderDriver::QSV, name, AV_HWDEVICE_TYPE_D3D11VA,
+          AV_HWDEVICE_TYPE_QSV, AV_PIX_FMT_QSV, AV_PIX_FMT_NV12);
+    } else {
+      LOG_ERROR("Unsupported vendor: " + std::to_string(vendor));
+      return false;
+    }
+    LOG_INFO("FFmpeg vram encoder name: " + encoder_->name_);
+  }
   int do_encode(EncodeCallback callback, const void *obj) {
     int ret;
     bool encoded = false;
@@ -521,12 +557,12 @@ private:
       return false;
     }
     frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
-    frames_ctx->format = hw_pixfmt_;
-    frames_ctx->sw_format = sw_pixfmt_;
+    frames_ctx->format = encoder_->hw_pixfmt_;
+    frames_ctx->sw_format = encoder_->sw_pixfmt_;
     frames_ctx->width = width_;
     frames_ctx->height = height_;
     frames_ctx->initial_pool_size = 0;
-    if (device_type_ == AV_HWDEVICE_TYPE_D3D11VA) {
+    if (encoder_->device_type_ == AV_HWDEVICE_TYPE_D3D11VA) {
       frames_ctx->initial_pool_size = 1;
       AVD3D11VAFramesContext *frames_hwctx =
           (AVD3D11VAFramesContext *)frames_ctx->hwctx;
