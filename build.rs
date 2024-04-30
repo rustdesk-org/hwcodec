@@ -15,7 +15,6 @@ fn main() {
     let mut builder = Build::new();
 
     build_common(&mut builder);
-    #[cfg(feature = "ffmpeg")]
     ffmpeg::build_ffmpeg(&mut builder);
     #[cfg(all(windows, feature = "vram"))]
     sdk::build_sdk(&mut builder);
@@ -144,7 +143,6 @@ fn get_ffmpeg_arch() -> String {
     arch_dir.to_string()
 }
 
-#[cfg(feature = "ffmpeg")]
 mod ffmpeg {
     use core::panic;
 
