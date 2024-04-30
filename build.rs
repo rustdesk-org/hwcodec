@@ -178,10 +178,7 @@ mod ffmpeg {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
-            [
-                "User32", "bcrypt", "ole32", "advapi32", "mfuuid", "strmiids", "mfx",
-            ]
-            .to_vec()
+            ["User32", "bcrypt", "ole32", "advapi32", "mfx"].to_vec()
         } else if target_os == "linux" {
             let mut v = ["va", "va-drm", "va-x11", "vdpau", "X11", "stdc++"].to_vec();
             if target_arch == "x86_64" {
