@@ -195,7 +195,7 @@ impl Encoder {
             true
         };
 
-        let (_nv, amf, _vpl) = crate::common::supported_gpu(true);
+        let (_nv, amf, _intel) = crate::common::supported_gpu(true);
         let mut codecs = vec![];
         #[cfg(windows)]
         codecs.push(CodecInfo {
@@ -263,7 +263,7 @@ impl Encoder {
         }
         #[cfg(target_os = "linux")]
         {
-            if _vpl && contains(Driver::VPL, H264) {
+            if _intel && contains(Driver::MFX, H264) {
                 codecs.push(CodecInfo {
                     name: "h264_qsv".to_owned(),
                     format: H264,
@@ -271,7 +271,7 @@ impl Encoder {
                     ..Default::default()
                 });
             }
-            if _vpl && contains(Driver::VPL, H265) {
+            if _intel && contains(Driver::MFX, H265) {
                 codecs.push(CodecInfo {
                     name: "hevc_qsv".to_owned(),
                     format: H265,
