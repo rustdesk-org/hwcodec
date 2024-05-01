@@ -16,10 +16,11 @@
 
 #### Issue
 
-* https://forums.developer.nvidia.com/t/cuctxdestroy-causing-system-freeze-and-black-screen/290542/1
-  - FFmpeg encoding AV_PIX_FMT_NV12 directly => transfer AV_PIX_FMT_NV12 to AV_PIX_FMT_D3D11, because FFmpeg doesn't use CUcontext if device type is AV_HWDEVICE_TYPE_D3D11VA
-  - FFmpeg decoding with AV_HWDEVICE_TYPE_CUDA acceleration => disable and replace it with AV_HWDEVICE_TYPE_D3D11VA
-  - Sdk decoding with cuda acceleration => disable
+* The reason for discarding the codecs using Cucontext is discussed in the following forum thread: https://forums.developer.nvidia.com/t/cuctxdestroy-causing-system-freeze-and-black-screen/290542/1.
+Based on the information above, there are several optimizations and changes made to the codec:
+  - FFmpeg encoding AV_PIX_FMT_NV12 directly: The codec is modified to transfer AV_PIX_FMT_NV12 to AV_PIX_FMT_D3D11. This is done because FFmpeg doesn't use Cucontext if the device type is AV_HWDEVICE_TYPE_D3D11VA.
+  - FFmpeg decoding with AV_HWDEVICE_TYPE_CUDA acceleration: This functionality is disabled and replaced with AV_HWDEVICE_TYPE_D3D11VA. The decoding process now utilizes D3D11VA acceleration instead of CUDA.
+  - SDK decoding with CUDA acceleration: The CUDA acceleration support is disabled.
 
 * amd sdk remove h265 support, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/432
 
