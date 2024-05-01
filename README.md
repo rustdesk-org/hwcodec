@@ -5,16 +5,21 @@
 
 ### Windows
 
-| GPU           | FFmpeg ram | FFmpeg vram | sdk vram |
-| ------------- | ---------- | ----------- | -------- |
-| intel encode  | qsv        | qsv         | Y        |
-| intel decode  | d3d11      | d3d11       | Y        |
-| nvidia encode | nvenc      | nvenc       | Y        |
-| nvidia decode | d3d11      | d3d11       | N        |
-| amd encode    | amf        | amf         | Y        |
-| amd decode    | d3d11      | d3d11       | Y        |
+| GPU           | FFmpeg ram        | FFmpeg vram | sdk vram |
+| ------------- | ----------------  | ----------- | -------- |
+| intel encode  | qsv               | qsv         | Y        |
+| intel decode  | d3d11             | d3d11       | Y        |
+| nvidia encode | nvenc(nv12->d3d11)| nvenc(d3d11)| Y        |
+| nvidia decode | d3d11             | d3d11       | N        |
+| amd encode    | amf               | amf         | Y        |
+| amd decode    | d3d11             | d3d11       | Y        |
 
-#### Issue or device specific
+#### Issue
+
+* https://forums.developer.nvidia.com/t/cuctxdestroy-causing-system-freeze-and-black-screen/290542/1
+  - FFmpeg encoding AV_PIX_FMT_NV12 directly => transfer AV_PIX_FMT_NV12 to AV_PIX_FMT_D3D11, because FFmpeg doesn't use CUcontext if device type is AV_HWDEVICE_TYPE_D3D11VA
+  - FFmpeg decoding with AV_HWDEVICE_TYPE_CUDA acceleration => disable and replace it with AV_HWDEVICE_TYPE_D3D11VA
+  - Sdk decoding with cuda acceleration => disable
 
 * amd sdk remove h265 support, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/432
 
@@ -29,7 +34,7 @@
 | amd encode    | vaapi, amf     |
 | amd decode    | vaapi          |
 
-#### Issue or device specific
+#### Issue
 
 * vaapi: only tested on intel with `va-driver-all`, and hevc_vaapi encoding not supported on my pc
 * amf: not tested, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/378
