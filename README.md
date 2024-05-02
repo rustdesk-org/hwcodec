@@ -14,6 +14,10 @@
 | amd encode    | amf               | amf         | Y        |
 | amd decode    | d3d11             | d3d11       | Y        |
 
+#### Issues
+
+* FFmpeg nvidia ram encode: `avcodec_open2` failed when the display connected to the NVIDIA graphics card is not the primary display.
+
 #### Notes
 
 * The reason for discarding the codecs using Cucontext is discussed in the following forum thread: https://forums.developer.nvidia.com/t/cuctxdestroy-causing-system-freeze-and-black-screen/290542/1.
