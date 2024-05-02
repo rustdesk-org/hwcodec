@@ -171,7 +171,7 @@ bool set_gpu(void *priv_data, const std::string &name, int gpu) {
 
 bool force_hw(void *priv_data, const std::string &name) {
   int ret;
-  if (name.find("mf") != std::string::npos) {
+  if (name.find("_mf") != std::string::npos) {
     if ((ret = av_opt_set_int(priv_data, "hw_encoding", 1, 0)) < 0) {
       LOG_ERROR("mediafoundation set hw_encoding failed, ret = " +
                 std::to_string(ret));
@@ -183,7 +183,7 @@ bool force_hw(void *priv_data, const std::string &name) {
 
 bool set_others(void *priv_data, const std::string &name) {
   int ret;
-  if (name.find("mf") != std::string::npos) {
+  if (name.find("_mf") != std::string::npos) {
     // ff_eAVScenarioInfo_DisplayRemoting = 1
     if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {
       LOG_ERROR("mediafoundation set scenario failed, ret = " +
