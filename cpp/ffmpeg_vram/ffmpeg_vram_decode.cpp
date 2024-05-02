@@ -46,7 +46,6 @@ public:
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
 
   bool ready_decode_ = false;
-  std::mutex mtx;
 
   bool bt709_ = false;
   bool full_range_ = false;
@@ -324,19 +323,9 @@ private:
   }
 };
 
-void lockContext(void *lock_ctx) {
-  FFmpegVRamDecoder *decoder = (FFmpegVRamDecoder *)lock_ctx;
-  if (decoder) {
-    decoder->mtx.lock();
-  }
-}
+void lockContext(void *lock_ctx) { (void)lock_ctx; }
 
-void unlockContext(void *lock_ctx) {
-  FFmpegVRamDecoder *decoder = (FFmpegVRamDecoder *)lock_ctx;
-  if (decoder) {
-    decoder->mtx.unlock();
-  }
-}
+void unlockContext(void *lock_ctx) { (void)lock_ctx; }
 
 } // namespace
 

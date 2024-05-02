@@ -136,10 +136,10 @@ public:
     thread_count_ = thread_count;
     gpu_ = gpu;
     callback_ = callback;
-    if (strstr(name, "vaapi") != NULL) {
+    if (name_.find("vaapi") != std::string::npos) {
       hw_device_type_ = AV_HWDEVICE_TYPE_VAAPI;
       hw_pixfmt_ = AV_PIX_FMT_VAAPI;
-    } else if (strstr(name, "nvenc") != NULL) {
+    } else if (name_.find("nvenc") != std::string::npos) {
 #ifdef _WIN32
       hw_device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
       hw_pixfmt_ = AV_PIX_FMT_D3D11;

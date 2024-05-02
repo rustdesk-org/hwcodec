@@ -393,7 +393,7 @@ bool NativeDevice::Query() {
     attempts++;
     if (attempts > 100)
       Sleep(1);
-    if (attempts > 10000)
+    if (attempts > 1000)
       break;
   }
   return bResult == TRUE;
