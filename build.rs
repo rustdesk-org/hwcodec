@@ -172,11 +172,17 @@ mod ffmpeg {
             .unwrap();
 
         let arch_dir = get_ffmpeg_arch();
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-        let static_libs = ["avcodec", "avutil", "avformat", "mfx"];
-        static_libs.map(|lib| println!("cargo:rustc-link-lib=static={}", lib));
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
+        let mut static_libs = vec!["avcodec", "avutil", "avformat"];
+        if target_os == "windows" {
+            static_libs.push("mfx");
+        }
+        static_libs
+            .iter()
+            .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
+            .count();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
             ["User32", "bcrypt", "ole32", "advapi32"].to_vec()
         } else if target_os == "linux" {
