@@ -584,3 +584,22 @@ bool Adapters::Init(AdapterVendor vendor) {
 
   return true;
 }
+
+int Adapters::GetFirstAdapterIndex(AdapterVendor vendor) {
+  ComPtr<IDXGIFactory1> factory1 = nullptr;
+  HRI(CreateDXGIFactory1(IID_IDXGIFactory1,
+                         (void **)factory1.ReleaseAndGetAddressOf()));
+
+  ComPtr<IDXGIAdapter1> tmpAdapter = nullptr;
+  UINT i = 0;
+  while (!FAILED(
+      factory1->EnumAdapters1(i, tmpAdapter.ReleaseAndGetAddressOf()))) {
+    i++;
+    DXGI_ADAPTER_DESC1 desc = DXGI_ADAPTER_DESC1();
+    tmpAdapter->GetDesc1(&desc);
+    if (desc.VendorId == static_cast<UINT>(vendor)) {
+      return i - 1;
+    }
+  }
+  return -1;
+}

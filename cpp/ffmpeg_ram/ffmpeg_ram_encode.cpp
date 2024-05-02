@@ -16,6 +16,9 @@ extern "C" {
 #define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
 #include <uitl.h>
+#ifdef _WIN32
+#include "win.h"
+#endif
 
 static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
                                    int *offset, int *length) {
@@ -165,8 +168,19 @@ public:
     }
 
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
-      ret = av_hwdevice_ctx_create(&hw_device_ctx_, hw_device_type_, NULL, NULL,
-                                   0);
+      string device = "";
+#ifdef _WIN32
+      if (name_.find("nvenc") != std::string::npos) {
+        int index = Adapters::GetFirstAdapterIndex(
+            AdapterVendor::ADAPTER_VENDOR_NVIDIA);
+        if (index >= 0) {
+          device = std::to_string(index);
+        }
+      }
+#endif
+      ret = av_hwdevice_ctx_create(&hw_device_ctx_, hw_device_type_,
+                                   device.length() == 0 ? NULL : device.c_str(),
+                                   NULL, 0);
       if (ret < 0) {
         LOG_ERROR("av_hwdevice_ctx_create failed");
         return false;

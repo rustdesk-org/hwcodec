@@ -140,6 +140,7 @@ public:
 class Adapters {
 public:
   bool Init(AdapterVendor vendor);
+  static int GetFirstAdapterIndex(AdapterVendor vendor);
 
 public:
   ComPtr<IDXGIFactory1> factory1_ = nullptr;
