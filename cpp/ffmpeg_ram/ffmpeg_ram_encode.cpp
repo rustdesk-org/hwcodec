@@ -15,8 +15,7 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
-
-// #define CFG_PKG_TRACE
+#include <uitl.h>
 
 static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
                                    int *offset, int *length) {
@@ -88,190 +87,8 @@ _exit:
 }
 
 namespace {
-enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
-
-enum RateContorl {
-  RC_DEFAULT,
-  RC_CBR,
-  RC_VBR,
-};
-
 typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
                                   int key, const void *obj);
-
-int set_lantency_free(void *priv_data, const char *name) {
-  int ret;
-
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    if ((ret = av_opt_set(priv_data, "delay", "0", 0)) < 0) {
-      LOG_ERROR("nvenc set_lantency_free failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    if ((ret = av_opt_set(priv_data, "query_timeout", "1000", 0)) < 0) {
-      LOG_ERROR("amf set_lantency_free failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
-    if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
-      LOG_ERROR("qsv set_lantency_free failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  return 0;
-}
-
-int set_quality(void *priv_data, const char *name, int quality) {
-  int ret = -1;
-
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    switch (quality) {
-    // p7 isn't zero lantency
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
-        LOG_ERROR("nvenc set opt preset p4 failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
-        LOG_ERROR("nvenc set opt preset p1 failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
-        LOG_ERROR("amf set opt quality quality failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
-        LOG_ERROR("amf set opt quality balanced failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
-        LOG_ERROR("amf set opt quality speed failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
-    switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset veryslow failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset medium failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset veryfast failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  return ret;
-}
-
-int set_rate_control(void *priv_data, const char *name, int rc) {
-  int ret;
-
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc cbr failed, ret = " + std::to_string(ret));
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc vbr failed, ret = " + std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("amf set opt rc cbr failed, ret = " + std::to_string(ret));
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
-        LOG_ERROR("amf set opt rc vbr_latency failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  return ret;
-}
-
-int set_gpu(void *priv_data, const char *name, int gpu) {
-  int ret;
-  if (gpu < 0)
-    return -1;
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    if ((ret = av_opt_set_int(priv_data, "gpu", gpu, 0)) < 0) {
-      LOG_ERROR("nvenc set gpu failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  return 0;
-}
-
-int force_hw(void *priv_data, const char *name) {
-  int ret;
-  if (strcmp(name, "h264_mf") == 0 || strcmp(name, "hevc_mf") == 0) {
-    if ((ret = av_opt_set_int(priv_data, "hw_encoding", 1, 0)) < 0) {
-      LOG_ERROR("mediafoundation set hw_encoding failed, ret = " +
-                std::to_string(ret));
-      return -1;
-    }
-  }
-  return 0;
-}
-
-int set_others(void *priv_data, const char *name) {
-  int ret;
-  if (strcmp(name, "h264_mf") == 0 || strcmp(name, "hevc_mf") == 0) {
-    // ff_eAVScenarioInfo_DisplayRemoting = 1
-    if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {
-      LOG_ERROR("mediafoundation set scenario failed, ret = " +
-                std::to_string(ret));
-      return -1;
-    }
-  }
-  return 0;
-}
 
 class FFmpegRamEncoder {
 public:
@@ -300,11 +117,6 @@ public:
   AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx_ = NULL;
   AVFrame *hw_frame_ = NULL;
-
-#ifdef CFG_PKG_TRACE
-  int in;
-  int out;
-#endif
 
   FFmpegRamEncoder(const char *name, int width, int height, int pixfmt,
                    int align, int bit_rate, int time_base_num,
@@ -429,15 +241,15 @@ public:
     c_->color_primaries = AVCOL_PRI_SMPTE170M;
     c_->color_trc = AVCOL_TRC_SMPTE170M;
 
-    if (set_lantency_free(c_->priv_data, name_) < 0) {
+    if (util::set_lantency_free(c_->priv_data, name_) < 0) {
       LOG_ERROR("set_lantency_free failed, name: " + name_);
       return false;
     }
-    set_quality(c_->priv_data, name_, quality_);
-    set_rate_control(c_->priv_data, name_, rc_);
-    set_gpu(c_->priv_data, name_, gpu_);
-    force_hw(c_->priv_data, name_);
-    set_others(c_->priv_data, name_);
+    util::set_quality(c_->priv_data, name_, quality_);
+    util::set_rate_control(c_->priv_data, name_, rc_);
+    util::set_gpu(c_->priv_data, name_, gpu_);
+    util::force_hw(c_->priv_data, name_);
+    util::set_others(c_->priv_data, name_);
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
       LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)) +
@@ -445,10 +257,6 @@ public:
       return false;
     }
     first_ms_ = 0;
-#ifdef CFG_PKG_TRACE
-    in_ = 0;
-    out_ = 0;
-#endif
 
     if (ffmpeg_ram_get_linesize_offset_length(pixfmt_, width_, height_, align_,
                                               NULL, offset_, length) != 0)
@@ -464,10 +272,6 @@ public:
   int encode(const uint8_t *data, int length, const void *obj, uint64_t ms) {
     int ret;
 
-#ifdef CFG_PKG_TRACE
-    in_++;
-    LOG_DEBUG("delay EI: in:" + in_ + " out:" + out_);
-#endif
     if ((ret = av_frame_make_writable(frame_)) != 0) {
       LOG_ERROR("av_frame_make_writable failed, ret = " +
                 std::to_string((ret)));
@@ -560,10 +364,6 @@ private:
         goto _exit;
       }
       encoded = true;
-#ifdef CFG_PKG_TRACE
-      encoder->out++;
-      LOG_DEBUG("delay EO: in:" + encoder->in + " out:" + encoder->out);
-#endif
       if (first_ms_ == 0)
         first_ms_ = ms;
       callback_(pkt_->data, pkt_->size, ms - first_ms_,

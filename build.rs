@@ -67,7 +67,7 @@ fn build_common(builder: &mut Build) {
     }
 
     // tool
-    builder.files(["log.cpp"].map(|f| common_dir.join(f)));
+    builder.files(["log.cpp", "util.cpp"].map(|f| common_dir.join(f)));
 }
 
 #[derive(Debug)]

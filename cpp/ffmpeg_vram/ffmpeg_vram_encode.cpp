@@ -7,7 +7,9 @@ extern "C" {
 #include <libavutil/opt.h>
 }
 
+#ifdef _WIN32
 #include <libavutil/hwcontext_d3d11va.h>
+#endif
 
 #include <memory>
 #include <stdbool.h>
@@ -21,151 +23,9 @@ extern "C" {
 
 #define LOG_MODULE "FFMPEG_VRAM_ENC"
 #include <log.h>
+#include <uitl.h>
 
 namespace {
-enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
-
-enum RateContorl {
-  RC_DEFAULT,
-  RC_CBR,
-  RC_VBR,
-};
-
-int set_lantency_free(void *priv_data, const char *name) {
-  int ret;
-
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    if ((ret = av_opt_set(priv_data, "delay", "0", 0)) < 0) {
-      LOG_ERROR("nvenc set_lantency_free failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    if ((ret = av_opt_set(priv_data, "query_timeout", "1000", 0)) < 0) {
-      LOG_ERROR("amf set_lantency_free failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
-    if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
-      LOG_ERROR("qsv set_lantency_free failed, ret = " + std::to_string(ret));
-      return -1;
-    }
-  }
-  return 0;
-}
-
-int set_quality(void *priv_data, const char *name, int quality) {
-  int ret = -1;
-
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    switch (quality) {
-    // p7 isn't zero lantency
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
-        LOG_ERROR("nvenc set opt preset p4 failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
-        LOG_ERROR("nvenc set opt preset p1 failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
-        LOG_ERROR("amf set opt quality quality failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
-        LOG_ERROR("amf set opt quality balanced failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
-        LOG_ERROR("amf set opt quality speed failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (strcmp(name, "h264_qsv") == 0 || strcmp(name, "hevc_qsv") == 0) {
-    switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset veryslow failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset medium failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset veryfast failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  return ret;
-}
-
-int set_rate_control(void *priv_data, const char *name, int rc) {
-  int ret;
-
-  if (strcmp(name, "h264_nvenc") == 0 || strcmp(name, "hevc_nvenc") == 0) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc cbr failed, ret = " + std::to_string(ret));
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc vbr failed, ret = " + std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (strcmp(name, "h264_amf") == 0 || strcmp(name, "hevc_amf") == 0) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("amf set opt rc cbr failed, ret = " + std::to_string(ret));
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
-        LOG_ERROR("amf set opt rc vbr_latency failed, ret = " +
-                  std::to_string(ret));
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  return ret;
-}
 
 void lockContext(void *lock_ctx);
 void unlockContext(void *lock_ctx);
@@ -296,11 +156,13 @@ public:
     c_->thread_type = FF_THREAD_SLICE;
     c_->thread_count = c_->slices;
 
-    if (set_lantency_free(c_->priv_data, encoder_->name_.c_str()) < 0) {
+    if (util::set_lantency_free(c_->priv_data, encoder_->name_.c_str()) < 0) {
       return false;
     }
-    set_quality(c_->priv_data, encoder_->name_.c_str(), Quality_Medium);
-    set_rate_control(c_->priv_data, encoder_->name_.c_str(), RC_CBR);
+    util::set_quality(c_->priv_data, encoder_->name_.c_str(),
+                      util::Quality_Medium);
+    util::set_rate_control(c_->priv_data, encoder_->name_.c_str(),
+                           util::RC_CBR);
     if (dataFormat_ == H264) {
       c_->profile = FF_PROFILE_H264_HIGH;
     } else if (dataFormat_ == H265) {
