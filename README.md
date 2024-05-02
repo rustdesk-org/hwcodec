@@ -14,7 +14,7 @@
 | amd encode    | amf               | amf         | Y        |
 | amd decode    | d3d11             | d3d11       | Y        |
 
-#### Issue
+#### Notes
 
 * The reason for discarding the codecs using Cucontext is discussed in the following forum thread: https://forums.developer.nvidia.com/t/cuctxdestroy-causing-system-freeze-and-black-screen/290542/1.
 Based on the information above, there are several optimizations and changes made to the codec:
