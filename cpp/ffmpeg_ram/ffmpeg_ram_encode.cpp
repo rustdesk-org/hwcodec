@@ -329,8 +329,10 @@ public:
       hw_device_type_ = AV_HWDEVICE_TYPE_VAAPI;
       hw_pixfmt_ = AV_PIX_FMT_VAAPI;
     } else if (strstr(name, "nvenc") != NULL) {
+#ifdef _WIN32
       hw_device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
       hw_pixfmt_ = AV_PIX_FMT_D3D11;
+#endif
     }
   }
 
