@@ -156,13 +156,11 @@ public:
     c_->thread_type = FF_THREAD_SLICE;
     c_->thread_count = c_->slices;
 
-    if (util::set_lantency_free(c_->priv_data, encoder_->name_.c_str()) < 0) {
+    if (!util::set_lantency_free(c_->priv_data, encoder_->name_)) {
       return false;
     }
-    util::set_quality(c_->priv_data, encoder_->name_.c_str(),
-                      util::Quality_Medium);
-    util::set_rate_control(c_->priv_data, encoder_->name_.c_str(),
-                           util::RC_CBR);
+    util::set_quality(c_->priv_data, encoder_->name_, util::Quality_Medium);
+    util::set_rate_control(c_->priv_data, encoder_->name_, util::RC_CBR);
     if (dataFormat_ == H264) {
       c_->profile = FF_PROFILE_H264_HIGH;
     } else if (dataFormat_ == H265) {

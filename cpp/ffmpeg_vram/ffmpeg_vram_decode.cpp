@@ -42,7 +42,7 @@ public:
   void *device_ = nullptr;
   int64_t luid_ = 0;
   DataFormat dataFormat_;
-  char name_[128] = {0};
+  std::string name_;
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
 
   bool ready_decode_ = false;
@@ -58,10 +58,10 @@ public:
     dataFormat_ = dataFormat;
     switch (dataFormat) {
     case H264:
-      snprintf(this->name_, sizeof(this->name_), "h264");
+      name_ = "h264";
       break;
     case H265:
-      snprintf(this->name_, sizeof(this->name_), "hevc");
+      name_ = "hevc";
       break;
     default:
       LOG_ERROR("unsupported data format");
@@ -120,7 +120,7 @@ public:
     d3d11DeviceContext_->AddRef();
     const AVCodec *codec = NULL;
     int ret;
-    if (!(codec = avcodec_find_decoder_by_name(name_))) {
+    if (!(codec = avcodec_find_decoder_by_name(name_.c_str()))) {
       LOG_ERROR("avcodec_find_decoder_by_name " + name_ + " failed");
       return -1;
     }

@@ -32,7 +32,7 @@ public:
   AVPacket *pkt_ = NULL;
   bool hwaccel_ = true;
 
-  char name_[128] = {0};
+  std::string name_;
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_NONE;
   int thread_count_ = 1;
   RamDecodeCallback callback_ = NULL;
@@ -48,7 +48,7 @@ public:
 
   FFmpegRamDecoder(const char *name, int device_type, int thread_count,
                    RamDecodeCallback callback) {
-    snprintf(this->name_, sizeof(this->name_), "%s", name);
+    this->name_ = name;
     this->device_type_ = (AVHWDeviceType)device_type;
     this->thread_count_ = thread_count;
     this->callback_ = callback;
@@ -83,7 +83,7 @@ public:
     const AVCodec *codec = NULL;
     hwaccel_ = device_type_ != AV_HWDEVICE_TYPE_NONE;
     int ret;
-    if (!(codec = avcodec_find_decoder_by_name(name_))) {
+    if (!(codec = avcodec_find_decoder_by_name(name_.c_str()))) {
       LOG_ERROR("avcodec_find_decoder_by_name " + name_ + " failed");
       return -1;
     }
@@ -97,7 +97,7 @@ public:
         device_type_ != AV_HWDEVICE_TYPE_NONE ? 1 : thread_count_;
     c_->thread_type = FF_THREAD_SLICE;
 
-    if (strcmp(name_, "h264_qsv") == 0 || strcmp(name_, "hevc_qsv") == 0) {
+    if (name_.find("qsv") != std::string::npos) {
       if ((ret = av_opt_set(c_->priv_data, "async_depth", "1", 0)) < 0) {
         LOG_ERROR("qsv set opt async_depth 1 failed");
         return -1;

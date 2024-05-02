@@ -95,7 +95,7 @@ public:
   AVCodecContext *c_ = NULL;
   AVFrame *frame_ = NULL;
   AVPacket *pkt_ = NULL;
-  char name_[32] = {0};
+  std::string name_;
   int64_t first_ms_ = 0;
 
   int width_ = 0;
@@ -122,8 +122,7 @@ public:
                    int align, int bit_rate, int time_base_num,
                    int time_base_den, int gop, int quality, int rc,
                    int thread_count, int gpu, RamEncodeCallback callback) {
-    memset(name_, 0, sizeof(name_));
-    snprintf(name_, sizeof(name_), "%s", name);
+    name_ = name;
     width_ = width;
     height_ = height;
     pixfmt_ = (AVPixelFormat)pixfmt;
@@ -155,7 +154,7 @@ public:
 
     int ret;
 
-    if (!(codec = avcodec_find_encoder_by_name(name_))) {
+    if (!(codec = avcodec_find_encoder_by_name(name_.c_str()))) {
       LOG_ERROR("Codec " + name_ + " not found");
       return false;
     }
@@ -223,7 +222,7 @@ public:
     // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
     if (bit_rate_ >= 1000) {
       c_->bit_rate = bit_rate_;
-      if (strcmp(name_, "h264_qsv") == 0 || strcmp(name_, "hevc_qsv") == 0) {
+      if (name_.find("qsv") != std::string::npos) {
         c_->rc_max_rate = bit_rate_;
       }
     }
@@ -241,7 +240,7 @@ public:
     c_->color_primaries = AVCOL_PRI_SMPTE170M;
     c_->color_trc = AVCOL_TRC_SMPTE170M;
 
-    if (util::set_lantency_free(c_->priv_data, name_) < 0) {
+    if (!util::set_lantency_free(c_->priv_data, name_)) {
       LOG_ERROR("set_lantency_free failed, name: " + name_);
       return false;
     }
@@ -308,8 +307,8 @@ public:
   }
 
   int set_bitrate(int bitrate) {
-    if (strcmp(name_, "h264_nvenc") == 0 || strcmp(name_, "hevc_nvenc") == 0 ||
-        strcmp(name_, "h264_amf") == 0 || strcmp(name_, "hevc_amf") == 0) {
+    if (name_.find("nvenc") != std::string::npos ||
+        name_.find("amf") != std::string::npos) {
       c_->bit_rate = bitrate;
       return 0;
     }
