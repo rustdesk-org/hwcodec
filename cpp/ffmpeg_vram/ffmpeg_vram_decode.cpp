@@ -109,7 +109,7 @@ public:
     destroy();
     if (!native_) {
       native_ = std::make_unique<NativeDevice>();
-      if (!native_->Init(luid_, (ID3D11Device *)device_, 16)) {
+      if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
         LOG_ERROR("Failed to init native device");
         return -1;
       }
