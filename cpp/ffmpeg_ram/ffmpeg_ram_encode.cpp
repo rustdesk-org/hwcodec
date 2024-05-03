@@ -168,7 +168,7 @@ public:
     }
 
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
-      string device = "";
+      std::string device = "";
 #ifdef _WIN32
       if (name_.find("nvenc") != std::string::npos) {
         int index = Adapters::GetFirstAdapterIndex(
