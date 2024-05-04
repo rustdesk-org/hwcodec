@@ -3,7 +3,6 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavutil/error.h>
 #include <libavutil/log.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
@@ -111,8 +110,7 @@ public:
       ret =
           av_hwdevice_ctx_create(&hw_device_ctx_, device_type_, NULL, NULL, 0);
       if (ret < 0) {
-        LOG_ERROR("av_hwdevice_ctx_create failed, ret = " +
-                  std::to_string(ret));
+        LOG_ERROR("av_hwdevice_ctx_create failed, ret = " + av_err2str(ret));
         return -1;
       }
       c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
@@ -138,7 +136,7 @@ public:
     }
 
     if ((ret = avcodec_open2(c_, codec, NULL)) != 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string(ret));
+      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret));
       return -1;
     }
 
@@ -174,7 +172,7 @@ public:
     ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size, data,
                            length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
     if (ret < 0) {
-      LOG_ERROR("av_parser_parse2 failed, ret = " + std::to_string(ret));
+      LOG_ERROR("av_parser_parse2 failed, ret = " + av_err2str(ret));
       return ret;
     }
     if (last_width_ != 0 && last_height_ != 0) {
@@ -207,15 +205,14 @@ private:
 
     ret = avcodec_send_packet(c_, pkt_);
     if (ret < 0) {
-      LOG_ERROR("avcodec_send_packet failed, ret = " + std::to_string(ret));
+      LOG_ERROR("avcodec_send_packet failed, ret = " + av_err2str(ret));
       return ret;
     }
 
     while (ret >= 0) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
         if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_frame failed, ret = " +
-                    std::to_string(ret));
+          LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
         }
         goto _exit;
       }
@@ -227,7 +224,7 @@ private:
         }
         if ((ret = av_hwframe_transfer_data(sw_frame_, frame_, 0)) < 0) {
           LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
-                    std::to_string(ret));
+                    av_err2str(ret));
           goto _exit;
         }
 

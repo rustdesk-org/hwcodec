@@ -13,19 +13,19 @@ bool set_lantency_free(void *priv_data, const std::string &name) {
 
   if (name.find("nvenc") != std::string::npos) {
     if ((ret = av_opt_set(priv_data, "delay", "0", 0)) < 0) {
-      LOG_ERROR("nvenc set_lantency_free failed, ret = " + std::to_string(ret));
+      LOG_ERROR("nvenc set_lantency_free failed, ret = " + av_err2str(ret));
       return false;
     }
   }
   if (name.find("amf") != std::string::npos) {
     if ((ret = av_opt_set(priv_data, "query_timeout", "1000", 0)) < 0) {
-      LOG_ERROR("amf set_lantency_free failed, ret = " + std::to_string(ret));
+      LOG_ERROR("amf set_lantency_free failed, ret = " + av_err2str(ret));
       return false;
     }
   }
   if (name.find("qsv") != std::string::npos) {
     if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
-      LOG_ERROR("qsv set_lantency_free failed, ret = " + std::to_string(ret));
+      LOG_ERROR("qsv set_lantency_free failed, ret = " + av_err2str(ret));
       return false;
     }
   }
@@ -40,15 +40,13 @@ bool set_quality(void *priv_data, const std::string &name, int quality) {
     // p7 isn't zero lantency
     case Quality_Medium:
       if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
-        LOG_ERROR("nvenc set opt preset p4 failed, ret = " +
-                  std::to_string(ret));
+        LOG_ERROR("nvenc set opt preset p4 failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
     case Quality_Low:
       if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
-        LOG_ERROR("nvenc set opt preset p1 failed, ret = " +
-                  std::to_string(ret));
+        LOG_ERROR("nvenc set opt preset p1 failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
@@ -61,21 +59,20 @@ bool set_quality(void *priv_data, const std::string &name, int quality) {
     case Quality_High:
       if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
         LOG_ERROR("amf set opt quality quality failed, ret = " +
-                  std::to_string(ret));
+                  av_err2str(ret));
         return false;
       }
       break;
     case Quality_Medium:
       if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
         LOG_ERROR("amf set opt quality balanced failed, ret = " +
-                  std::to_string(ret));
+                  av_err2str(ret));
         return false;
       }
       break;
     case Quality_Low:
       if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
-        LOG_ERROR("amf set opt quality speed failed, ret = " +
-                  std::to_string(ret));
+        LOG_ERROR("amf set opt quality speed failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
@@ -88,21 +85,20 @@ bool set_quality(void *priv_data, const std::string &name, int quality) {
     case Quality_High:
       if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
         LOG_ERROR("qsv set opt preset veryslow failed, ret = " +
-                  std::to_string(ret));
+                  av_err2str(ret));
         return false;
       }
       break;
     case Quality_Medium:
       if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
-        LOG_ERROR("qsv set opt preset medium failed, ret = " +
-                  std::to_string(ret));
+        LOG_ERROR("qsv set opt preset medium failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
     case Quality_Low:
       if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
         LOG_ERROR("qsv set opt preset veryfast failed, ret = " +
-                  std::to_string(ret));
+                  av_err2str(ret));
         return false;
       }
       break;
@@ -120,13 +116,13 @@ bool set_rate_control(void *priv_data, const std::string &name, int rc) {
     switch (rc) {
     case RC_CBR:
       if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc cbr failed, ret = " + std::to_string(ret));
+        LOG_ERROR("nvenc set opt rc cbr failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
     case RC_VBR:
       if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc vbr failed, ret = " + std::to_string(ret));
+        LOG_ERROR("nvenc set opt rc vbr failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
@@ -138,14 +134,14 @@ bool set_rate_control(void *priv_data, const std::string &name, int rc) {
     switch (rc) {
     case RC_CBR:
       if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("amf set opt rc cbr failed, ret = " + std::to_string(ret));
+        LOG_ERROR("amf set opt rc cbr failed, ret = " + av_err2str(ret));
         return false;
       }
       break;
     case RC_VBR:
       if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
         LOG_ERROR("amf set opt rc vbr_latency failed, ret = " +
-                  std::to_string(ret));
+                  av_err2str(ret));
         return false;
       }
       break;
@@ -162,7 +158,7 @@ bool set_gpu(void *priv_data, const std::string &name, int gpu) {
     return -1;
   if (name.find("nvenc") != std::string::npos) {
     if ((ret = av_opt_set_int(priv_data, "gpu", gpu, 0)) < 0) {
-      LOG_ERROR("nvenc set gpu failed, ret = " + std::to_string(ret));
+      LOG_ERROR("nvenc set gpu failed, ret = " + av_err2str(ret));
       return false;
     }
   }
@@ -174,7 +170,7 @@ bool force_hw(void *priv_data, const std::string &name) {
   if (name.find("_mf") != std::string::npos) {
     if ((ret = av_opt_set_int(priv_data, "hw_encoding", 1, 0)) < 0) {
       LOG_ERROR("mediafoundation set hw_encoding failed, ret = " +
-                std::to_string(ret));
+                av_err2str(ret));
       return false;
     }
   }
@@ -187,7 +183,7 @@ bool set_others(void *priv_data, const std::string &name) {
     // ff_eAVScenarioInfo_DisplayRemoting = 1
     if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {
       LOG_ERROR("mediafoundation set scenario failed, ret = " +
-                std::to_string(ret));
+                av_err2str(ret));
       return false;
     }
   }

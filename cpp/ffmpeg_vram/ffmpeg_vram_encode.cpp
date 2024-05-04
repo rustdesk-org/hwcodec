@@ -1,6 +1,5 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavutil/error.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/log.h>
@@ -184,16 +183,16 @@ public:
     d3d11vaDeviceContext->lock_ctx = this;
     ret = av_hwdevice_ctx_init(hw_device_ctx_);
     if (ret < 0) {
-      LOG_ERROR("av_hwdevice_ctx_init failed, ret = " + std::to_string(ret));
+      LOG_ERROR("av_hwdevice_ctx_init failed, ret = " + av_err2str(ret));
       return false;
     }
     if (encoder_->derived_device_type_ != AV_HWDEVICE_TYPE_NONE) {
       AVBufferRef *derived_context = nullptr;
-      auto err = av_hwdevice_ctx_create_derived(
+      ret = av_hwdevice_ctx_create_derived(
           &derived_context, encoder_->derived_device_type_, hw_device_ctx_, 0);
-      if (err) {
+      if (ret) {
         LOG_ERROR("av_hwdevice_ctx_create_derived failed, err = " +
-                  std::to_string(err));
+                  av_err2str(ret));
         return false;
       }
       av_buffer_unref(&hw_device_ctx_);
@@ -210,7 +209,7 @@ public:
     }
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)) +
+      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret) +
                 ", name: " + encoder_->name_);
       return false;
     }
@@ -229,7 +228,7 @@ public:
     frame_->chroma_location = c_->chroma_sample_location;
 
     if ((ret = av_hwframe_get_buffer(c_->hw_frames_ctx, frame_, 0)) < 0) {
-      LOG_ERROR("av_frame_get_buffer failed, ret = " + std::to_string((ret)));
+      LOG_ERROR("av_frame_get_buffer failed, ret = " + av_err2str(ret));
       return false;
     }
     if (frame_->format == AV_PIX_FMT_QSV) {
@@ -239,11 +238,10 @@ public:
         return false;
       }
       mapped_frame_->format = AV_PIX_FMT_D3D11;
-      auto err =
-          av_hwframe_map(mapped_frame_, frame_,
-                         AV_HWFRAME_MAP_WRITE | AV_HWFRAME_MAP_OVERWRITE);
-      if (err) {
-        LOG_ERROR("av_hwframe_map failed, err = " + std::to_string(err));
+      ret = av_hwframe_map(mapped_frame_, frame_,
+                           AV_HWFRAME_MAP_WRITE | AV_HWFRAME_MAP_OVERWRITE);
+      if (ret) {
+        LOG_ERROR("av_hwframe_map failed, err = " + av_err2str(ret));
         return false;
       }
       encode_texture_ = (ID3D11Texture2D *)mapped_frame_->data[0];
@@ -344,15 +342,14 @@ private:
     int ret;
     bool encoded = false;
     if ((ret = avcodec_send_frame(c_, frame_)) < 0) {
-      LOG_ERROR("avcodec_send_frame failed, ret = " + std::to_string((ret)));
+      LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
       return ret;
     }
 
     while (ret >= 0) {
       if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
         if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_packet failed, ret = " +
-                    std::to_string((ret)));
+          LOG_ERROR("avcodec_receive_packet failed, ret = " + av_err2str(ret));
         }
         goto _exit;
       }

@@ -2,7 +2,6 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
-#include <libavutil/error.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/log.h>
 #include <libavutil/opt.h>
@@ -59,7 +58,7 @@ extern "C" int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width,
   frame->height = height;
 
   if ((ret = av_frame_get_buffer(frame, align)) < 0) {
-    LOG_ERROR("av_frame_get_buffer, ret = " + std::to_string(ret));
+    LOG_ERROR("av_frame_get_buffer, ret = " + av_err2str(ret));
     goto _exit;
   }
   if (linesize) {
@@ -195,8 +194,7 @@ public:
         return false;
       }
       if ((ret = av_hwframe_get_buffer(c_->hw_frames_ctx, hw_frame_, 0)) < 0) {
-        LOG_ERROR("av_hwframe_get_buffer failed, ret = " +
-                  std::to_string((ret)));
+        LOG_ERROR("av_hwframe_get_buffer failed, ret = " + av_err2str(ret));
         return false;
       }
       if (!hw_frame_->hw_frames_ctx) {
@@ -214,7 +212,7 @@ public:
     frame_->height = height_;
 
     if ((ret = av_frame_get_buffer(frame_, align_)) < 0) {
-      LOG_ERROR("av_frame_get_buffer failed, ret = " + std::to_string((ret)));
+      LOG_ERROR("av_frame_get_buffer failed, ret = " + av_err2str(ret));
       return false;
     }
 
@@ -265,7 +263,7 @@ public:
     util::set_others(c_->priv_data, name_);
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + std::to_string((ret)) +
+      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret) +
                 ", name: " + name_);
       return false;
     }
@@ -286,8 +284,7 @@ public:
     int ret;
 
     if ((ret = av_frame_make_writable(frame_)) != 0) {
-      LOG_ERROR("av_frame_make_writable failed, ret = " +
-                std::to_string((ret)));
+      LOG_ERROR("av_frame_make_writable failed, ret = " + av_err2str(ret));
       return ret;
     }
     if ((ret = fill_frame(frame_, (uint8_t *)data, length, offset_)) != 0)
@@ -295,8 +292,7 @@ public:
     AVFrame *tmp_frame;
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
       if ((ret = av_hwframe_transfer_data(hw_frame_, frame_, 0)) < 0) {
-        LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
-                  std::to_string((ret)));
+        LOG_ERROR("av_hwframe_transfer_data failed, ret = " + av_err2str(ret));
         return ret;
       }
       tmp_frame = hw_frame_;
@@ -364,15 +360,14 @@ private:
     int ret;
     bool encoded = false;
     if ((ret = avcodec_send_frame(c_, frame)) < 0) {
-      LOG_ERROR("avcodec_send_frame failed, ret = " + std::to_string((ret)));
+      LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
       return ret;
     }
 
     while (ret >= 0) {
       if ((ret = avcodec_receive_packet(c_, pkt_)) < 0) {
         if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_packet failed, ret = " +
-                    std::to_string((ret)));
+          LOG_ERROR("avcodec_receive_packet failed, ret = " + av_err2str(ret));
         }
         goto _exit;
       }
