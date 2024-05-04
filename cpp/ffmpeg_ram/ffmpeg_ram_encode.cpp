@@ -294,14 +294,8 @@ public:
   }
 
   int set_bitrate(int bitrate) {
-    if (name_.find("nvenc") != std::string::npos ||
-        name_.find("amf") != std::string::npos) {
-      c_->bit_rate = bitrate;
-      return 0;
-    }
-    LOG_ERROR("ffmpeg_ram_set_bitrate " + name_ +
-              " does not implement bitrate change");
-    return -1;
+    c_->bit_rate = bitrate;
+    return 0;
   }
 
 private:

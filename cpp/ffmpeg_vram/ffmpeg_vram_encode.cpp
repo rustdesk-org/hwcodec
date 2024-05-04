@@ -258,14 +258,14 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    if (encoder_->driver_ == EncoderDriver::NVENC ||
-        encoder_->driver_ == EncoderDriver::AMF) {
-      c_->bit_rate = kbs * 1000;
-      return 0;
-    }
-    LOG_ERROR("ffmpeg_ram_set_bitrate " + encoder_->name_ +
-              " does not implement bitrate change");
-    return -1;
+    c_->bit_rate = kbs * 1000;
+    return 0;
+  }
+
+  int set_framerate(int framerate) {
+    c_->time_base = av_make_q(1, framerate);
+    c_->framerate = av_inv_q(c_->time_base);
+    return 0;
   }
 
 private:
@@ -481,7 +481,14 @@ int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) {
   return -1;
 }
 
-int ffmpeg_vram_set_framerate(void *encoder, int32_t framerate) { return -1; }
+int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) {
+  try {
+    return encoder->set_bitrate(framerate);
+  } catch (const std::exception &e) {
+    LOG_ERROR("ffmpeg_vram_set_framerate failed, " + std::string(e.what()));
+  }
+  return -1;
+}
 
 int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
                             int32_t *outDescNum, API api, DataFormat dataFormat,
