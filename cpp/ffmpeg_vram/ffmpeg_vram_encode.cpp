@@ -131,30 +131,7 @@ public:
     c_->height = height_;
     c_->pix_fmt = encoder_->hw_pixfmt_;
     c_->sw_pix_fmt = encoder_->sw_pixfmt_;
-    c_->has_b_frames = 0;
-    c_->max_b_frames = 0;
-    c_->gop_size = gop_;
-    // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-    c_->bit_rate = kbs_ * 1000;
-    if (encoder_->driver_ == EncoderDriver::QSV) {
-      c_->rc_max_rate = c_->bit_rate;
-    }
-    /* frames per second */
-    c_->time_base = av_make_q(1, framerate_);
-    c_->framerate = av_inv_q(c_->time_base);
-    c_->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
-    c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
-
-    // https://github.com/obsproject/obs-studio/blob/3cc7dc0e7cf8b01081dc23e432115f7efd0c8877/plugins/obs-ffmpeg/obs-ffmpeg-mux.c#L160
-    c_->color_range = AVCOL_RANGE_MPEG;
-    c_->colorspace = AVCOL_SPC_SMPTE170M;
-    c_->color_primaries = AVCOL_PRI_SMPTE170M;
-    c_->color_trc = AVCOL_TRC_SMPTE170M;
-
-    c_->slices = 1;
-    c_->thread_type = FF_THREAD_SLICE;
-    c_->thread_count = c_->slices;
-
+    util::set_av_codec_ctx(c_, encoder_->name_, kbs_ * 1000, gop_, framerate_);
     if (!util::set_lantency_free(c_->priv_data, encoder_->name_)) {
       return false;
     }

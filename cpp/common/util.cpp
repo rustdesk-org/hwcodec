@@ -8,6 +8,45 @@ extern "C" {
 
 namespace util {
 
+void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int bit_rate,
+                      int gop, int fps) {
+  c->has_b_frames = 0;
+  c->max_b_frames = 0;
+  c->gop_size = gop < 0xFFFF ? gop
+                : name.find("vaapi") != std::string::npos
+                    ? std::numeric_limits<int16_t>::max()
+                    : std::numeric_limits<int>::max();
+  c->keyint_min = std::numeric_limits<int>::max();
+  /* put sample parameters */
+  // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
+  if (bit_rate >= 1000) {
+    c->bit_rate = bit_rate;
+    if (name.find("qsv") != std::string::npos) {
+      c->rc_max_rate = bit_rate;
+    }
+  }
+  /* frames per second */
+  c->time_base = av_make_q(1, fps);
+  c->framerate = av_inv_q(c->time_base);
+  c->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
+  c->flags |= AV_CODEC_FLAG_LOW_DELAY;
+  c->slices = 1;
+  c->thread_type = FF_THREAD_SLICE;
+  c->thread_count = c->slices;
+
+  // https://github.com/obsproject/obs-studio/blob/3cc7dc0e7cf8b01081dc23e432115f7efd0c8877/plugins/obs-ffmpeg/obs-ffmpeg-mux.c#L160
+  c->color_range = AVCOL_RANGE_MPEG;
+  c->colorspace = AVCOL_SPC_SMPTE170M;
+  c->color_primaries = AVCOL_PRI_SMPTE170M;
+  c->color_trc = AVCOL_TRC_SMPTE170M;
+
+  if (name.find("h264") != std::string::npos) {
+    c->profile = FF_PROFILE_H264_HIGH;
+  } else if (name.find("hevc") != std::string::npos) {
+    c->profile = FF_PROFILE_HEVC_MAIN;
+  }
+}
+
 bool set_lantency_free(void *priv_data, const std::string &name) {
   int ret;
 
@@ -26,6 +65,12 @@ bool set_lantency_free(void *priv_data, const std::string &name) {
   if (name.find("qsv") != std::string::npos) {
     if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
       LOG_ERROR("qsv set_lantency_free failed, ret = " + av_err2str(ret));
+      return false;
+    }
+  }
+  if (name.find("vaapi") != std::string::npos) {
+    if ((ret = av_opt_set(priv_data, "async_depth", "1", 0)) < 0) {
+      LOG_ERROR("vaapi set_lantency_free failed, ret = " + av_err2str(ret));
       return false;
     }
   }
@@ -184,6 +229,13 @@ bool set_others(void *priv_data, const std::string &name) {
     if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {
       LOG_ERROR("mediafoundation set scenario failed, ret = " +
                 av_err2str(ret));
+      return false;
+    }
+  }
+  if (name.find("vaapi") != std::string::npos) {
+    if ((ret = av_opt_set_int(priv_data, "idr_interval",
+                              std::numeric_limits<int>::max(), 0)) < 0) {
+      LOG_ERROR("vaapi set idr_interval failed, ret = " + av_err2str(ret));
       return false;
     }
   }

@@ -227,31 +227,8 @@ public:
     c_->pix_fmt =
         hw_pixfmt_ != AV_PIX_FMT_NONE ? hw_pixfmt_ : (AVPixelFormat)pixfmt_;
     c_->sw_pix_fmt = (AVPixelFormat)pixfmt_;
-    c_->has_b_frames = 0;
-    c_->max_b_frames = 0;
-    c_->gop_size = gop_;
-    /* put sample parameters */
-    // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-    if (bit_rate_ >= 1000) {
-      c_->bit_rate = bit_rate_;
-      if (name_.find("qsv") != std::string::npos) {
-        c_->rc_max_rate = bit_rate_;
-      }
-    }
-    /* frames per second */
-    c_->time_base = av_make_q(time_base_num_, time_base_den_);
-    c_->framerate = av_inv_q(c_->time_base);
-    c_->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
-    c_->flags |= AV_CODEC_FLAG_LOW_DELAY;
-    c_->thread_count = thread_count_;
-    c_->thread_type = FF_THREAD_SLICE;
-
-    // https://github.com/obsproject/obs-studio/blob/3cc7dc0e7cf8b01081dc23e432115f7efd0c8877/plugins/obs-ffmpeg/obs-ffmpeg-mux.c#L160
-    c_->color_range = AVCOL_RANGE_MPEG;
-    c_->colorspace = AVCOL_SPC_SMPTE170M;
-    c_->color_primaries = AVCOL_PRI_SMPTE170M;
-    c_->color_trc = AVCOL_TRC_SMPTE170M;
-
+    util::set_av_codec_ctx(c_, name_, bit_rate_, gop_,
+                           time_base_den_ / time_base_num_);
     if (!util::set_lantency_free(c_->priv_data, name_)) {
       LOG_ERROR("set_lantency_free failed, name: " + name_);
       return false;

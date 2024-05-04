@@ -3,6 +3,10 @@
 
 #include <string>
 
+extern "C" {
+#include <libavcodec/avcodec.h>
+}
+
 namespace util {
 enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
 
@@ -12,6 +16,8 @@ enum RateContorl {
   RC_VBR,
 };
 
+void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int bit_rate,
+                      int gop, int fps);
 bool set_lantency_free(void *priv_data, const std::string &name);
 bool set_quality(void *priv_data, const std::string &name, int quality);
 bool set_rate_control(void *priv_data, const std::string &name, int rc);
