@@ -3,8 +3,10 @@ extern "C" {
 }
 
 #include "uitl.h"
+#include <limits>
 #include <log.h>
 #include <string.h>
+
 
 namespace util {
 
