@@ -38,6 +38,7 @@ Based on the information above, there are several optimizations and changes made
 #### Issue
 
 * vaapi: only tested on intel with `va-driver-all`, and hevc_vaapi encoding not supported on my pc
+* remove hevc_vaapi because of possible poor quality
 * amf: not tested, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/378
 
 ## System requirements

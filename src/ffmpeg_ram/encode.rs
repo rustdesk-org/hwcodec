@@ -220,7 +220,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "h264_nvenc".to_owned(),
                 format: H264,
-                priority: Priority::Good as _,
+                priority: Priority::Best as _,
                 ..Default::default()
             });
         }
@@ -229,7 +229,7 @@ impl Encoder {
             codecs.push(CodecInfo {
                 name: "hevc_nvenc".to_owned(),
                 format: H265,
-                priority: Priority::Good as _,
+                priority: Priority::Best as _,
                 ..Default::default()
             });
         }
@@ -258,12 +258,13 @@ impl Encoder {
                 priority: Priority::Good as _,
                 ..Default::default()
             });
-            codecs.push(CodecInfo {
-                name: "hevc_vaapi".to_owned(),
-                format: H265,
-                priority: Priority::Good as _,
-                ..Default::default()
-            });
+            // remove because poor quality on one of my computer
+            // codecs.push(CodecInfo {
+            //     name: "hevc_vaapi".to_owned(),
+            //     format: H265,
+            //     priority: Priority::Good as _,
+            //     ..Default::default()
+            // });
         }
 
         // qsv doesn't support yuv420p
