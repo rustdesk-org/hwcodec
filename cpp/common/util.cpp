@@ -7,7 +7,6 @@ extern "C" {
 #include <log.h>
 #include <string.h>
 
-
 namespace util {
 
 void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int bit_rate,
@@ -239,6 +238,16 @@ bool set_others(void *priv_data, const std::string &name) {
                               std::numeric_limits<int>::max(), 0)) < 0) {
       LOG_ERROR("vaapi set idr_interval failed, ret = " + av_err2str(ret));
       return false;
+    }
+  }
+  return true;
+}
+
+bool change_bit_rate(AVCodecContext *c, const std::string &name, int bit_rate) {
+  if (bit_rate >= 1000) {
+    c->bit_rate = bit_rate;
+    if (name.find("qsv") != std::string::npos) {
+      c->rc_max_rate = bit_rate;
     }
   }
   return true;

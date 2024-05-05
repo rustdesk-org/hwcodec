@@ -258,8 +258,7 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    c_->bit_rate = kbs * 1000;
-    return 0;
+    return util::change_bit_rate(c_, encoder_->name_, kbs * 1000) ? 0 : -1;
   }
 
   int set_framerate(int framerate) {

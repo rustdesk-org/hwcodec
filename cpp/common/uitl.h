@@ -25,6 +25,8 @@ bool set_gpu(void *priv_data, const std::string &name, int gpu);
 bool force_hw(void *priv_data, const std::string &name);
 bool set_others(void *priv_data, const std::string &name);
 
+bool change_bit_rate(AVCodecContext *c, const std::string &name, int bit_rate);
+
 } // namespace util
 
 #endif
