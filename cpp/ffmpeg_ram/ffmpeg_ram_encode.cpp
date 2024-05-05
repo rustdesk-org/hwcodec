@@ -294,8 +294,7 @@ public:
   }
 
   int set_bitrate(int bitrate) {
-    c_->bit_rate = bitrate;
-    return 0;
+    return util::change_bit_rate(c_, name_, bitrate) ? 0 : -1;
   }
 
 private:
