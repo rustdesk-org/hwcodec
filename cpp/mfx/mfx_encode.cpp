@@ -18,7 +18,6 @@
   {                                                                            \
     mfxStatus __sts = (X);                                                     \
     if (__sts != MFX_ERR_NONE) {                                               \
-      MSDK_PRINT_RET_MSG(__sts, MSG);                                          \
       LOG_ERROR(MSG + " failed, sts=" + std::to_string((int)__sts));           \
       return __sts;                                                            \
     }                                                                          \
