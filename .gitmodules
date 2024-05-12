@@ -1,7 +1,7 @@
 [submodule "libs/ffmpeg"]
 	path = deps
 	url = https://github.com/21pages/deps.git
-	branch = lib
+	branch = android-lib
 [submodule "externals"]
 	path = externals
 	url = https://github.com/21pages/externals.git

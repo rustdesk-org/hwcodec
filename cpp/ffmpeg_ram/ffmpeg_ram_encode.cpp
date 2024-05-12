@@ -98,6 +98,7 @@ public:
   AVFrame *frame_ = NULL;
   AVPacket *pkt_ = NULL;
   std::string name_;
+  std::string mc_name_; // for mediacodec
   int64_t first_ms_ = 0;
 
   int width_ = 0;
@@ -120,11 +121,12 @@ public:
   AVBufferRef *hw_device_ctx_ = NULL;
   AVFrame *hw_frame_ = NULL;
 
-  FFmpegRamEncoder(const char *name, int width, int height, int pixfmt,
-                   int align, int bit_rate, int time_base_num,
+  FFmpegRamEncoder(const char *name, const char *mc_name, int width, int height,
+                   int pixfmt, int align, int bit_rate, int time_base_num,
                    int time_base_den, int gop, int quality, int rc,
                    int thread_count, int gpu, RamEncodeCallback callback) {
     name_ = name;
+    mc_name_ = mc_name ? mc_name : "";
     width_ = width;
     height_ = height;
     pixfmt_ = (AVPixelFormat)pixfmt;
@@ -238,6 +240,15 @@ public:
     util::set_gpu(c_->priv_data, name_, gpu_);
     util::force_hw(c_->priv_data, name_);
     util::set_others(c_->priv_data, name_);
+    if (name_.find("mediacodec") != std::string::npos) {
+      if (mc_name_.length() > 0) {
+        LOG_INFO("mediacodec codec_name: " + mc_name_);
+        if ((ret = av_opt_set(c_->priv_data, "codec_name", mc_name_.c_str(),
+                              0)) < 0) {
+          LOG_ERROR("mediacodec codec_name failed, ret = " + av_err2str(ret));
+        }
+      }
+    }
 
     if ((ret = avcodec_open2(c_, codec, NULL)) < 0) {
       LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret) +
@@ -393,17 +404,16 @@ private:
 
 } // namespace
 
-extern "C" FFmpegRamEncoder *
-ffmpeg_ram_new_encoder(const char *name, int width, int height, int pixfmt,
-                       int align, int bit_rate, int time_base_num,
-                       int time_base_den, int gop, int quality, int rc,
-                       int thread_count, int gpu, int *linesize, int *offset,
-                       int *length, RamEncodeCallback callback) {
+extern "C" FFmpegRamEncoder *ffmpeg_ram_new_encoder(
+    const char *name, const char *mc_name, int width, int height, int pixfmt,
+    int align, int bit_rate, int time_base_num, int time_base_den, int gop,
+    int quality, int rc, int thread_count, int gpu, int *linesize, int *offset,
+    int *length, RamEncodeCallback callback) {
   FFmpegRamEncoder *encoder = NULL;
   try {
-    encoder = new FFmpegRamEncoder(name, width, height, pixfmt, align, bit_rate,
-                                   time_base_num, time_base_den, gop, quality,
-                                   rc, thread_count, gpu, callback);
+    encoder = new FFmpegRamEncoder(name, mc_name, width, height, pixfmt, align,
+                                   bit_rate, time_base_num, time_base_den, gop,
+                                   quality, rc, thread_count, gpu, callback);
     if (encoder) {
       if (encoder->init(linesize, offset, length)) {
         return encoder;

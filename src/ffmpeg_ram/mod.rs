@@ -26,6 +26,8 @@ pub enum Priority {
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct CodecInfo {
     pub name: String,
+    #[serde(skip)]
+    pub mc_name: Option<String>,
     pub format: DataFormat,
     pub priority: i32,
     pub hwdevice: AVHWDeviceType,
@@ -35,6 +37,7 @@ impl Default for CodecInfo {
     fn default() -> Self {
         Self {
             name: Default::default(),
+            mc_name: Default::default(),
             format: DataFormat::H264,
             priority: Default::default(),
             hwdevice: AVHWDeviceType::AV_HWDEVICE_TYPE_NONE,
@@ -46,6 +49,9 @@ impl CodecInfo {
     pub fn prioritized(coders: Vec<CodecInfo>) -> CodecInfos {
         let mut h264: Option<CodecInfo> = None;
         let mut h265: Option<CodecInfo> = None;
+        let mut vp8: Option<CodecInfo> = None;
+        let mut vp9: Option<CodecInfo> = None;
+        let mut av1: Option<CodecInfo> = None;
 
         for coder in coders {
             match coder.format {
@@ -65,28 +71,60 @@ impl CodecInfo {
                     }
                     None => h265 = Some(coder),
                 },
-                _ => {
-                    log::error!("CodecInfo::prioritized() called with non H264 or H265 format");
-                }
+                DataFormat::VP8 => match &vp8 {
+                    Some(old) => {
+                        if old.priority > coder.priority {
+                            vp8 = Some(coder)
+                        }
+                    }
+                    None => vp8 = Some(coder),
+                },
+                DataFormat::VP9 => match &vp9 {
+                    Some(old) => {
+                        if old.priority > coder.priority {
+                            vp9 = Some(coder)
+                        }
+                    }
+                    None => vp9 = Some(coder),
+                },
+                DataFormat::AV1 => match &av1 {
+                    Some(old) => {
+                        if old.priority > coder.priority {
+                            av1 = Some(coder)
+                        }
+                    }
+                    None => av1 = Some(coder),
+                },
             }
         }
-        CodecInfos { h264, h265 }
+        CodecInfos {
+            h264,
+            h265,
+            vp8,
+            vp9,
+            av1,
+        }
     }
 
     pub fn soft() -> CodecInfos {
         CodecInfos {
             h264: Some(CodecInfo {
                 name: "h264".to_owned(),
+                mc_name: Default::default(),
                 format: H264,
                 hwdevice: AV_HWDEVICE_TYPE_NONE,
                 priority: Priority::Soft as _,
             }),
             h265: Some(CodecInfo {
                 name: "hevc".to_owned(),
+                mc_name: Default::default(),
                 format: H265,
                 hwdevice: AV_HWDEVICE_TYPE_NONE,
                 priority: Priority::Soft as _,
             }),
+            vp8: None,
+            vp9: None,
+            av1: None,
         }
     }
 }
@@ -95,6 +133,9 @@ impl CodecInfo {
 pub struct CodecInfos {
     pub h264: Option<CodecInfo>,
     pub h265: Option<CodecInfo>,
+    pub vp8: Option<CodecInfo>,
+    pub vp9: Option<CodecInfo>,
+    pub av1: Option<CodecInfo>,
 }
 
 impl CodecInfos {

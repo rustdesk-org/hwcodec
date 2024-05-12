@@ -16,6 +16,7 @@ fn main() {
 
     let ctx = EncodeContext {
         name: String::from(""),
+        mc_name: None,
         width: 1280,
         height: 720,
         pixfmt: AVPixelFormat::AV_PIX_FMT_NV12,

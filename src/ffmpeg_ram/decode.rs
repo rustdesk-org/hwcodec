@@ -212,6 +212,7 @@ impl Decoder {
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_CUDA,
                     priority: Priority::Good as _,
+                    ..Default::default()
                 });
             }
             if nv && contains(Driver::NV, H265) {
@@ -220,6 +221,7 @@ impl Decoder {
                     format: H265,
                     hwdevice: AV_HWDEVICE_TYPE_CUDA,
                     priority: Priority::Good as _,
+                    ..Default::default()
                 });
             }
         }
@@ -232,12 +234,14 @@ impl Decoder {
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
                     priority: Priority::Best as _,
+                    ..Default::default()
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
                     hwdevice: AV_HWDEVICE_TYPE_D3D11VA,
                     priority: Priority::Best as _,
+                    ..Default::default()
                 },
             ]);
         }
@@ -250,12 +254,14 @@ impl Decoder {
                     format: H264,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
                     priority: Priority::Good as _,
+                    ..Default::default()
                 },
                 CodecInfo {
                     name: "hevc".to_owned(),
                     format: H265,
                     hwdevice: AV_HWDEVICE_TYPE_VAAPI,
                     priority: Priority::Good as _,
+                    ..Default::default()
                 },
             ]);
         }

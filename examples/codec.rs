@@ -19,6 +19,7 @@ fn main() {
 
     let encode_ctx = EncodeContext {
         name: String::from("h264_nvenc"),
+        mc_name: None,
         width: 1920,
         height: 1080,
         pixfmt: AV_PIX_FMT_NV12,
