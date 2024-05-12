@@ -18,6 +18,7 @@ fn main() {
 
     let ctx = EncodeContext {
         name: String::from(""),
+        mc_name: None,
         width: 1920,
         height: 1080,
         pixfmt: AVPixelFormat::AV_PIX_FMT_YUV420P,

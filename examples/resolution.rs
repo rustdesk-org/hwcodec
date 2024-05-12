@@ -73,6 +73,7 @@ fn decode_encode(
         } else {
             "hevc_nvenc".to_owned()
         },
+        mc_name: None,
         width: width as _,
         height: height as _,
         pixfmt: if device_type == AV_HWDEVICE_TYPE_NONE {

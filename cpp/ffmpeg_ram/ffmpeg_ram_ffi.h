@@ -20,8 +20,8 @@ typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
 typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
                                   int key, const void *obj);
 
-void *ffmpeg_ram_new_encoder(const char *name, int width, int height,
-                             int pixfmt, int align, int bit_rate,
+void *ffmpeg_ram_new_encoder(const char *name, const char *mc_name, int width,
+                             int height, int pixfmt, int align, int bit_rate,
                              int time_base_num, int time_base_den, int gop,
                              int quality, int rc, int thread_count, int gpu,
                              int *linesize, int *offset, int *length,

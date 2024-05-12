@@ -26,6 +26,7 @@ use super::Priority;
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodeContext {
     pub name: String,
+    pub mc_name: Option<String>,
     pub width: i32,
     pub height: i32,
     pub pixfmt: AVPixelFormat,
@@ -73,8 +74,10 @@ impl Encoder {
                 .unwrap_or("-1".to_owned())
                 .parse()
                 .unwrap_or(-1);
+            let mc_name = ctx.mc_name.clone().unwrap_or_default();
             let codec = ffmpeg_ram_new_encoder(
                 CString::new(ctx.name.as_str()).map_err(|_| ())?.as_ptr(),
+                CString::new(mc_name.as_str()).map_err(|_| ())?.as_ptr(),
                 ctx.width,
                 ctx.height,
                 ctx.pixfmt as c_int,
@@ -154,6 +157,12 @@ impl Encoder {
             return Ok(H264);
         } else if name.contains("hevc") {
             return Ok(H265);
+        } else if name.contains("vp8") {
+            return Ok(VP8);
+        } else if name.contains("vp9") {
+            return Ok(VP9);
+        } else if name.contains("av1") {
+            return Ok(AV1);
         }
         Err(())
     }
@@ -296,6 +305,7 @@ impl Encoder {
                     }
                     let c = EncodeContext {
                         name: codec.name.clone(),
+                        mc_name: codec.mc_name.clone(),
                         ..ctx
                     };
                     let start = Instant::now();

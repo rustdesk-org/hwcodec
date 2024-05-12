@@ -195,6 +195,26 @@ bool set_rate_control(void *priv_data, const std::string &name, int rc) {
       break;
     }
   }
+  if (name.find("mediacodec") != std::string::npos) {
+    switch (rc) {
+    case RC_CBR:
+      if ((ret = av_opt_set(priv_data, "bitrate_mode", "cbr", 0)) < 0) {
+        LOG_ERROR("qsv set opt bitrate_mode cbr failed, ret = " +
+                  av_err2str(ret));
+        return false;
+      }
+      break;
+    case RC_VBR:
+      if ((ret = av_opt_set(priv_data, "bitrate_mode", "vbr", 0)) < 0) {
+        LOG_ERROR("qsv set opt bitrate_mode vbr failed, ret = " +
+                  av_err2str(ret));
+        return false;
+      }
+      break;
+    default:
+      break;
+    }
+  }
   return true;
 }
 
