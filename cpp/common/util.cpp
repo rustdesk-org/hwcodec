@@ -24,6 +24,7 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
     c->bit_rate = kbs * 1000;
     if (name.find("qsv") != std::string::npos) {
       c->rc_max_rate = c->bit_rate;
+      c->bit_rate--; // cbr with vbr
     }
   }
   /* frames per second */
