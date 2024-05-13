@@ -21,7 +21,7 @@ fn main() {
         height: 720,
         pixfmt: AVPixelFormat::AV_PIX_FMT_NV12,
         align: 0,
-        bitrate: 1000000,
+        kbs: 1000,
         timebase: [1, 30],
         gop: 60,
         quality: Quality_Default,

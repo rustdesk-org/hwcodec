@@ -82,7 +82,7 @@ fn decode_encode(
             AV_PIX_FMT_NV12
         },
         align: 0,
-        bitrate: 1_000_000,
+        kbs: 1_000,
         timebase: [1, 30],
         gop: MAX_GOP as _,
         quality: Quality_Default,

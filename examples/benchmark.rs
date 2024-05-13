@@ -23,7 +23,7 @@ fn main() {
         height: 1080,
         pixfmt: AVPixelFormat::AV_PIX_FMT_YUV420P,
         align: 0,
-        bitrate: 5000000,
+        kbs: 5000,
         timebase: [1, 30],
         gop: 60,
         quality: Quality_Default,

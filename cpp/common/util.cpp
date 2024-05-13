@@ -9,7 +9,7 @@ extern "C" {
 
 namespace util {
 
-void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int bit_rate,
+void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
                       int gop, int fps) {
   c->has_b_frames = 0;
   c->max_b_frames = 0;
@@ -20,10 +20,10 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int bit_rate,
   c->keyint_min = std::numeric_limits<int>::max();
   /* put sample parameters */
   // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-  if (bit_rate >= 1000) {
-    c->bit_rate = bit_rate;
+  if (kbs > 0) {
+    c->bit_rate = kbs * 1000;
     if (name.find("qsv") != std::string::npos) {
-      c->rc_max_rate = bit_rate;
+      c->rc_max_rate = c->bit_rate;
     }
   }
   /* frames per second */
@@ -263,11 +263,11 @@ bool set_others(void *priv_data, const std::string &name) {
   return true;
 }
 
-bool change_bit_rate(AVCodecContext *c, const std::string &name, int bit_rate) {
-  if (bit_rate >= 1000) {
-    c->bit_rate = bit_rate;
+bool change_bit_rate(AVCodecContext *c, const std::string &name, int kbs) {
+  if (kbs > 0) {
+    c->bit_rate = kbs * 1000;
     if (name.find("qsv") != std::string::npos) {
-      c->rc_max_rate = bit_rate;
+      c->rc_max_rate = c->bit_rate;
     }
   }
   return true;

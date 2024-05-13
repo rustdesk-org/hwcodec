@@ -131,7 +131,7 @@ public:
     c_->height = height_;
     c_->pix_fmt = encoder_->hw_pixfmt_;
     c_->sw_pix_fmt = encoder_->sw_pixfmt_;
-    util::set_av_codec_ctx(c_, encoder_->name_, kbs_ * 1000, gop_, framerate_);
+    util::set_av_codec_ctx(c_, encoder_->name_, kbs_, gop_, framerate_);
     if (!util::set_lantency_free(c_->priv_data, encoder_->name_)) {
       return false;
     }
@@ -258,7 +258,7 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    return util::change_bit_rate(c_, encoder_->name_, kbs * 1000) ? 0 : -1;
+    return util::change_bit_rate(c_, encoder_->name_, kbs) ? 0 : -1;
   }
 
   int set_framerate(int framerate) {

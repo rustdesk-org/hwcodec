@@ -31,7 +31,7 @@ pub struct EncodeContext {
     pub height: i32,
     pub pixfmt: AVPixelFormat,
     pub align: i32,
-    pub bitrate: i32,
+    pub kbs: i32,
     pub timebase: [i32; 2],
     pub gop: i32,
     pub quality: Quality,
@@ -82,7 +82,7 @@ impl Encoder {
                 ctx.height,
                 ctx.pixfmt as c_int,
                 ctx.align,
-                ctx.bitrate as _,
+                ctx.kbs as _,
                 ctx.timebase[0],
                 ctx.timebase[1],
                 ctx.gop,
@@ -143,8 +143,8 @@ impl Encoder {
         }
     }
 
-    pub fn set_bitrate(&mut self, bitrate: i32) -> Result<(), ()> {
-        let ret = unsafe { ffmpeg_ram_set_bitrate(self.codec, bitrate) };
+    pub fn set_bitrate(&mut self, kbs: i32) -> Result<(), ()> {
+        let ret = unsafe { ffmpeg_ram_set_bitrate(self.codec, kbs) };
         if ret == 0 {
             Ok(())
         } else {

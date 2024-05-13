@@ -105,7 +105,7 @@ public:
   int height_ = 0;
   AVPixelFormat pixfmt_ = AV_PIX_FMT_NV12;
   int align_ = 0;
-  int bit_rate_ = 0;
+  int kbs_ = 0;
   int time_base_num_ = 1;
   int time_base_den_ = 30;
   int gop_ = 0xFFFF;
@@ -122,7 +122,7 @@ public:
   AVFrame *hw_frame_ = NULL;
 
   FFmpegRamEncoder(const char *name, const char *mc_name, int width, int height,
-                   int pixfmt, int align, int bit_rate, int time_base_num,
+                   int pixfmt, int align, int kbs, int time_base_num,
                    int time_base_den, int gop, int quality, int rc,
                    int thread_count, int gpu, RamEncodeCallback callback) {
     name_ = name;
@@ -131,7 +131,7 @@ public:
     height_ = height;
     pixfmt_ = (AVPixelFormat)pixfmt;
     align_ = align;
-    bit_rate_ = bit_rate;
+    kbs_ = kbs;
     time_base_num_ = time_base_num;
     time_base_den_ = time_base_den;
     gop_ = gop;
@@ -229,7 +229,7 @@ public:
     c_->pix_fmt =
         hw_pixfmt_ != AV_PIX_FMT_NONE ? hw_pixfmt_ : (AVPixelFormat)pixfmt_;
     c_->sw_pix_fmt = (AVPixelFormat)pixfmt_;
-    util::set_av_codec_ctx(c_, name_, bit_rate_, gop_,
+    util::set_av_codec_ctx(c_, name_, kbs_, gop_,
                            time_base_den_ / time_base_num_);
     if (!util::set_lantency_free(c_->priv_data, name_)) {
       LOG_ERROR("set_lantency_free failed, name: " + name_);
@@ -304,8 +304,8 @@ public:
       avcodec_free_context(&c_);
   }
 
-  int set_bitrate(int bitrate) {
-    return util::change_bit_rate(c_, name_, bitrate) ? 0 : -1;
+  int set_bitrate(int kbs) {
+    return util::change_bit_rate(c_, name_, kbs) ? 0 : -1;
   }
 
 private:
@@ -406,13 +406,13 @@ private:
 
 extern "C" FFmpegRamEncoder *ffmpeg_ram_new_encoder(
     const char *name, const char *mc_name, int width, int height, int pixfmt,
-    int align, int bit_rate, int time_base_num, int time_base_den, int gop,
+    int align, int kbs, int time_base_num, int time_base_den, int gop,
     int quality, int rc, int thread_count, int gpu, int *linesize, int *offset,
     int *length, RamEncodeCallback callback) {
   FFmpegRamEncoder *encoder = NULL;
   try {
     encoder = new FFmpegRamEncoder(name, mc_name, width, height, pixfmt, align,
-                                   bit_rate, time_base_num, time_base_den, gop,
+                                   kbs, time_base_num, time_base_den, gop,
                                    quality, rc, thread_count, gpu, callback);
     if (encoder) {
       if (encoder->init(linesize, offset, length)) {
@@ -452,9 +452,9 @@ extern "C" void ffmpeg_ram_free_encoder(FFmpegRamEncoder *encoder) {
   }
 }
 
-extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int bitrate) {
+extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int kbs) {
   try {
-    return encoder->set_bitrate(bitrate);
+    return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
     LOG_ERROR("ffmpeg_ram_set_bitrate failed, " + std::string(e.what()));
   }

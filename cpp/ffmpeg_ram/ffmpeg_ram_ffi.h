@@ -21,7 +21,7 @@ typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
                                   int key, const void *obj);
 
 void *ffmpeg_ram_new_encoder(const char *name, const char *mc_name, int width,
-                             int height, int pixfmt, int align, int bit_rate,
+                             int height, int pixfmt, int align, int kbs,
                              int time_base_num, int time_base_den, int gop,
                              int quality, int rc, int thread_count, int gpu,
                              int *linesize, int *offset, int *length,
@@ -37,6 +37,6 @@ void ffmpeg_ram_free_decoder(void *decoder);
 int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width, int height,
                                           int align, int *linesize, int *offset,
                                           int *length);
-int ffmpeg_ram_set_bitrate(void *encoder, int bitrate);
+int ffmpeg_ram_set_bitrate(void *encoder, int kbs);
 
 #endif // FFMPEG_RAM_FFI_H
