@@ -137,11 +137,6 @@ public:
     }
     util::set_quality(c_->priv_data, encoder_->name_, util::Quality_Medium);
     util::set_rate_control(c_->priv_data, encoder_->name_, util::RC_CBR);
-    if (dataFormat_ == H264) {
-      c_->profile = FF_PROFILE_H264_HIGH;
-    } else if (dataFormat_ == H265) {
-      c_->profile = FF_PROFILE_HEVC_MAIN;
-    }
 
     hw_device_ctx_ = av_hwdevice_ctx_alloc(encoder_->device_type_);
     if (!hw_device_ctx_) {
