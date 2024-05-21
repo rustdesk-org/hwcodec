@@ -18,6 +18,7 @@ extern "C" {
 #include <libavutil/hwcontext_d3d11va.h>
 #endif
 
+#include "common.h"
 #include "system.h"
 
 // #define CFG_PKG_TRACE

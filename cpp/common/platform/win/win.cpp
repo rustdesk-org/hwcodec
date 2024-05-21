@@ -526,8 +526,8 @@ bool NativeDevice::support_decode(DataFormat format) {
     return false;
   }
   BOOL supported = FALSE;
-  if (FAILED(video_device_->CheckVideoDecoderFormat(guid, DXGI_FORMAT_NV12,
-                                                    &supported))) {
+  if (S_OK != video_device_->CheckVideoDecoderFormat(guid, DXGI_FORMAT_NV12,
+                                                     &supported)) {
     return false;
   }
   if (supported) {
@@ -542,6 +542,7 @@ bool NativeDevice::support_decode(DataFormat format) {
   return false;
 }
 
+// https://github.com/moonlight-stream/moonlight-qt/blob/9117f6565e4b2a6ba5417282de6bf9360b681f1a/app/streaming/video/ffmpeg-renderers/dxutil.h#L8
 bool NativeDevice::isFormatHybridDecodedByHardware(DataFormat format,
                                                    unsigned int vendorId,
                                                    unsigned int deviceId) {
