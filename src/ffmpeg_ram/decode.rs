@@ -290,12 +290,6 @@ impl Decoder {
                 };
                 let start = Instant::now();
                 if let Ok(mut decoder) = Decoder::new(c) {
-                    log::debug!(
-                        "name:{} device:{:?} new:{:?}",
-                        codec.name.clone(),
-                        codec.hwdevice,
-                        start.elapsed()
-                    );
                     let data = match codec.format {
                         H264 => &buf264[..],
                         H265 => &buf265[..],
@@ -306,12 +300,6 @@ impl Decoder {
                     };
                     let start = Instant::now();
                     if let Ok(_) = decoder.decode(data) {
-                        log::debug!(
-                            "name:{} device:{:?} decode:{:?}",
-                            codec.name,
-                            codec.hwdevice,
-                            start.elapsed()
-                        );
                         infos.lock().unwrap().push(codec);
                     } else {
                         log::debug!(
@@ -359,7 +347,6 @@ impl Drop for Decoder {
             ffmpeg_ram_free_decoder(self.codec);
             self.codec = std::ptr::null_mut();
             let _ = Box::from_raw(self.frames);
-            trace!("Decoder dropped");
         }
     }
 }

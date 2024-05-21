@@ -8,10 +8,17 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 
+#include <memory>
 #include <stdbool.h>
 
 #define LOG_MODULE "FFMPEG_RAM_DEC"
 #include <log.h>
+
+#ifdef _WIN32
+#include <libavutil/hwcontext_d3d11va.h>
+#endif
+
+#include "system.h"
 
 // #define CFG_PKG_TRACE
 
@@ -35,6 +42,7 @@ public:
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_NONE;
   int thread_count_ = 1;
   RamDecodeCallback callback_ = NULL;
+  DataFormat data_format_;
 
   bool ready_decode_ = false;
   int last_width_ = 0;
@@ -78,6 +86,14 @@ public:
     ready_decode_ = false;
   }
   int reset() {
+    if (name_.find("h264") != std::string::npos) {
+      data_format_ = DataFormat::H264;
+    } else if (name_.find("hevc") != std::string::npos) {
+      data_format_ = DataFormat::H265;
+    } else {
+      LOG_ERROR("unsupported data format:" + name_);
+      return -1;
+    }
     free_decoder();
     const AVCodec *codec = NULL;
     hwaccel_ = device_type_ != AV_HWDEVICE_TYPE_NONE;
@@ -114,6 +130,10 @@ public:
         return -1;
       }
       c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
+      if (!check_support()) {
+        LOG_ERROR("check_support failed");
+        return -1;
+      }
       if (!(sw_frame_ = av_frame_alloc())) {
         LOG_ERROR("av_frame_alloc failed");
         return -1;
@@ -250,6 +270,52 @@ private:
   _exit:
     av_packet_unref(pkt_);
     return decoded ? 0 : -1;
+  }
+
+  bool check_support() {
+#ifdef _WIN32
+    if (device_type_ == AV_HWDEVICE_TYPE_D3D11VA) {
+      if (!c_->hw_device_ctx) {
+        LOG_ERROR("hw_device_ctx is NULL");
+        return false;
+      }
+      AVHWDeviceContext *deviceContext =
+          (AVHWDeviceContext *)hw_device_ctx_->data;
+      if (!deviceContext) {
+        LOG_ERROR("deviceContext is NULL");
+        return false;
+      }
+      AVD3D11VADeviceContext *d3d11vaDeviceContext =
+          (AVD3D11VADeviceContext *)deviceContext->hwctx;
+      if (!d3d11vaDeviceContext) {
+        LOG_ERROR("d3d11vaDeviceContext is NULL");
+        return false;
+      }
+      ID3D11Device *device = d3d11vaDeviceContext->device;
+      if (!device) {
+        LOG_ERROR("device is NULL");
+        return false;
+      }
+      std::unique_ptr<NativeDevice> native_ = std::make_unique<NativeDevice>();
+      if (!native_) {
+        LOG_ERROR("Failed to create native device");
+        return false;
+      }
+      if (!native_->Init(0, (ID3D11Device *)device, 0)) {
+        LOG_ERROR("Failed to init native device");
+        return false;
+      }
+      if (!native_->support_decode(data_format_)) {
+        LOG_ERROR("Failed to check support " + name_);
+        return false;
+      }
+      return true;
+    } else {
+      return true;
+    }
+#else
+    return true;
+#endif
   }
 };
 
