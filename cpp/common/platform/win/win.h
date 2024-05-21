@@ -71,6 +71,7 @@ public:
   bool Nv12ToBgra(int width, int height, ID3D11Texture2D *nv12Texture,
                   ID3D11Texture2D *bgraTexture, int nv12ArrayIndex);
   AdapterVendor GetVendor();
+  bool support_decode(DataFormat format);
 
 private:
   bool InitFromLuid(int64_t luid);
@@ -78,6 +79,8 @@ private:
   bool SetMultithreadProtected();
   bool InitQuery();
   bool InitVideoDevice();
+  bool isFormatHybridDecodedByHardware(DataFormat format, unsigned int vendorId,
+                                       unsigned int deviceId);
 
   // nv12 to bgra
   bool nv12_to_bgra_set_srv(ID3D11Texture2D *nv12Texture, int width,

@@ -112,6 +112,10 @@ public:
         return -1;
       }
     }
+    if (!native_->support_decode(dataFormat_)) {
+      LOG_ERROR("unsupported data format");
+      return -1;
+    }
     d3d11Device_ = native_->device_.Get();
     d3d11Device_->AddRef();
     d3d11DeviceContext_ = native_->context_.Get();
