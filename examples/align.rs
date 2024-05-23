@@ -120,7 +120,7 @@ fn test_ram(width: i32, height: i32, encode_info: CodecInfo, decode_info: CodecI
     assert_eq!(docode_frames[0].width, width);
     assert_eq!(docode_frames[0].height, height);
     println!(
-        "Pass {}x{}: {} -> {}",
-        width, height, encode_info.name, decode_info.name
+        "Pass {}x{}: {} -> {} {:?}",
+        width, height, encode_info.name, decode_info.name, decode_info.hwdevice
     )
 }

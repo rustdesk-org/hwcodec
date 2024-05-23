@@ -63,6 +63,9 @@ pub struct Encoder {
 
 impl Encoder {
     pub fn new(ctx: EncodeContext) -> Result<Self, ()> {
+        if ctx.width % 2 == 1 || ctx.height % 2 == 1 {
+            return Err(());
+        }
         unsafe {
             let mut linesize = Vec::<i32>::new();
             linesize.resize(AV_NUM_DATA_POINTERS as _, 0);
