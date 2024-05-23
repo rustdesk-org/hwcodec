@@ -6,6 +6,7 @@ extern "C" {
 #include <libavutil/error.h>
 }
 
+#include <sstream>
 #include <string>
 
 #ifndef LOG_MODULE
@@ -40,5 +41,26 @@ av_always_inline std::string av_err2string(int errnum) {
 }
 #define av_err2str(err) av_err2string(err).c_str()
 #endif // av_err2str
+
+#ifdef _WIN32
+
+#define HRB(f) MS_CHECK(f, return false;)
+#define HRI(f) MS_CHECK(f, return -1;)
+#define HRP(f) MS_CHECK(f, return nullptr;)
+#define MS_CHECK(f, ...)                                                       \
+  do {                                                                         \
+    HRESULT __ms_hr__ = (f);                                                   \
+    if (FAILED(__ms_hr__)) {                                                   \
+      std::stringstream ss;                                                    \
+      ss << #f << "  ERROR@" << __LINE__ << __FUNCTION__ << "hr=" << std::hex  \
+         << __ms_hr__ << std::dec                                              \
+         << std::error_code(__ms_hr__, std::system_category()).message();      \
+      std::string result = ss.str();                                           \
+      LOG_ERROR(result);                                                       \
+      __VA_ARGS__                                                              \
+    }                                                                          \
+  } while (false)
+
+#endif
 
 #endif

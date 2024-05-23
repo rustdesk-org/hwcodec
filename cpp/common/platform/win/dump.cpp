@@ -25,7 +25,9 @@ bool dumpTexture(ID3D11Device *device, ID3D11Texture2D *texture, int cropW,
   desc.BindFlags = 0;
   ComPtr<ID3D11Texture2D> stagingTexture;
   hr = device->CreateTexture2D(&desc, nullptr, stagingTexture.GetAddressOf());
-  IF_FAILED_THROW(hr);
+  if (FAILED(hr)) {
+    return false;
+  }
   device->GetImmediateContext(deviceContext.ReleaseAndGetAddressOf());
   deviceContext->CopyResource(stagingTexture.Get(), texture);
 

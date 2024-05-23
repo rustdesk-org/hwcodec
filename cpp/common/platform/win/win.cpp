@@ -13,6 +13,9 @@
 
 #include "win.h"
 
+#define LOG_MODULE "WIN"
+#include "log.h"
+
 #define NUMVERTICES 6
 
 typedef struct _VERTEX {
@@ -185,7 +188,6 @@ bool NativeDevice::nv12_to_bgra_set_srv(ID3D11Texture2D *nv12Texture, int width,
   texDesc.Width = width;
   texDesc.Height = height;
 
-  nv12SrvTexture_.Reset();
   HRB(device_->CreateTexture2D(&texDesc, nullptr,
                                nv12SrvTexture_.ReleaseAndGetAddressOf()));
 

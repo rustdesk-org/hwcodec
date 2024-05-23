@@ -14,6 +14,11 @@
 #include "../../common.h"
 #include "win.h"
 
+#define IF_FAILED_THROW(X)                                                     \
+  if (FAILED(hr = (X))) {                                                      \
+    throw hr;                                                                  \
+  }
+
 using Microsoft::WRL::ComPtr;
 
 static HRESULT CreateBmpFile(LPCWSTR wszBmpFile, BYTE *pData,
