@@ -15,7 +15,7 @@ use crate::{
         AV_NUM_DATA_POINTERS,
     },
 };
-use log::{error, trace};
+use log::error;
 use std::{
     ffi::{c_void, CString},
     os::raw::c_int,

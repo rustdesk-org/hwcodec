@@ -10,13 +10,23 @@ use hwcodec::{
         RateControl::*,
     },
 };
+#[cfg(feature = "vram")]
+use hwcodec::{
+    common::MAX_GOP,
+    vram::{DynamicContext, FeatureContext},
+};
+#[cfg(feature = "vram")]
+use tool::Tool;
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
-    setup_ram();
+    let max_align = 16;
+    setup_ram(max_align);
+    #[cfg(feature = "vram")]
+    setup_vram(max_align);
 }
 
-fn setup_ram() {
+fn setup_ram(max_align: i32) {
     let encoders = Encoder::available_encoders(
         EncodeContext {
             name: String::from(""),
@@ -58,7 +68,6 @@ fn setup_ram() {
 
     let start_width = 1920;
     let start_height = 1080;
-    let max_align = 16;
     let step = 2;
 
     for width in (start_width..=(start_width + max_align)).step_by(step) {
@@ -123,4 +132,83 @@ fn test_ram(width: i32, height: i32, encode_info: CodecInfo, decode_info: CodecI
         "Pass {}x{}: {} -> {} {:?}",
         width, height, encode_info.name, decode_info.name, decode_info.hwdevice
     )
+}
+
+#[cfg(feature = "vram")]
+fn setup_vram(max_align: i32) {
+    let encoders = hwcodec::vram::encode::available(DynamicContext {
+        device: None,
+        width: 1920,
+        height: 1080,
+        kbitrate: 1000,
+        framerate: 30,
+        gop: MAX_GOP as _,
+    });
+    let decoders = hwcodec::vram::decode::available();
+
+    let start_width = 1920;
+    let start_height = 1080;
+    let step = 2;
+
+    for width in (start_width..=(start_width + max_align)).step_by(step) {
+        for height in (start_height..=(start_height + max_align)).step_by(step) {
+            for encode_info in &encoders {
+                if let Some(decoder) = decoders.iter().find(|d| {
+                    d.luid == encode_info.luid && d.data_format == encode_info.data_format
+                }) {
+                    test_vram(width, height, encode_info.clone(), decoder.clone());
+                }
+            }
+            for decode_info in &decoders {
+                if let Some(encoder) = encoders.iter().find(|e| {
+                    e.luid == decode_info.luid && e.data_format == decode_info.data_format
+                }) {
+                    test_vram(width, height, encoder.clone(), decode_info.clone());
+                }
+            }
+        }
+    }
+}
+
+#[cfg(feature = "vram")]
+fn test_vram(
+    width: i32,
+    height: i32,
+    encode_info: FeatureContext,
+    decode_info: hwcodec::vram::DecodeContext,
+) {
+    println!(
+        "Test {}x{}: {:?} {:?} -> {:?}",
+        width, height, encode_info.data_format, encode_info.driver, decode_info.driver
+    );
+
+    let mut tool = Tool::new(encode_info.luid).unwrap();
+    let encode_ctx = hwcodec::vram::EncodeContext {
+        f: encode_info.clone(),
+        d: hwcodec::vram::DynamicContext {
+            device: Some(tool.device()),
+            width,
+            height,
+            kbitrate: 1000,
+            framerate: 30,
+            gop: MAX_GOP as _,
+        },
+    };
+    let mut encoder = hwcodec::vram::encode::Encoder::new(encode_ctx).unwrap();
+    let mut decoder = hwcodec::vram::decode::Decoder::new(hwcodec::vram::DecodeContext {
+        device: Some(tool.device()),
+        ..decode_info.clone()
+    })
+    .unwrap();
+    let encode_frames = encoder.encode(tool.get_texture(width, height)).unwrap();
+    assert_eq!(encode_frames.len(), 1);
+    let decoder_frames = decoder.decode(&encode_frames[0].data).unwrap();
+    assert_eq!(decoder_frames.len(), 1);
+    let (decoded_width, decoded_height) = tool.get_texture_size(decoder_frames[0].texture);
+    assert_eq!(decoded_width, width);
+    assert_eq!(decoded_height, height);
+    println!(
+        "Pass {}x{}: {:?} {:?} -> {:?}",
+        width, height, encode_info.data_format, encode_info.driver, decode_info.driver
+    );
 }
