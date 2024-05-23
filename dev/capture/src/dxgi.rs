@@ -7,7 +7,7 @@ use std::os::raw::c_void;
 include!(concat!(env!("OUT_DIR"), "/capture_ffi.rs"));
 
 pub struct Capturer {
-    inner: Box<c_void>,
+    inner: *mut c_void,
 }
 
 impl Capturer {
@@ -16,29 +16,27 @@ impl Capturer {
         if inner.is_null() {
             Err(())
         } else {
-            Ok(Self {
-                inner: unsafe { Box::from_raw(inner) },
-            })
+            Ok(Self { inner })
         }
     }
 
     pub unsafe fn device(&mut self) -> *mut c_void {
-        dxgi_device(self.inner.as_mut())
+        dxgi_device(self.inner)
     }
 
     pub unsafe fn width(&self) -> i32 {
-        dxgi_width(self.inner.as_ref())
+        dxgi_width(self.inner)
     }
 
     pub unsafe fn height(&self) -> i32 {
-        dxgi_height(self.inner.as_ref())
+        dxgi_height(self.inner)
     }
 
     pub unsafe fn capture(&mut self, wait_ms: i32) -> *mut c_void {
-        dxgi_capture(self.inner.as_mut(), wait_ms)
+        dxgi_capture(self.inner, wait_ms)
     }
 
     pub unsafe fn drop(&mut self) {
-        destroy_dxgi_capturer(self.inner.as_mut());
+        destroy_dxgi_capturer(self.inner);
     }
 }

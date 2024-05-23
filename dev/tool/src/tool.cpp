@@ -8,14 +8,12 @@ namespace {
 class Tool {
 public:
   std::unique_ptr<NativeDevice> native_;
+  bool initialized_ = false;
 
 public:
   Tool(int64_t luid) {
     native_ = std::make_unique<NativeDevice>();
-    HRESULT hr = native_->Init(luid, nullptr, 1);
-    if (FAILED(hr)) {
-      native_.reset();
-    }
+    initialized_ = native_->Init(luid, nullptr, 1);
   }
 
   ID3D11Texture2D *GetTexture(int width, int height) {
@@ -36,6 +34,10 @@ extern "C" {
 
 void *tool_new(int64_t luid) {
   Tool *t = new Tool(luid);
+  if (t && !t->initialized_) {
+    delete t;
+    return nullptr;
+  }
   return t;
 }
 
@@ -53,4 +55,13 @@ void tool_get_texture_size(void *tool, void *texture, int *width, int *height) {
   Tool *t = (Tool *)tool;
   t->getSize((ID3D11Texture2D *)texture, width, height);
 }
+
+void tool_destroy(void *tool) {
+  Tool *t = (Tool *)tool;
+  if (t) {
+    delete t;
+    t = nullptr;
+  }
 }
+
+} // extern "C"

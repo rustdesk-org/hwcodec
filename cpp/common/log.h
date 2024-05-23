@@ -52,8 +52,8 @@ av_always_inline std::string av_err2string(int errnum) {
     HRESULT __ms_hr__ = (f);                                                   \
     if (FAILED(__ms_hr__)) {                                                   \
       std::stringstream ss;                                                    \
-      ss << #f << "  ERROR@" << __LINE__ << __FUNCTION__ << "hr=" << std::hex  \
-         << __ms_hr__ << std::dec                                              \
+      ss << "ERROR@" << __FILE__ << ":" << __LINE__ << " " << __FUNCTION__     \
+         << " hr=0x" << std::hex << __ms_hr__ << std::dec << " "               \
          << std::error_code(__ms_hr__, std::system_category()).message();      \
       std::string result = ss.str();                                           \
       LOG_ERROR(result);                                                       \

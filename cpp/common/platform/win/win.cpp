@@ -62,6 +62,7 @@ bool NativeDevice::InitFromLuid(int64_t luid) {
     }
   }
   if (!adapter1_) {
+    LOG_ERROR("Failed to find adapter1_");
     return false;
   }
   HRB(adapter1_.As(&adapter_));
@@ -76,17 +77,13 @@ bool NativeDevice::InitFromLuid(int64_t luid) {
   D3D_FEATURE_LEVEL featureLevel;
   D3D_DRIVER_TYPE d3dDriverType =
       adapter1_ ? D3D_DRIVER_TYPE_UNKNOWN : D3D_DRIVER_TYPE_HARDWARE;
-  hr = D3D11CreateDevice(adapter1_.Get(), d3dDriverType, nullptr,
-                         createDeviceFlags, featureLevels, numFeatureLevels,
-                         D3D11_SDK_VERSION, device_.ReleaseAndGetAddressOf(),
-                         &featureLevel, context_.ReleaseAndGetAddressOf());
-
-  if (FAILED(hr)) {
-    return false;
-  }
+  HRB(D3D11CreateDevice(adapter1_.Get(), d3dDriverType, nullptr,
+                        createDeviceFlags, featureLevels, numFeatureLevels,
+                        D3D11_SDK_VERSION, device_.ReleaseAndGetAddressOf(),
+                        &featureLevel, context_.ReleaseAndGetAddressOf()));
 
   if (featureLevel != D3D_FEATURE_LEVEL_11_0) {
-    std::cerr << "Direct3D Feature Level 11 unsupported." << std::endl;
+    LOG_ERROR("Direct3D Feature Level 11 unsupported.");
     return false;
   }
   return true;
@@ -109,7 +106,7 @@ bool NativeDevice::SetMultithreadProtected() {
   HRB(context_.As(&hmt));
   if (!hmt->SetMultithreadProtected(TRUE)) {
     if (!hmt->GetMultithreadProtected()) {
-      std::cerr << "Failed to SetMultithreadProtected" << std::endl;
+      LOG_ERROR("Failed to SetMultithreadProtected");
       return false;
     }
   }

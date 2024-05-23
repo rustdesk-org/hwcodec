@@ -7,7 +7,7 @@ use std::os::raw::c_void;
 include!(concat!(env!("OUT_DIR"), "/render_ffi.rs"));
 
 pub struct Render {
-    inner: Box<c_void>,
+    inner: *mut c_void,
 }
 
 impl Render {
@@ -16,14 +16,12 @@ impl Render {
         if inner.is_null() {
             Err(())
         } else {
-            Ok(Self {
-                inner: unsafe { Box::from_raw(inner) },
-            })
+            Ok(Self { inner })
         }
     }
 
     pub unsafe fn render(&mut self, tex: *mut c_void) -> Result<(), i32> {
-        let result = DXGIRenderTexture(self.inner.as_mut(), tex);
+        let result = DXGIRenderTexture(self.inner, tex);
         if result == 0 {
             Ok(())
         } else {
@@ -32,10 +30,10 @@ impl Render {
     }
 
     pub unsafe fn device(&mut self) -> *mut c_void {
-        DXGIDevice(self.inner.as_mut())
+        DXGIDevice(self.inner)
     }
 
     pub unsafe fn drop(&mut self) {
-        DestroyDXGIRender(self.inner.as_mut());
+        DestroyDXGIRender(self.inner);
     }
 }
