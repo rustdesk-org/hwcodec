@@ -26,3 +26,4 @@ rand = "0.8"
 [target.'cfg(target_os="windows")'.dev-dependencies]
 capture = { path = "dev/capture" }
 render = { path = "dev/render" }
+tool = { path = "dev/tool" }
