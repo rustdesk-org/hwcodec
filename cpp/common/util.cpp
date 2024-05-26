@@ -7,6 +7,8 @@ extern "C" {
 #include <log.h>
 #include <string.h>
 
+#include "common.h"
+
 namespace util {
 
 void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,

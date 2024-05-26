@@ -34,4 +34,12 @@ struct AdapterDesc {
   int64_t luid;
 };
 
+enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
+
+enum RateControl {
+  RC_DEFAULT,
+  RC_CBR,
+  RC_VBR,
+};
+
 #endif // COMMON_H

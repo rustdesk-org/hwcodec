@@ -8,13 +8,6 @@ extern "C" {
 }
 
 namespace util {
-enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
-
-enum RateContorl {
-  RC_DEFAULT,
-  RC_CBR,
-  RC_VBR,
-};
 
 void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
                       int gop, int fps);

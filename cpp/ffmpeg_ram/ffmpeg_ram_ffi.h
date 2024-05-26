@@ -5,14 +5,6 @@
 
 #define AV_NUM_DATA_POINTERS 8
 
-enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
-
-enum RateControl {
-  RC_DEFAULT,
-  RC_CBR,
-  RC_VBR,
-};
-
 typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
                                   int pixfmt,
                                   int linesize[AV_NUM_DATA_POINTERS],
