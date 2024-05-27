@@ -1,19 +1,17 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
+#[cfg(feature = "vram")]
 use hwcodec::{
-    common::DataFormat,
+    common::MAX_GOP,
+    vram::{DynamicContext, FeatureContext},
+};
+use hwcodec::{
+    common::{DataFormat, Quality::*, RateControl::*},
     ffmpeg::AVPixelFormat::*,
     ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
         encode::{EncodeContext, Encoder},
         ffmpeg_linesize_offset_length, CodecInfo,
-        Quality::*,
-        RateControl::*,
     },
-};
-#[cfg(feature = "vram")]
-use hwcodec::{
-    common::MAX_GOP,
-    vram::{DynamicContext, FeatureContext},
 };
 #[cfg(feature = "vram")]
 use tool::Tool;
@@ -35,11 +33,12 @@ fn setup_ram(max_align: i32) {
             height: 1080,
             pixfmt: AV_PIX_FMT_NV12,
             align: 0,
-            kbs: 0,
             timebase: [1, 30],
             gop: 60,
-            quality: Quality_Default,
             rc: RC_CBR,
+            quality: Quality_Default,
+            kbs: 0,
+            q: -1,
             thread_count: 1,
         },
         None,
