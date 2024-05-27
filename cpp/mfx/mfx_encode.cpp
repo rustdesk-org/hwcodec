@@ -337,7 +337,7 @@ private:
     mfxEncParams_.AsyncDepth = 1; // 1 is best for low latency
     mfxEncParams_.mfx.GopRefDist =
         1; // 1 is best for low latency, I and P frames only
-    mfxEncParams_.mfx.GopPicSize = gop_;
+    mfxEncParams_.mfx.GopPicSize = gop_ > 0xFFFF ? 0xFFFF : gop_;
 
     // quality
     // https://www.intel.com/content/www/us/en/developer/articles/technical/common-bitrate-control-methods-in-intel-media-sdk.html
