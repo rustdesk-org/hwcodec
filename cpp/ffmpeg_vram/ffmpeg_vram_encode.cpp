@@ -81,6 +81,7 @@ public:
   const int align_ = 0;
   const bool full_range_ = false;
   const bool bt709_ = false;
+  int64_t frame_index_ = 0;
 
   FFmpegVRamEncoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
                     int32_t width, int32_t height, int32_t kbs,
@@ -312,6 +313,7 @@ private:
   int do_encode(EncodeCallback callback, const void *obj) {
     int ret;
     bool encoded = false;
+    frame_->pts = frame_index_++;
     if ((ret = avcodec_send_frame(c_, frame_)) < 0) {
       LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
       return ret;

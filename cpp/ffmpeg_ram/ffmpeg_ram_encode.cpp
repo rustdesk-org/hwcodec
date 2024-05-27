@@ -100,6 +100,7 @@ public:
   std::string name_;
   std::string mc_name_; // for mediacodec
   int64_t first_ms_ = 0;
+  int64_t frame_index_ = 0;
 
   int width_ = 0;
   int height_ = 0;
@@ -258,6 +259,7 @@ public:
       return false;
     }
     first_ms_ = 0;
+    frame_index_ = 0;
 
     if (ffmpeg_ram_get_linesize_offset_length(pixfmt_, width_, height_, align_,
                                               NULL, offset_, length) != 0)
@@ -342,6 +344,7 @@ private:
   int do_encode(AVFrame *frame, const void *obj, int64_t ms) {
     int ret;
     bool encoded = false;
+    frame->pts = frame_index_++;
     if ((ret = avcodec_send_frame(c_, frame)) < 0) {
       LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
       return ret;
