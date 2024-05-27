@@ -11,6 +11,8 @@ extern "C" {
 
 #include "common.h"
 
+#include "common.h"
+
 namespace util {
 
 void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
@@ -155,6 +157,23 @@ bool set_quality(void *priv_data, const std::string &name, int quality) {
       break;
     default:
       break;
+    }
+  }
+  if (name.find("mediacodec") != std::string::npos) {
+    if (name.find("h264") != std::string::npos) {
+      if ((ret = av_opt_set(priv_data, "level", "5.1", 0)) < 0) {
+        LOG_ERROR("mediacodec set opt level 5.1 failed, ret = " +
+                  av_err2str(ret));
+        return false;
+      }
+    }
+    if (name.find("hevc") != std::string::npos) {
+      // https:en.wikipedia.org/wiki/High_Efficiency_Video_Coding_tiers_and_levels
+      if ((ret = av_opt_set(priv_data, "level", "h5.1", 0)) < 0) {
+        LOG_ERROR("mediacodec set opt level h5.1 failed, ret = " +
+                  av_err2str(ret));
+        return false;
+      }
     }
   }
   return true;
