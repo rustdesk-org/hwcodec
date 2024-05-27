@@ -40,6 +40,7 @@ enum RateControl {
   RC_DEFAULT,
   RC_CBR,
   RC_VBR,
+  RC_CQ,
 };
 
 #endif // COMMON_H

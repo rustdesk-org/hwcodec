@@ -135,8 +135,8 @@ public:
     if (!util::set_lantency_free(c_->priv_data, encoder_->name_)) {
       return false;
     }
-    util::set_quality(c_->priv_data, encoder_->name_, util::Quality_Medium);
-    util::set_rate_control(c_->priv_data, encoder_->name_, util::RC_CBR);
+    // util::set_quality(c_->priv_data, encoder_->name_, Quality_Default);
+    util::set_rate_control(c_, encoder_->name_, RC_CBR, -1);
 
     hw_device_ctx_ = av_hwdevice_ctx_alloc(encoder_->device_type_);
     if (!hw_device_ctx_) {

@@ -5,7 +5,9 @@ extern "C" {
 #include "uitl.h"
 #include <limits>
 #include <log.h>
+#include <map>
 #include <string.h>
+#include <vector>
 
 #include "common.h"
 
@@ -158,69 +160,46 @@ bool set_quality(void *priv_data, const std::string &name, int quality) {
   return true;
 }
 
-bool set_rate_control(void *priv_data, const std::string &name, int rc) {
-  int ret;
+struct CodecOptions {
+  std::string codec_name;
+  std::string option_name;
+  std::map<int, std::string> rc_values;
+};
 
-  if (name.find("nvenc") != std::string::npos) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc cbr failed, ret = " + av_err2str(ret));
-        return false;
+bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
+                      int q) {
+  std::vector<CodecOptions> codecs = {
+      {"nvenc", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}}},
+      {"amf", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr_latency"}}},
+      {"mediacodec",
+       "bitrate_mode",
+       {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}, {RC_CQ, "cq"}}}};
+
+  for (const auto &codec : codecs) {
+    if (name.find(codec.codec_name) != std::string::npos) {
+      auto it = codec.rc_values.find(rc);
+      if (it != codec.rc_values.end()) {
+        int ret = av_opt_set(c->priv_data, codec.option_name.c_str(),
+                             it->second.c_str(), 0);
+        if (ret < 0) {
+          LOG_ERROR(codec.codec_name + " set opt " + codec.option_name + " " +
+                    it->second + " failed, ret = " + av_err2str(ret));
+          return false;
+        }
+        if (name.find("mediacodec") != std::string::npos) {
+          if (rc == RC_CQ) {
+            if (q >= 0 && q <= 51) {
+              c->global_quality = q;
+            }
+          }
+        }
       }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr", 0)) < 0) {
-        LOG_ERROR("nvenc set opt rc vbr failed, ret = " + av_err2str(ret));
-        return false;
-      }
-      break;
-    default:
       break;
     }
   }
-  if (name.find("amf") != std::string::npos) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "rc", "cbr", 0)) < 0) {
-        LOG_ERROR("amf set opt rc cbr failed, ret = " + av_err2str(ret));
-        return false;
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "rc", "vbr_latency", 0)) < 0) {
-        LOG_ERROR("amf set opt rc vbr_latency failed, ret = " +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (name.find("mediacodec") != std::string::npos) {
-    switch (rc) {
-    case RC_CBR:
-      if ((ret = av_opt_set(priv_data, "bitrate_mode", "cbr", 0)) < 0) {
-        LOG_ERROR("qsv set opt bitrate_mode cbr failed, ret = " +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    case RC_VBR:
-      if ((ret = av_opt_set(priv_data, "bitrate_mode", "vbr", 0)) < 0) {
-        LOG_ERROR("qsv set opt bitrate_mode vbr failed, ret = " +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    default:
-      break;
-    }
-  }
+
   return true;
 }
-
 bool set_gpu(void *priv_data, const std::string &name, int gpu) {
   int ret;
   if (gpu < 0)
