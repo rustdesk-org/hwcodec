@@ -503,7 +503,7 @@ bool NativeDevice::BgraToNv12(ID3D11Texture2D *bgraTexture,
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC contentDesc;
   ZeroMemory(&contentDesc, sizeof(contentDesc));
   contentDesc.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
-  contentDesc.InputFrameRate.Numerator = 60;
+  contentDesc.InputFrameRate.Numerator = 30;
   contentDesc.InputFrameRate.Denominator = 1;
   // TODO: width height always same with desc.Width and desc.Height in test,
   // need test for decide to use which one
@@ -513,7 +513,7 @@ bool NativeDevice::BgraToNv12(ID3D11Texture2D *bgraTexture,
   contentDesc.InputHeight = height;
   contentDesc.OutputWidth = width;
   contentDesc.OutputHeight = height;
-  contentDesc.OutputFrameRate.Numerator = 60;
+  contentDesc.OutputFrameRate.Numerator = 30;
   contentDesc.OutputFrameRate.Denominator = 1;
 
   return Process(bgraTexture, nv12Texture, width, height, contentDesc,
