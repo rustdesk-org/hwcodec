@@ -398,7 +398,8 @@ bool NativeDevice::Query() {
   return bResult == TRUE;
 }
 
-bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
+bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out, int width,
+                           int height,
                            D3D11_VIDEO_PROCESSOR_CONTENT_DESC content_desc,
                            DXGI_COLOR_SPACE_TYPE colorSpace_in,
                            DXGI_COLOR_SPACE_TYPE colorSpace_out,
@@ -439,10 +440,12 @@ bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
                                                       colorSpace_out);
 
   RECT rect = {0};
-  rect.right = content_desc.InputWidth;
-  rect.bottom = content_desc.InputHeight;
+  rect.right = width;
+  rect.bottom = height;
   video_context_->VideoProcessorSetStreamSourceRect(video_processor_.Get(), 0,
                                                     true, &rect);
+  video_context1_->VideoProcessorSetStreamDestRect(video_processor_.Get(), 0,
+                                                   true, &rect);
 
   D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC InputViewDesc;
   ZeroMemory(&InputViewDesc, sizeof(InputViewDesc));
@@ -494,8 +497,8 @@ bool NativeDevice::BgraToNv12(ID3D11Texture2D *bgraTexture,
   contentDesc.OutputFrameRate.Numerator = 60;
   contentDesc.OutputFrameRate.Denominator = 1;
 
-  return Process(bgraTexture, nv12Texture, contentDesc, colorSpace_in,
-                 colorSpace_out, 0);
+  return Process(bgraTexture, nv12Texture, width, height, contentDesc,
+                 colorSpace_in, colorSpace_out, 0);
 }
 
 AdapterVendor NativeDevice::GetVendor() {

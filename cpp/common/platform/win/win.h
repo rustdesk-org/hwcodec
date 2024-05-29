@@ -36,7 +36,7 @@ public:
   void BeginQuery();
   void EndQuery();
   bool Query();
-  bool Process(ID3D11Texture2D *in, ID3D11Texture2D *out,
+  bool Process(ID3D11Texture2D *in, ID3D11Texture2D *out, int width, int height,
                D3D11_VIDEO_PROCESSOR_CONTENT_DESC content_desc,
                DXGI_COLOR_SPACE_TYPE colorSpace_in,
                DXGI_COLOR_SPACE_TYPE colorSpace_out, int arraySlice);
