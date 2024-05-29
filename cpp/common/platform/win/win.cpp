@@ -481,6 +481,25 @@ bool NativeDevice::BgraToNv12(ID3D11Texture2D *bgraTexture,
                               ID3D11Texture2D *nv12Texture, int width,
                               int height, DXGI_COLOR_SPACE_TYPE colorSpace_in,
                               DXGI_COLOR_SPACE_TYPE colorSpace_out) {
+  D3D11_TEXTURE2D_DESC bgraDesc = {0};
+  D3D11_TEXTURE2D_DESC nv12Desc = {0};
+  bgraTexture->GetDesc(&bgraDesc);
+  nv12Texture->GetDesc(&nv12Desc);
+  if (bgraDesc.Width < width || bgraDesc.Height < height) {
+    LOG_ERROR("bgraTexture size is smaller than width and height, " +
+              std::to_string(bgraDesc.Width) + "x" +
+              std::to_string(bgraDesc.Height) + " < " + std::to_string(width) +
+              "x" + std::to_string(height));
+    return false;
+  }
+  if (nv12Desc.Width < width || nv12Desc.Height < height) {
+    LOG_ERROR("nv12Texture size is smaller than width and height," +
+              std::to_string(nv12Desc.Width) + "x" +
+              std::to_string(nv12Desc.Height) + " < " + std::to_string(width) +
+              "x" + std::to_string(height));
+    return false;
+  }
+
   D3D11_VIDEO_PROCESSOR_CONTENT_DESC contentDesc;
   ZeroMemory(&contentDesc, sizeof(contentDesc));
   contentDesc.InputFrameFormat = D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE;
