@@ -15,8 +15,8 @@ extern "C" {
 
 namespace util {
 
-void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
-                      int gop, int fps) {
+void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int gop,
+                      int fps) {
   c->has_b_frames = 0;
   c->max_b_frames = 0;
   c->gop_size = gop < 0xFFFF ? gop
@@ -24,20 +24,13 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
                     ? std::numeric_limits<int16_t>::max()
                     : std::numeric_limits<int>::max();
   c->keyint_min = std::numeric_limits<int>::max();
-  /* put sample parameters */
-  // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-  if (kbs > 0) {
-    c->bit_rate = kbs * 1000;
-    if (name.find("qsv") != std::string::npos) {
-      c->rc_max_rate = c->bit_rate;
-      c->bit_rate--; // cbr with vbr
-    }
-  }
   /* frames per second */
   c->time_base = av_make_q(1, fps);
   c->framerate = av_inv_q(c->time_base);
   c->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
   c->flags |= AV_CODEC_FLAG_LOW_DELAY;
+  c->flags |= AV_CODEC_FLAG_CLOSED_GOP;
+  c->flags2 |= AV_CODEC_FLAG2_FAST;
   c->slices = 1;
   c->thread_type = FF_THREAD_SLICE;
   c->thread_count = c->slices;
@@ -52,6 +45,10 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
     c->profile = FF_PROFILE_H264_HIGH;
   } else if (name.find("hevc") != std::string::npos) {
     c->profile = FF_PROFILE_HEVC_MAIN;
+  }
+
+  if (name.find("qsv") != std::string::npos) {
+    c->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
   }
 }
 
@@ -186,13 +183,28 @@ struct CodecOptions {
 };
 
 bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
-                      int q) {
+                      int kbs, int q, int fps) {
   std::vector<CodecOptions> codecs = {
       {"nvenc", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}}},
       {"amf", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr_latency"}}},
       {"mediacodec",
        "bitrate_mode",
        {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}, {RC_CQ, "cq"}}}};
+
+  if (kbs > 0) {
+    c->bit_rate = kbs * 1000;
+    if (RC_CBR == rc) {
+      // c->rc_max_rate = c->bit_rate;
+      // c->rc_min_rate = c->bit_rate;
+      if (name.find("qsv") != std::string::npos) {
+        c->bit_rate--; // cbr with vbr
+      }
+      if (name.find("nvenc") != std::string::npos ||
+          name.find("amf") != std::string::npos) {
+        // c->rc_buffer_size = c->bit_rate / fps;
+      }
+    }
+  }
 
   for (const auto &codec : codecs) {
     if (name.find(codec.codec_name) != std::string::npos) {
@@ -244,8 +256,97 @@ bool force_hw(void *priv_data, const std::string &name) {
   return true;
 }
 
-bool set_others(void *priv_data, const std::string &name) {
+struct IntegerOption {
+  std::string option_name;
+  int value;
+};
+
+bool set_options(void *priv_data, const std::string &name) {
   int ret;
+  if (name.find("qsv") != std::string::npos) {
+    auto options = std::vector<IntegerOption>{
+        // {"preset", 4},
+        {"forced-idr", 1},
+        // {"low_delay_brc", 1},
+        // {"low_power", 1}, {"recovery_point_sei", 0}, {"pic_timing_sei", 0},
+    };
+    for (const auto &option : options) {
+      if ((ret = av_opt_set_int(priv_data, option.option_name.c_str(),
+                                option.value, 0)) < 0) {
+        LOG_ERROR(name + " set " + option.option_name +
+                  " failed, ret = " + av_err2str(ret));
+      }
+    }
+    if (name.find("h264") != std::string::npos) {
+      auto options264 = std::vector<IntegerOption>{
+          // {"cavlc", 0},
+          // {"vcm", 1},
+          // {"max_dec_frame_buffering", 1},
+          {"profile", 100}, // MFX_PROFILE_AVC_HIGH
+      };
+      for (const auto &option : options264) {
+        if ((ret = av_opt_set_int(priv_data, option.option_name.c_str(),
+                                  option.value, 0)) < 0) {
+          LOG_ERROR(name + " set " + option.option_name +
+                    " failed, ret = " + av_err2str(ret));
+        }
+      }
+    }
+    if (name.find("hevc") != std::string::npos) {
+      auto options265 = std::vector<IntegerOption>{
+          {"profile", 1}, //     MFX_PROFILE_HEVC_MAIN
+      };
+      for (const auto &option : options265) {
+        if ((ret = av_opt_set_int(priv_data, option.option_name.c_str(),
+                                  option.value, 0)) < 0) {
+          LOG_ERROR(name + " set " + option.option_name +
+                    " failed, ret = " + av_err2str(ret));
+        }
+      }
+    }
+  }
+
+  if (name.find("nvenc") != std::string::npos) {
+    auto options = std::vector<IntegerOption>{
+        // {"forced-idr", 1},
+        // {"zerolatency", 1},
+        // {"preset", 12},   // P1, lowest quality
+        // {"tune", 3},      // NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY
+        // {"multipass", 1}, // NV_ENC_TWO_PASS_QUARTER_RESOLUTION
+    };
+    for (const auto &option : options) {
+      if ((ret = av_opt_set_int(priv_data, option.option_name.c_str(),
+                                option.value, 0)) < 0) {
+        LOG_ERROR(name + " set " + option.option_name +
+                  " failed, ret = " + av_err2str(ret));
+      }
+    }
+    if (name.find("h264") != std::string::npos) {
+      auto options = std::vector<IntegerOption>{
+          // {"coder", 1},   // NV_ENC_H264_ENTROPY_CODING_MODE_CABAC
+          // {"profile", 2}, // NV_ENC_H264_PROFILE_HIGH
+      };
+      for (const auto &option : options) {
+        if ((ret = av_opt_set_int(priv_data, option.option_name.c_str(),
+                                  option.value, 0)) < 0) {
+          LOG_ERROR(name + " set " + option.option_name +
+                    " failed, ret = " + av_err2str(ret));
+        }
+      }
+    }
+    if (name.find("hevc") != std::string::npos) {
+      auto options = std::vector<IntegerOption>{
+          // {"profile", 0}, // NV_ENC_HEVC_PROFILE_MAIN
+      };
+      for (const auto &option : options) {
+        if ((ret = av_opt_set_int(priv_data, option.option_name.c_str(),
+                                  option.value, 0)) < 0) {
+          LOG_ERROR(name + " set " + option.option_name +
+                    " failed, ret = " + av_err2str(ret));
+        }
+      }
+    }
+  }
   if (name.find("_mf") != std::string::npos) {
     // ff_eAVScenarioInfo_DisplayRemoting = 1
     if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {

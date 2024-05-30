@@ -232,17 +232,17 @@ public:
     c_->pix_fmt =
         hw_pixfmt_ != AV_PIX_FMT_NONE ? hw_pixfmt_ : (AVPixelFormat)pixfmt_;
     c_->sw_pix_fmt = (AVPixelFormat)pixfmt_;
-    util::set_av_codec_ctx(c_, name_, kbs_, gop_,
-                           time_base_den_ / time_base_num_);
+    int fps = time_base_den_ / time_base_num_;
+    util::set_av_codec_ctx(c_, name_, gop_, fps);
     if (!util::set_lantency_free(c_->priv_data, name_)) {
       LOG_ERROR("set_lantency_free failed, name: " + name_);
       return false;
     }
     // util::set_quality(c_->priv_data, name_, quality_);
-    util::set_rate_control(c_, name_, rc_, q_);
+    util::set_rate_control(c_, name_, rc_, kbs_, q_, fps);
     util::set_gpu(c_->priv_data, name_, gpu_);
     util::force_hw(c_->priv_data, name_);
-    util::set_others(c_->priv_data, name_);
+    util::set_options(c_->priv_data, name_);
     if (name_.find("mediacodec") != std::string::npos) {
       if (mc_name_.length() > 0) {
         LOG_INFO("mediacodec codec_name: " + mc_name_);
