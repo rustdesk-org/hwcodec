@@ -154,10 +154,8 @@ public:
     initializeParams.frameRateNum = framerate_;
     initializeParams.frameRateDen = 1;
     // gop
-    if (gop_ == MAX_GOP) {
-      gop_ = NVENC_INFINITE_GOPLENGTH;
-    }
-    initializeParams.encodeConfig->gopLength = gop_;
+    initializeParams.encodeConfig->gopLength =
+        (gop_ > 0 && gop_ < MAX_GOP) ? gop_ : NVENC_INFINITE_GOPLENGTH;
     // rc method
     initializeParams.encodeConfig->rcParams.rateControlMode =
         NV_ENC_PARAMS_RC_CBR;

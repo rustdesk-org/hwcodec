@@ -4,7 +4,6 @@ extern "C" {
 
 #include "uitl.h"
 #include <limits>
-#include <log.h>
 #include <map>
 #include <string.h>
 #include <vector>
@@ -13,16 +12,26 @@ extern "C" {
 
 #include "common.h"
 
+#define LOG_MODULE "UTIL"
+#include "log.h"
+
 namespace util {
 
 void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
                       int gop, int fps) {
   c->has_b_frames = 0;
   c->max_b_frames = 0;
-  c->gop_size = gop < 0xFFFF ? gop
-                : name.find("vaapi") != std::string::npos
-                    ? std::numeric_limits<int16_t>::max()
-                    : std::numeric_limits<int>::max();
+  bool limited_gop = name.find("vaapi") != std::string::npos ||
+                     name.find("qsv") != std::string::npos;
+  if (gop > 0 && gop < std::numeric_limits<int16_t>::max()) {
+    c->gop_size = gop;
+  } else if (name.find("vaapi") != std::string::npos) {
+    c->gop_size = std::numeric_limits<int16_t>::max();
+  } else if (name.find("qsv") != std::string::npos) {
+    c->gop_size = std::numeric_limits<uint16_t>::max();
+  } else {
+    c->gop_size = std::numeric_limits<int>::max();
+  }
   c->keyint_min = std::numeric_limits<int>::max();
   /* put sample parameters */
   // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581

@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <libavutil/pixfmt.h>
+#include <limits>
 #include <sample_defs.h>
 #include <sample_utils.h>
 
@@ -337,8 +338,7 @@ private:
     mfxEncParams_.AsyncDepth = 1; // 1 is best for low latency
     mfxEncParams_.mfx.GopRefDist =
         1; // 1 is best for low latency, I and P frames only
-    mfxEncParams_.mfx.GopPicSize = gop_;
-
+    mfxEncParams_.mfx.GopPicSize = (gop_ > 0 && gop_ < 0xFFFF) ? gop_ : 0xFFFF;
     // quality
     // https://www.intel.com/content/www/us/en/developer/articles/technical/common-bitrate-control-methods-in-intel-media-sdk.html
     mfxEncParams_.mfx.TargetUsage = MFX_TARGETUSAGE_BALANCED;

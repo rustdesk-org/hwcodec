@@ -93,7 +93,7 @@ public:
     codec_ = codec;
     bitRateIn_ = bitrate;
     frameRate_ = framerate;
-    gop_ = gop;
+    gop_ = (gop > 0 && gop < MAX_GOP) ? gop : MAX_GOP;
     enable4K_ = width > 1920 && height > 1080;
   }
 
