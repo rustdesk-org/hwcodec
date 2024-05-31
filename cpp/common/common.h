@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_GOP 0xFFFFFFFF
+#define MAX_GOP 0x7FFFFFFF // i32 max
 
 enum AdapterVendor {
   ADAPTER_VENDOR_AMD = 0x1002,
