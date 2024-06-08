@@ -1,12 +1,11 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
+    common::{Quality::*, RateControl::*},
     ffmpeg::{AVHWDeviceType::*, AVPixelFormat::*},
     ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
         encode::{EncodeContext, Encoder},
         ffmpeg_linesize_offset_length,
-        Quality::*,
-        RateControl::*,
     },
 };
 use std::{
@@ -30,6 +29,7 @@ fn main() {
         quality: Quality_Default,
         rc: RC_DEFAULT,
         thread_count: 4,
+        q: -1,
     };
     let decode_ctx = DecodeContext {
         name: String::from("hevc"),

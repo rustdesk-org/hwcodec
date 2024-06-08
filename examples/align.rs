@@ -105,6 +105,7 @@ fn test_ram(width: i32, height: i32, encode_info: CodecInfo, decode_info: CodecI
         quality: Quality_Default,
         rc: RC_CBR,
         thread_count: 1,
+        q: -1,
     };
     let decode_ctx = DecodeContext {
         name: decode_info.name.clone(),
