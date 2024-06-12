@@ -51,3 +51,17 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
         (false, false, false)
     }
 }
+
+pub fn get_gpu_signature() -> u64 {
+    #[cfg(windows)]
+    {
+        extern "C" {
+            pub fn GetHwcodecGpuSignature() -> u64;
+        }
+        unsafe { GetHwcodecGpuSignature() }
+    }
+    #[cfg(not(windows))]
+    {
+        0
+    }
+}

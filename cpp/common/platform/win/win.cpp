@@ -702,3 +702,38 @@ int Adapters::GetFirstAdapterIndex(AdapterVendor vendor) {
   }
   return -1;
 }
+
+// https://asawicki.info/news_1773_how_to_programmatically_check_graphics_driver_version
+// https://github.com/citizenfx/fivem/issues/1121
+uint64_t GetHwcodecGpuSignature() {
+  uint64_t signature = 0;
+  ComPtr<IDXGIFactory1> factory1 = nullptr;
+  HRI(CreateDXGIFactory1(IID_IDXGIFactory1,
+                         (void **)factory1.ReleaseAndGetAddressOf()));
+
+  ComPtr<IDXGIAdapter1> tmpAdapter = nullptr;
+  UINT i = 0;
+  while (!FAILED(
+      factory1->EnumAdapters1(i, tmpAdapter.ReleaseAndGetAddressOf()))) {
+    i++;
+    DXGI_ADAPTER_DESC1 desc = {0};
+    if (SUCCEEDED(tmpAdapter->GetDesc1(&desc))) {
+      if (desc.VendorId == ADAPTER_VENDOR_NVIDIA ||
+          desc.VendorId == ADAPTER_VENDOR_AMD ||
+          desc.VendorId == ADAPTER_VENDOR_INTEL) {
+        // hardware
+        signature += desc.VendorId;
+        signature += desc.DeviceId;
+        signature += desc.SubSysId;
+        signature += desc.Revision;
+        // software
+        LARGE_INTEGER umd_version;
+        if SUCCEEDED (tmpAdapter->CheckInterfaceSupport(__uuidof(IDXGIDevice),
+                                                        &umd_version)) {
+          signature += umd_version.QuadPart;
+        }
+      }
+    }
+  }
+  return signature;
+}

@@ -125,4 +125,6 @@ public:
   std::vector<std::unique_ptr<Adapter>> adapters_;
 };
 
+extern "C" uint64_t GetHwcodecGpuSignature();
+
 #endif

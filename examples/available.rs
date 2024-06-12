@@ -1,20 +1,19 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    common::{Quality::*, RateControl::*},
+    common::{get_gpu_signature, Quality::*, RateControl::*},
     ffmpeg::AVPixelFormat,
     ffmpeg_ram::{
         decode::Decoder,
         encode::{EncodeContext, Encoder},
-        CodecInfo,
     },
 };
-use std::time::Instant;
 
 fn main() {
     init_from_env(Env::default().filter_or(DEFAULT_FILTER_ENV, "info"));
     ram();
     #[cfg(feature = "vram")]
     vram();
+    log::info!("signatures: {:?}", get_gpu_signature());
 }
 
 fn ram() {
