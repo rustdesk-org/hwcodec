@@ -21,8 +21,6 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
                       int gop, int fps) {
   c->has_b_frames = 0;
   c->max_b_frames = 0;
-  bool limited_gop = name.find("vaapi") != std::string::npos ||
-                     name.find("qsv") != std::string::npos;
   if (gop > 0 && gop < std::numeric_limits<int16_t>::max()) {
     c->gop_size = gop;
   } else if (name.find("vaapi") != std::string::npos) {
