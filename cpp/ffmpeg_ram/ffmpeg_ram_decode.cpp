@@ -3,6 +3,9 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavcodec/bsf.h>
+// #include <libavcodec/jni.h>
+#include <libavcodec/packet.h>
 #include <libavutil/log.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
@@ -22,6 +25,8 @@ extern "C" {
 #include "system.h"
 
 // #define CFG_PKG_TRACE
+
+// extern "C" void *rustdesk_get_java_vm();
 
 namespace {
 typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
@@ -48,6 +53,10 @@ public:
   bool ready_decode_ = false;
   int last_width_ = 0;
   int last_height_ = 0;
+  // int mc_width = 600;
+  // int mc_height = 800;
+  bool mc_codec_try_opened = false;
+  uint8_t *extradata_ = NULL;
 
 #ifdef CFG_PKG_TRACE
   int in_ = 0;
@@ -77,6 +86,8 @@ public:
       avcodec_free_context(&c_);
     if (hw_device_ctx_)
       av_buffer_unref(&hw_device_ctx_);
+    if (extradata_)
+      av_free((void *)extradata_);
 
     frame_ = NULL;
     pkt_ = NULL;
@@ -85,6 +96,7 @@ public:
     c_ = NULL;
     hw_device_ctx_ = NULL;
     ready_decode_ = false;
+    extradata_ = NULL;
   }
   int reset() {
     if (name_.find("h264") != std::string::npos) {
@@ -123,6 +135,19 @@ public:
       c_->pkt_timebase = av_make_q(1, 30);
     }
 
+    if (name_.find("mediacodec") != std::string::npos) {
+      // if ((ret = av_opt_set_int(c_->priv_data, "ndk_codec", 0, 0)) < 0) {
+      //   LOG_ERROR("qsv set opt ndk_codec 0 failed");
+      //   return -1;
+      // }
+      // av_jni_set_java_vm(rustdesk_get_java_vm(), nullptr);
+    }
+
+    // if (name_.find("mediacodec") != std::string::npos) {
+    //   c_->width = mc_width;
+    //   c_->height = mc_height;
+    // }
+
     if (hwaccel_) {
       ret =
           av_hwdevice_ctx_create(&hw_device_ctx_, device_type_, NULL, NULL, 0);
@@ -156,9 +181,11 @@ public:
       return -1;
     }
 
-    if ((ret = avcodec_open2(c_, codec, NULL)) != 0) {
-      LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret));
-      return -1;
+    if (name_.find("mediacodec") == std::string::npos) {
+      if ((ret = avcodec_open2(c_, codec, NULL)) != 0) {
+        LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret));
+        return -1;
+      }
     }
 
     last_width_ = 0;
@@ -184,9 +211,40 @@ public:
       LOG_ERROR("illegal decode parameter");
       return -1;
     }
+
     if (!ready_decode_) {
       LOG_ERROR("not ready decode");
       return -1;
+    }
+    if (name_.find("mediacodec") != std::string::npos) {
+      if (!mc_codec_try_opened) {
+        mc_codec_try_opened = true;
+        ready_decode_ = false;
+        ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size,
+                               data, length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+        if (ret < 0) {
+          LOG_ERROR("av_parser_parse2 failed, ret = " + av_err2str(ret));
+          return ret;
+        }
+        c_->width = sw_parser_ctx_->width;
+        c_->height = sw_parser_ctx_->height;
+        // https://stackoverflow.com/questions/29790334/how-to-fill-extradata-field-of-avcodeccontext-with-sps-and-pps-data
+        // extradata_ = (uint8_t *)av_malloc(length);
+        // c_->extradata = extradata_;
+        // c_->extradata_size = length;
+        int extradata_size = 0;
+        if (!extract_extradata(c_, pkt_, &extradata_, &extradata_size)) {
+          LOG_ERROR("extract_extradata failed");
+          return -1;
+        }
+        c_->extradata = extradata_;
+        c_->extradata_size = extradata_size;
+        if ((ret = avcodec_open2(c_, NULL, NULL)) != 0) {
+          LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret));
+          return -1;
+        }
+        ready_decode_ = true;
+      }
     }
 
   _lable:
@@ -196,6 +254,19 @@ public:
       LOG_ERROR("av_parser_parse2 failed, ret = " + av_err2str(ret));
       return ret;
     }
+    // if (name_.find("mediacodec") != std::string::npos) {
+    //   if (sw_parser_ctx_->width != mc_width ||
+    //       sw_parser_ctx_->height != mc_height) {
+    //     if (reset() != 0) {
+    //       LOG_ERROR("reset failed");
+    //       return -1;
+    //     }
+    //     if (!retried) {
+    //       retried = true;
+    //       goto _lable;
+    //     }
+    //   }
+    // }
     if (last_width_ != 0 && last_height_ != 0) {
       if (last_width_ != sw_parser_ctx_->width ||
           last_height_ != sw_parser_ctx_->height) {
@@ -212,6 +283,14 @@ public:
     last_width_ = sw_parser_ctx_->width;
     last_height_ = sw_parser_ctx_->height;
     if (pkt_->size > 0) {
+      LOG_INFO("pkt size:" + std::to_string(pkt_->size) +
+               ", length:" + std::to_string(length) +
+               "packet:" + std::to_string((long)pkt_->data) +
+               "data:" + std::to_string((long)data) +
+               "width:" + std::to_string(sw_parser_ctx_->width) +
+               "height:" + std::to_string(sw_parser_ctx_->height) +
+               "extradata:" + std::to_string((long)c_->extradata) +
+               "extradata_size:" + std::to_string(c_->extradata_size));
       ret = do_decode(obj);
     }
 
@@ -232,9 +311,9 @@ private:
 
     while (ret >= 0) {
       if ((ret = avcodec_receive_frame(c_, frame_)) != 0) {
-        if (ret != AVERROR(EAGAIN)) {
-          LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
-        }
+        // if (ret != AVERROR(EAGAIN)) {
+        LOG_ERROR("avcodec_receive_frame failed, ret = " + av_err2str(ret));
+        // }
         goto _exit;
       }
 
@@ -318,8 +397,96 @@ private:
     return true;
 #endif
   }
-};
 
+  bool extract_extradata(AVCodecContext *pCodecCtx, AVPacket *packet,
+                         uint8_t **extradata_dest, int *extradata_size_dest) {
+    const AVBitStreamFilter *bsf;
+    int ret;
+    if ((bsf = av_bsf_get_by_name("extract_extradata")) == NULL) {
+      LOG_ERROR("failed to get extract_extradata bsf");
+      return false;
+    }
+    LOG_DEBUG("found bsf");
+
+    AVBSFContext *bsf_context;
+    if ((ret = av_bsf_alloc(bsf, &bsf_context)) < 0) {
+      LOG_ERROR("failed to alloc bsf context");
+      return false;
+    }
+
+    LOG_DEBUG("alloced bsf context");
+
+    if ((ret = avcodec_parameters_from_context(bsf_context->par_in,
+                                               pCodecCtx)) < 0) {
+      LOG_ERROR("failed to copy parameters from context\n");
+      av_bsf_free(&bsf_context);
+      return false;
+    }
+
+    LOG_DEBUG("copied bsf params");
+
+    if ((ret = av_bsf_init(bsf_context)) < 0) {
+      LOG_ERROR("failed to init bsf context");
+      av_bsf_free(&bsf_context);
+      return false;
+    }
+
+    LOG_DEBUG("initialized bsf context");
+
+    AVPacket *packet_ref = av_packet_alloc();
+    if (av_packet_ref(packet_ref, packet) < 0) {
+      LOG_ERROR("failed to ref packet\n");
+      av_bsf_free(&bsf_context);
+      return false;
+    }
+
+    // make sure refs are used corectly
+    // this probably resests packet
+    if ((ret = av_bsf_send_packet(bsf_context, packet_ref)) < 0) {
+      LOG_ERROR("failed to send packet to bsf\n");
+      av_packet_unref(packet_ref);
+      av_bsf_free(&bsf_context);
+      return false;
+    }
+
+    LOG_DEBUG("sent packet to bsf");
+
+    bool done = 0;
+
+    while (ret >= 0 && !done) //! h->decoder_ctx->extradata)
+    {
+      size_t extradata_size;
+      uint8_t *extradata;
+
+      ret = av_bsf_receive_packet(bsf_context, packet_ref);
+      if (ret < 0) {
+        if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+          LOG_ERROR("bsf error, not eagain or eof\n");
+          return 0;
+        }
+        continue;
+      }
+
+      extradata = av_packet_get_side_data(packet_ref, AV_PKT_DATA_NEW_EXTRADATA,
+                                          &extradata_size);
+
+      if (extradata) {
+        LOG_DEBUG("got extradata, size: " + std::to_string(extradata_size));
+        done = true;
+        *extradata_dest = (uint8_t *)av_mallocz(extradata_size +
+                                                AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(*extradata_dest, extradata, extradata_size);
+        *extradata_size_dest = extradata_size;
+        av_packet_unref(packet_ref);
+      }
+    }
+
+    av_packet_free(&packet_ref);
+    av_bsf_free(&bsf_context);
+
+    return done;
+  }
+};
 } // namespace
 
 extern "C" void ffmpeg_ram_free_decoder(FFmpegRamDecoder *decoder) {
