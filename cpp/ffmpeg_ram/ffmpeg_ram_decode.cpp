@@ -33,7 +33,6 @@ class FFmpegRamDecoder {
 public:
   AVCodecContext *c_ = NULL;
   AVBufferRef *hw_device_ctx_ = NULL;
-  AVCodecParserContext *sw_parser_ctx_ = NULL;
   AVFrame *sw_frame_ = NULL;
   AVFrame *frame_ = NULL;
   AVPacket *pkt_ = NULL;
@@ -44,10 +43,6 @@ public:
   int thread_count_ = 1;
   RamDecodeCallback callback_ = NULL;
   DataFormat data_format_;
-
-  bool ready_decode_ = false;
-  int last_width_ = 0;
-  int last_height_ = 0;
 
 #ifdef CFG_PKG_TRACE
   int in_ = 0;
@@ -71,8 +66,6 @@ public:
       av_packet_free(&pkt_);
     if (sw_frame_)
       av_frame_free(&sw_frame_);
-    if (sw_parser_ctx_)
-      av_parser_close(sw_parser_ctx_);
     if (c_)
       avcodec_free_context(&c_);
     if (hw_device_ctx_)
@@ -81,10 +74,8 @@ public:
     frame_ = NULL;
     pkt_ = NULL;
     sw_frame_ = NULL;
-    sw_parser_ctx_ = NULL;
     c_ = NULL;
     hw_device_ctx_ = NULL;
-    ready_decode_ = false;
   }
   int reset() {
     if (name_.find("h264") != std::string::npos) {
@@ -140,11 +131,6 @@ public:
         return -1;
       }
     }
-    if (!(sw_parser_ctx_ = av_parser_init(codec->id))) {
-      LOG_ERROR("av_parser_init failed");
-      return -1;
-    }
-    sw_parser_ctx_->flags |= PARSER_FLAG_COMPLETE_FRAMES;
 
     if (!(pkt_ = av_packet_alloc())) {
       LOG_ERROR("av_packet_alloc failed");
@@ -160,14 +146,10 @@ public:
       LOG_ERROR("avcodec_open2 failed, ret = " + av_err2str(ret));
       return -1;
     }
-
-    last_width_ = 0;
-    last_height_ = 0;
 #ifdef CFG_PKG_TRACE
     in_ = 0;
     out_ = 0;
 #endif
-    ready_decode_ = true;
 
     return 0;
   }
@@ -184,37 +166,9 @@ public:
       LOG_ERROR("illegal decode parameter");
       return -1;
     }
-    if (!ready_decode_) {
-      LOG_ERROR("not ready decode");
-      return -1;
-    }
-
-  _lable:
-    ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size, data,
-                           length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-    if (ret < 0) {
-      LOG_ERROR("av_parser_parse2 failed, ret = " + av_err2str(ret));
-      return ret;
-    }
-    if (last_width_ != 0 && last_height_ != 0) {
-      if (last_width_ != sw_parser_ctx_->width ||
-          last_height_ != sw_parser_ctx_->height) {
-        if (reset() != 0) {
-          LOG_ERROR("reset failed");
-          return -1;
-        }
-        if (!retried) {
-          retried = true;
-          goto _lable;
-        }
-      }
-    }
-    last_width_ = sw_parser_ctx_->width;
-    last_height_ = sw_parser_ctx_->height;
-    if (pkt_->size > 0) {
-      ret = do_decode(obj);
-    }
-
+    pkt_->data = (uint8_t *)data;
+    pkt_->size = length;
+    ret = do_decode(obj);
     return ret;
   }
 
@@ -264,7 +218,7 @@ private:
       int key_frame = tmp_frame->key_frame;
 #endif
 
-      callback_(obj, sw_parser_ctx_->width, sw_parser_ctx_->height,
+      callback_(obj, tmp_frame->width, tmp_frame->height,
                 (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
                 tmp_frame->data, key_frame);
     }

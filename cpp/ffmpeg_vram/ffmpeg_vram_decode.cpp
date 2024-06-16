@@ -44,8 +44,6 @@ public:
   std::string name_;
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_D3D11VA;
 
-  bool ready_decode_ = false;
-
   bool bt709_ = false;
   bool full_range_ = false;
 
@@ -82,8 +80,6 @@ public:
       av_frame_free(&frame_);
     if (pkt_)
       av_packet_free(&pkt_);
-    if (sw_parser_ctx_)
-      av_parser_close(sw_parser_ctx_);
     if (c_)
       avcodec_free_context(&c_);
     if (hw_device_ctx_) {
@@ -98,10 +94,8 @@ public:
 
     frame_ = NULL;
     pkt_ = NULL;
-    sw_parser_ctx_ = NULL;
     c_ = NULL;
     hw_device_ctx_ = NULL;
-    ready_decode_ = false;
   }
   int reset() {
     destroy();
@@ -153,12 +147,6 @@ public:
     }
     c_->hw_device_ctx = av_buffer_ref(hw_device_ctx_);
 
-    if (!(sw_parser_ctx_ = av_parser_init(codec->id))) {
-      LOG_ERROR("av_parser_init failed");
-      return -1;
-    }
-    sw_parser_ctx_->flags |= PARSER_FLAG_COMPLETE_FRAMES;
-
     if (!(pkt_ = av_packet_alloc())) {
       LOG_ERROR("av_packet_alloc failed");
       return -1;
@@ -175,8 +163,6 @@ public:
       return -1;
     }
 
-    ready_decode_ = true;
-
     return 0;
   }
 
@@ -188,19 +174,9 @@ public:
       LOG_ERROR("illegal decode parameter");
       return -1;
     }
-    if (!ready_decode_) {
-      LOG_ERROR("not ready decode");
-      return -1;
-    }
-    ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size, data,
-                           length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
-    if (ret < 0) {
-      LOG_ERROR("av_parser_parse2 failed, ret = " + av_err2str(ret));
-      return ret;
-    }
-    if (pkt_->size > 0) {
-      ret = do_decode(callback, obj);
-    }
+    pkt_->data = (uint8_t *)data;
+    pkt_->size = length;
+    ret = do_decode(callback, obj);
     return ret;
   }
 
@@ -258,16 +234,15 @@ private:
       LOG_ERROR("only DXGI_FORMAT_NV12 is supported");
       return false;
     }
-    if (!native_->EnsureTexture(sw_parser_ctx_->width,
-                                sw_parser_ctx_->height)) {
+    if (!native_->EnsureTexture(frame->width, frame->height)) {
       LOG_ERROR("Failed to EnsureTexture");
       return false;
     }
     native_->next(); // comment out to remove picture shaking
 #ifdef USE_SHADER
     native_->BeginQuery();
-    if (!native_->Nv12ToBgra(sw_parser_ctx_->width, sw_parser_ctx_->height,
-                             texture, native_->GetCurrentTexture(),
+    if (!native_->Nv12ToBgra(frame->width, frame->height, texture,
+                             native_->GetCurrentTexture(),
                              (int)frame->data[1])) {
       LOG_ERROR("Failed to Nv12ToBgra");
       native_->EndQuery();
@@ -286,10 +261,10 @@ private:
     contentDesc.InputFrameRate.Numerator = 60;
     contentDesc.InputFrameRate.Denominator = 1;
     // TODO: aligned width, height or crop width, height
-    contentDesc.InputWidth = sw_parser_ctx_->width;
-    contentDesc.InputHeight = sw_parser_ctx_->height;
-    contentDesc.OutputWidth = sw_parser_ctx_->width;
-    contentDesc.OutputHeight = sw_parser_ctx_->height;
+    contentDesc.InputWidth = frame->width;
+    contentDesc.InputHeight = frame->height;
+    contentDesc.OutputWidth = frame->width;
+    contentDesc.OutputHeight = frame->height;
     contentDesc.OutputFrameRate.Numerator = 60;
     contentDesc.OutputFrameRate.Denominator = 1;
     DXGI_COLOR_SPACE_TYPE colorSpace_out =
