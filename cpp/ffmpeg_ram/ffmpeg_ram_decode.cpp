@@ -34,6 +34,7 @@ public:
   AVCodecContext *c_ = NULL;
   AVBufferRef *hw_device_ctx_ = NULL;
   AVCodecParserContext *sw_parser_ctx_ = NULL;
+  std::vector<uint8_t> parse_data_;
   AVFrame *sw_frame_ = NULL;
   AVFrame *frame_ = NULL;
   AVPacket *pkt_ = NULL;
@@ -190,8 +191,16 @@ public:
     }
 
   _lable:
-    ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size, data,
-                           length, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+    if (parse_data_.size() == 0) {
+      parse_data_.resize(1 * 1024 * 1024);
+    }
+    if (parse_data_.size() < length * 2) {
+      parse_data_.resize(length * 2);
+    }
+    memcpy(parse_data_.data(), data, length);
+    ret = av_parser_parse2(sw_parser_ctx_, c_, &pkt_->data, &pkt_->size,
+                           parse_data_.data(), length, AV_NOPTS_VALUE,
+                           AV_NOPTS_VALUE, 0);
     if (ret < 0) {
       LOG_ERROR("av_parser_parse2 failed, ret = " + av_err2str(ret));
       return ret;
