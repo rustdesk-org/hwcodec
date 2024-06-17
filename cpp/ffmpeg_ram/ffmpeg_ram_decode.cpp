@@ -156,7 +156,6 @@ public:
 
   int decode(const uint8_t *data, int length, const void *obj) {
     int ret = -1;
-    bool retried = false;
 #ifdef CFG_PKG_TRACE
     in_++;
     LOG_DEBUG("delay DI: in:" + in_ + " out:" + out_);

@@ -89,6 +89,16 @@ bool set_lantency_free(void *priv_data, const std::string &name) {
       return false;
     }
   }
+  if (name.find("videotoolbox") != std::string::npos) {
+    if ((ret = av_opt_set_int(priv_data, "realtime", 1, 0)) < 0) {
+      LOG_ERROR("videotoolbox set realtime failed, ret = " + av_err2str(ret));
+      return false;
+    }
+    if ((ret = av_opt_set_int(priv_data, "prio_speed", 1, 0)) < 0) {
+      LOG_ERROR("videotoolbox set prio_speed failed, ret = " + av_err2str(ret));
+      return false;
+    }
+  }
   return true;
 }
 
@@ -199,7 +209,9 @@ bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
       {"amf", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr_latency"}}},
       {"mediacodec",
        "bitrate_mode",
-       {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}, {RC_CQ, "cq"}}}};
+       {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}, {RC_CQ, "cq"}}},
+      // {"videotoolbox", "constant_bit_rate", {{RC_CBR, "1"}}},
+    };
 
   for (const auto &codec : codecs) {
     if (name.find(codec.codec_name) != std::string::npos) {
@@ -244,6 +256,13 @@ bool force_hw(void *priv_data, const std::string &name) {
   if (name.find("_mf") != std::string::npos) {
     if ((ret = av_opt_set_int(priv_data, "hw_encoding", 1, 0)) < 0) {
       LOG_ERROR("mediafoundation set hw_encoding failed, ret = " +
+                av_err2str(ret));
+      return false;
+    }
+  }
+  if (name.find("videotoolbox") != std::string::npos) {
+    if ((ret = av_opt_set_int(priv_data, "allow_sw", 0, 0)) < 0) {
+      LOG_ERROR("mediafoundation set allow_sw failed, ret = " +
                 av_err2str(ret));
       return false;
     }

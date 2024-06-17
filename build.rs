@@ -23,6 +23,7 @@ fn main() {
 
 fn build_common(builder: &mut Build) {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
     let common_dir = manifest_dir.join("cpp").join("common");
     bindgen::builder()
         .header(common_dir.join("common.h").to_string_lossy().to_string())
@@ -64,6 +65,11 @@ fn build_common(builder: &mut Build) {
         let linux_path = _platform_path.join("linux");
         builder.include(&linux_path);
         builder.file(linux_path.join("linux.cpp"));
+    }
+    if target_os == "macos" {
+        let macos_path = _platform_path.join("mac");
+        builder.include(&macos_path);
+        builder.file(macos_path.join("mac.mm"));
     }
 
     // tool
@@ -208,6 +214,8 @@ mod ffmpeg {
             println!("cargo:rustc-link-lib=framework=CoreFoundation");
             println!("cargo:rustc-link-lib=framework=CoreVideo");
             println!("cargo:rustc-link-lib=framework=CoreMedia");
+            println!("cargo:rustc-link-lib=framework=VideoToolbox");
+            println!("cargo:rustc-link-lib=framework=AVFoundation");
             builder.flag("-std=c++11");
         }
     }

@@ -16,6 +16,7 @@ pub enum Driver {
     FFMPEG,
 }
 
+#[cfg(any(windows, target_os = "linux"))]
 pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
     #[cfg(target_os = "linux")]
     use std::ffi::c_int;
@@ -52,15 +53,48 @@ pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) fn get_video_toolbox_codec_support() -> (bool, bool, bool, bool) {
+    use std::ffi::c_void;
+
+    extern "C" {
+        fn checkVideoToolboxSupport(
+            h264_encode: *mut i32,
+            h265_encode: *mut i32,
+            h264_decode: *mut i32,
+            h265_decode: *mut i32,
+        ) -> c_void;
+    }
+
+    let mut h264_encode = 0;
+    let mut h265_encode = 0;
+    let mut h264_decode = 0;
+    let mut h265_decode = 0;
+    unsafe {
+        checkVideoToolboxSupport(
+            &mut h264_encode as *mut _,
+            &mut h265_encode as *mut _,
+            &mut h264_decode as *mut _,
+            &mut h265_decode as *mut _,
+        );
+    }
+    (
+        h264_encode == 1,
+        h265_encode == 1,
+        h264_decode == 1,
+        h265_decode == 1,
+    )
+}
+
 pub fn get_gpu_signature() -> u64 {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         extern "C" {
             pub fn GetHwcodecGpuSignature() -> u64;
         }
         unsafe { GetHwcodecGpuSignature() }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         0
     }

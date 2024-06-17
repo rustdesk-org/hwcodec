@@ -1,4 +1,4 @@
-#[cfg(any(target_os = "windows", target_os = "linux"))]
+#[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use super::Priority;
 #[cfg(target_os = "linux")]
 use crate::common::{DataFormat, Driver};
@@ -82,6 +82,11 @@ impl Decoder {
 
             if codec.is_null() {
                 return Err(());
+            }
+
+            // ffmpeg amd encoder doesn't handle colorspace, this can disable warning
+            if ctx.device_type == AV_HWDEVICE_TYPE_VIDEOTOOLBOX {
+                av_log_set_level(AV_LOG_ERROR as _);
             }
 
             Ok(Decoder {
@@ -264,6 +269,29 @@ impl Decoder {
                     ..Default::default()
                 },
             ]);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let (_, _, h264, h265) = crate::common::get_video_toolbox_codec_support();
+            if h264 {
+                codecs.push(CodecInfo {
+                    name: "h264".to_owned(),
+                    format: H264,
+                    hwdevice: AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+                    priority: Priority::Best as _,
+                    ..Default::default()
+                });
+            }
+            if h265 {
+                codecs.push(CodecInfo {
+                    name: "hevc".to_owned(),
+                    format: H265,
+                    hwdevice: AV_HWDEVICE_TYPE_VIDEOTOOLBOX,
+                    priority: Priority::Best as _,
+                    ..Default::default()
+                });
+            }
         }
 
         let infos = Arc::new(Mutex::new(Vec::<CodecInfo>::new()));
