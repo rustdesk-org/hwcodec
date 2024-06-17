@@ -13,7 +13,7 @@ fn main() {
     ram();
     #[cfg(feature = "vram")]
     vram();
-    log::info!("signatures: {:?}", get_gpu_signature());
+    log::info!("signature: {:?}", get_gpu_signature());
 }
 
 fn ram() {

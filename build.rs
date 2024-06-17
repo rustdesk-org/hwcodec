@@ -65,6 +65,12 @@ fn build_common(builder: &mut Build) {
         builder.include(&linux_path);
         builder.file(linux_path.join("linux.cpp"));
     }
+    #[cfg(target_os = "macos")]
+    {
+        let macos_path = _platform_path.join("mac");
+        builder.include(&macos_path);
+        builder.file(macos_path.join("mac.mm"));
+    }
 
     // tool
     builder.files(["log.cpp", "util.cpp"].map(|f| common_dir.join(f)));
@@ -208,6 +214,8 @@ mod ffmpeg {
             println!("cargo:rustc-link-lib=framework=CoreFoundation");
             println!("cargo:rustc-link-lib=framework=CoreVideo");
             println!("cargo:rustc-link-lib=framework=CoreMedia");
+            println!("cargo:rustc-link-lib=framework=VideoToolbox");
+            println!("cargo:rustc-link-lib=framework=AVFoundation");
             builder.flag("-std=c++11");
         }
     }
