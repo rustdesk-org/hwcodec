@@ -41,8 +41,8 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
     }
   }
   /* frames per second */
-  c->time_base = av_make_q(1, fps);
-  c->framerate = av_inv_q(c->time_base);
+  c->time_base = av_make_q(1, 1000);
+  c->framerate = av_make_q(fps, 1);
   c->flags |= AV_CODEC_FLAG2_LOCAL_HEADER;
   c->flags |= AV_CODEC_FLAG_LOW_DELAY;
   c->slices = 1;

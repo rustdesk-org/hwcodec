@@ -134,7 +134,8 @@ public:
     return MFX_ERR_NONE;
   }
 
-  int encode(ID3D11Texture2D *tex, EncodeCallback callback, void *obj) {
+  int encode(ID3D11Texture2D *tex, EncodeCallback callback, void *obj,
+             int64_t ms) {
     mfxStatus sts = MFX_ERR_NONE;
 
     int nEncSurfIdx =
@@ -187,7 +188,7 @@ public:
 #else
     encSurf->Data.MemId = tex;
 #endif
-    return encodeOneFrame(encSurf, callback, obj);
+    return encodeOneFrame(encSurf, callback, obj, ms);
   }
 
   void destroy() {
@@ -448,7 +449,8 @@ private:
   }
 #endif
 
-  int encodeOneFrame(mfxFrameSurface1 *in, EncodeCallback callback, void *obj) {
+  int encodeOneFrame(mfxFrameSurface1 *in, EncodeCallback callback, void *obj,
+                     int64_t ms) {
     mfxStatus sts = MFX_ERR_NONE;
     mfxSyncPoint syncp;
     bool encoded = false;
@@ -461,6 +463,8 @@ private:
       }
       mfxBS_.DataLength = 0;
       mfxBS_.DataOffset = 0;
+      mfxBS_.TimeStamp = ms * 90; // ms to 90KHZ
+      mfxBS_.DecodeTimeStamp = mfxBS_.TimeStamp;
       sts = mfxENC_->EncodeFrameAsync(NULL, in, &mfxBS_, &syncp);
       if (MFX_ERR_NONE == sts) {
         if (!syncp) {
@@ -480,8 +484,8 @@ private:
         int key = (mfxBS_.FrameType & MFX_FRAMETYPE_I) ||
                   (mfxBS_.FrameType & MFX_FRAMETYPE_IDR);
         if (callback)
-          callback(mfxBS_.Data + mfxBS_.DataOffset, mfxBS_.DataLength, key,
-                   obj);
+          callback(mfxBS_.Data + mfxBS_.DataOffset, mfxBS_.DataLength, key, obj,
+                   ms);
         encoded = true;
         break;
       } else if (MFX_WRN_DEVICE_BUSY == sts) {
@@ -594,9 +598,9 @@ void *mfx_new_encoder(void *handle, int64_t luid, API api,
 }
 
 int mfx_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
-               void *obj) {
+               void *obj, int64_t ms) {
   try {
-    return ((VplEncoder *)encoder)->encode(tex, callback, obj);
+    return ((VplEncoder *)encoder)->encode(tex, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR("Exception: " + e.what());
   }
@@ -621,8 +625,8 @@ int mfx_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
-        if (mfx_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr) ==
-            0) {
+        if (mfx_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr,
+                       0) == 0) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;

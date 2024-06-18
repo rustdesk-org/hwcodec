@@ -27,7 +27,7 @@ fn ram() {
         pixfmt: AVPixelFormat::AV_PIX_FMT_NV12,
         align: 0,
         kbs: 1000,
-        timebase: [1, 30],
+        fps: 30,
         gop: i32::MAX,
         quality: Quality_Default,
         rc: RC_CBR,

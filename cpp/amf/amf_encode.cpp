@@ -99,7 +99,7 @@ public:
 
   ~AMFEncoder() {}
 
-  AMF_RESULT encode(void *tex, EncodeCallback callback, void *obj) {
+  AMF_RESULT encode(void *tex, EncodeCallback callback, void *obj, int64_t ms) {
     amf::AMFSurfacePtr surface = NULL;
     amf::AMFComputeSyncPointPtr pSyncPoint = NULL;
     AMF_RESULT res;
@@ -123,6 +123,7 @@ public:
       return AMF_NOT_IMPLEMENTED;
       break;
     }
+    surface->SetPts(ms * AMF_MILLISECOND);
     res = AMFEncoder_->SubmitInput(surface);
     AMF_CHECK_RETURN(res, "SubmitInput failed");
 
@@ -147,7 +148,7 @@ public:
         packet.data = packetDataBuffer_.data();
         std::memcpy(packet.data, pBuffer->GetNative(), packet.size);
         if (callback)
-          callback(packet.data, packet.size, packet.keyframe, obj);
+          callback(packet.data, packet.size, packet.keyframe, obj, ms);
         encoded = true;
       }
       pBuffer = NULL;
@@ -183,7 +184,7 @@ public:
     void *native = surface->GetPlaneAt(0)->GetNative();
     if (!native)
       return AMF_FAIL;
-    return encode(native, nullptr, nullptr);
+    return encode(native, nullptr, nullptr, 0);
   }
 
   AMF_RESULT initialize() {
@@ -498,10 +499,11 @@ void *amf_new_encoder(void *handle, int64_t luid, API api,
   return NULL;
 }
 
-int amf_encode(void *encoder, void *tex, EncodeCallback callback, void *obj) {
+int amf_encode(void *encoder, void *tex, EncodeCallback callback, void *obj,
+               int64_t ms) {
   try {
     AMFEncoder *enc = (AMFEncoder *)encoder;
-    return -enc->encode(tex, callback, obj);
+    return -enc->encode(tex, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR("encode failed: " + e.what());
   }

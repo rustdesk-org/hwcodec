@@ -17,7 +17,7 @@ void *ffmpeg_vram_new_encoder(void *handle, int64_t luid, int32_t api,
                               int32_t kbs, int32_t framerate, int32_t gop);
 
 int ffmpeg_vram_encode(void *encoder, void *tex, EncodeCallback callback,
-                       void *obj);
+                       void *obj, int64_t ms);
 int ffmpeg_vram_destroy_encoder(void *encoder);
 
 int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,

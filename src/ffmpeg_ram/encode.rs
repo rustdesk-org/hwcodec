@@ -30,7 +30,7 @@ pub struct EncodeContext {
     pub height: i32,
     pub pixfmt: AVPixelFormat,
     pub align: i32,
-    pub timebase: [i32; 2],
+    pub fps: i32,
     pub gop: i32,
     pub rc: RateControl,
     pub quality: Quality,
@@ -58,7 +58,6 @@ pub struct Encoder {
     pub linesize: Vec<i32>,
     pub offset: Vec<i32>,
     pub length: i32,
-    start: Instant,
 }
 
 impl Encoder {
@@ -85,8 +84,7 @@ impl Encoder {
                 ctx.height,
                 ctx.pixfmt as c_int,
                 ctx.align,
-                ctx.timebase[0],
-                ctx.timebase[1],
+                ctx.fps,
                 ctx.gop,
                 ctx.rc as _,
                 ctx.quality as _,
@@ -111,12 +109,11 @@ impl Encoder {
                 linesize,
                 offset,
                 length: length[0],
-                start: Instant::now(),
             })
         }
     }
 
-    pub fn encode(&mut self, data: &[u8]) -> Result<&mut Vec<EncodeFrame>, i32> {
+    pub fn encode(&mut self, data: &[u8], ms: i64) -> Result<&mut Vec<EncodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
             let result = ffmpeg_ram_encode(
@@ -124,7 +121,7 @@ impl Encoder {
                 (*data).as_ptr(),
                 data.len() as _,
                 self.frames as *const _ as *const c_void,
-                self.start.elapsed().as_millis() as _,
+                ms,
             );
             if result != 0 {
                 if av_log_get_level() >= AV_LOG_ERROR as _ {
@@ -316,7 +313,7 @@ impl Encoder {
                     if let Ok(mut encoder) = Encoder::new(c) {
                         log::debug!("{} new {:?}", codec.name, start.elapsed());
                         let start = Instant::now();
-                        if let Ok(_) = encoder.encode(&yuv) {
+                        if let Ok(_) = encoder.encode(&yuv, 0) {
                             log::debug!("{} encode {:?}", codec.name, start.elapsed());
                             infos.lock().unwrap().push(codec);
                         } else {
