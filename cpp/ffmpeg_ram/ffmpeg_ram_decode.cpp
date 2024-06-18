@@ -197,6 +197,23 @@ private:
           LOG_ERROR("hw_frames_ctx is NULL");
           goto _exit;
         }
+        if (!sw_frame_) {
+          LOG_ERROR("sw_frame is NULL");
+          goto _exit;
+        }
+        if ((sw_frame_->width != 0 && sw_frame_->height != 0) &&
+            (sw_frame_->width != frame_->width ||
+             sw_frame_->height != frame_->height)) {
+          LOG_INFO("realloc sw_frame: " + std::to_string(sw_frame_->width) +
+                   "x" + std::to_string(sw_frame_->height) + " -> " +
+                   std::to_string(frame_->width) + "x" +
+                   std::to_string(frame_->height));
+          av_frame_free(&sw_frame_);
+          if (!(sw_frame_ = av_frame_alloc())) {
+            LOG_ERROR("av_frame_alloc failed");
+            goto _exit;
+          }
+        }
         if ((ret = av_hwframe_transfer_data(sw_frame_, frame_, 0)) < 0) {
           LOG_ERROR("av_hwframe_transfer_data failed, ret = " +
                     av_err2str(ret));
