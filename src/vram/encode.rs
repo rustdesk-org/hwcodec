@@ -58,7 +58,7 @@ impl Encoder {
         }
     }
 
-    pub fn encode(&mut self, tex: *mut c_void) -> Result<&mut Vec<EncodeFrame>, i32> {
+    pub fn encode(&mut self, tex: *mut c_void, ms: i64) -> Result<&mut Vec<EncodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
             let result = (self.calls.encode)(
@@ -66,6 +66,7 @@ impl Encoder {
                 tex,
                 Some(Self::callback),
                 self.frames as *mut _ as *mut c_void,
+                ms,
             );
             if result != 0 {
                 Err(result)
@@ -75,12 +76,12 @@ impl Encoder {
         }
     }
 
-    extern "C" fn callback(data: *const u8, size: c_int, key: i32, obj: *const c_void) {
+    extern "C" fn callback(data: *const u8, size: c_int, key: i32, obj: *const c_void, pts: i64) {
         unsafe {
             let frames = &mut *(obj as *mut Vec<EncodeFrame>);
             frames.push(EncodeFrame {
                 data: from_raw_parts(data, size as usize).to_vec(),
-                pts: 0,
+                pts,
                 key,
             });
         }

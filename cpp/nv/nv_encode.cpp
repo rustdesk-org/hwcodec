@@ -170,7 +170,7 @@ public:
     return true;
   }
 
-  int encode(void *texture, EncodeCallback callback, void *obj) {
+  int encode(void *texture, EncodeCallback callback, void *obj, int64_t ms) {
     bool encoded = false;
     std::vector<NvPacket> vPacket;
     const NvEncInputFrame *pEncInput = pEnc_->GetNextInputFrame();
@@ -187,6 +187,8 @@ public:
         pBgraTextyure, reinterpret_cast<ID3D11Texture2D *>(texture));
 #endif
 
+    NV_ENC_PIC_PARAMS picParams = {0};
+    picParams.inputTimeStamp = ms;
     pEnc_->EncodeFrame(vPacket);
     for (NvPacket &packet : vPacket) {
       int32_t key = (packet.pictureType == NV_ENC_PIC_TYPE_IDR ||
@@ -195,7 +197,7 @@ public:
                         : 0;
       if (packet.data.size() > 0) {
         if (callback)
-          callback(packet.data.data(), packet.data.size(), key, obj);
+          callback(packet.data.data(), packet.data.size(), key, obj, ms);
         encoded = true;
       }
     }
@@ -361,11 +363,11 @@ _exit:
   return NULL;
 }
 
-int nv_encode(void *encoder, void *texture, EncodeCallback callback,
-              void *obj) {
+int nv_encode(void *encoder, void *texture, EncodeCallback callback, void *obj,
+              int64_t ms) {
   try {
     NvencEncoder *e = (NvencEncoder *)encoder;
-    return e->encode(texture, callback, obj);
+    return e->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR("encode failed: " + e.what());
   }
@@ -407,8 +409,8 @@ int nv_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
         e->native_->next();
-        if (nv_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr) ==
-            0) {
+        if (nv_encode(e, e->native_->GetCurrentTexture(), nullptr, nullptr,
+                      0) == 0) {
           AdapterDesc *desc = descs + count;
           desc->luid = LUID(adapter.get()->desc1_);
           count += 1;

@@ -18,6 +18,7 @@ pub type EncodeCall = unsafe extern "C" fn(
     tex: *mut c_void,
     callback: EncodeCallback,
     obj: *mut c_void,
+    ms: i64,
 ) -> c_int;
 
 pub type NewDecoderCall =

@@ -24,7 +24,7 @@ fn main() {
         pixfmt: AV_PIX_FMT_NV12,
         align: 0,
         kbs: 0,
-        timebase: [1, 30],
+        fps: 30,
         gop: 60,
         quality: Quality_Default,
         rc: RC_DEFAULT,
@@ -67,7 +67,7 @@ fn test_encode_decode(encode_ctx: EncodeContext, decode_ctx: DecodeContext) {
 
     let mut f = |data: &[u8]| {
         let now = std::time::Instant::now();
-        if let Ok(encode_frames) = video_encoder.encode(data) {
+        if let Ok(encode_frames) = video_encoder.encode(data, 0) {
             log::info!("encode:{:?}", now.elapsed());
             encode_sum += now.elapsed().as_micros();
             for encode_frame in encode_frames.iter() {

@@ -12,7 +12,8 @@ void *nv_new_encoder(void *handle, int64_t luid, int32_t api,
                      int32_t dataFormat, int32_t width, int32_t height,
                      int32_t bitrate, int32_t framerate, int32_t gop);
 
-int nv_encode(void *encoder, void *tex, EncodeCallback callback, void *obj);
+int nv_encode(void *encoder, void *tex, EncodeCallback callback, void *obj,
+              int64_t ms);
 
 int nv_destroy_encoder(void *encoder);
 

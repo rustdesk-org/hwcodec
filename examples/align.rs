@@ -33,7 +33,7 @@ fn setup_ram(max_align: i32) {
             height: 1080,
             pixfmt: AV_PIX_FMT_NV12,
             align: 0,
-            timebase: [1, 30],
+            fps: 30,
             gop: 60,
             rc: RC_CBR,
             quality: Quality_Default,
@@ -100,7 +100,7 @@ fn test_ram(width: i32, height: i32, encode_info: CodecInfo, decode_info: CodecI
         pixfmt: AV_PIX_FMT_NV12,
         align: 0,
         kbs: 0,
-        timebase: [1, 30],
+        fps: 30,
         gop: 60,
         quality: Quality_Default,
         rc: RC_CBR,
@@ -122,7 +122,7 @@ fn test_ram(width: i32, height: i32, encode_info: CodecInfo, decode_info: CodecI
     let mut video_encoder = Encoder::new(encode_ctx).unwrap();
     let mut video_decoder = Decoder::new(decode_ctx).unwrap();
     let buf: Vec<u8> = vec![0; len as usize];
-    let encode_frames = video_encoder.encode(&buf).unwrap();
+    let encode_frames = video_encoder.encode(&buf, 0).unwrap();
     assert_eq!(encode_frames.len(), 1);
     let docode_frames = video_decoder.decode(&encode_frames[0].data).unwrap();
     assert_eq!(docode_frames.len(), 1);
@@ -200,7 +200,7 @@ fn test_vram(
         ..decode_info.clone()
     })
     .unwrap();
-    let encode_frames = encoder.encode(tool.get_texture(width, height)).unwrap();
+    let encode_frames = encoder.encode(tool.get_texture(width, height), 0).unwrap();
     assert_eq!(encode_frames.len(), 1);
     let decoder_frames = decoder.decode(&encode_frames[0].data).unwrap();
     assert_eq!(decoder_frames.len(), 1);

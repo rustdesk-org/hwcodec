@@ -81,7 +81,6 @@ public:
   const int align_ = 0;
   const bool full_range_ = false;
   const bool bt709_ = false;
-  int64_t frame_index_ = 0;
 
   FFmpegVRamEncoder(void *handle, int64_t luid, API api, DataFormat dataFormat,
                     int32_t width, int32_t height, int32_t kbs,
@@ -225,12 +224,12 @@ public:
     return true;
   }
 
-  int encode(void *texture, EncodeCallback callback, void *obj) {
+  int encode(void *texture, EncodeCallback callback, void *obj, int64_t ms) {
 
     if (!convert(texture))
       return -1;
 
-    return do_encode(callback, obj);
+    return do_encode(callback, obj, ms);
   }
 
   void destroy() {
@@ -310,10 +309,10 @@ private:
     }
     LOG_INFO("FFmpeg vram encoder name: " + encoder_->name_);
   }
-  int do_encode(EncodeCallback callback, const void *obj) {
+  int do_encode(EncodeCallback callback, const void *obj, int64_t ms) {
     int ret;
     bool encoded = false;
-    frame_->pts = frame_index_++;
+    frame_->pts = ms;
     if ((ret = avcodec_send_frame(c_, frame_)) < 0) {
       LOG_ERROR("avcodec_send_frame failed, ret = " + av_err2str(ret));
       return ret;
@@ -328,7 +327,8 @@ private:
       }
       encoded = true;
       if (callback)
-        callback(pkt_->data, pkt_->size, pkt_->flags & AV_PKT_FLAG_KEY, obj);
+        callback(pkt_->data, pkt_->size, pkt_->flags & AV_PKT_FLAG_KEY, obj,
+                 pkt_->pts);
     }
   _exit:
     av_packet_unref(pkt_);
@@ -447,9 +447,9 @@ FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid, API api,
 }
 
 int ffmpeg_vram_encode(FFmpegVRamEncoder *encoder, void *texture,
-                       EncodeCallback callback, void *obj) {
+                       EncodeCallback callback, void *obj, int64_t ms) {
   try {
-    return encoder->encode(texture, callback, obj);
+    return encoder->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR("ffmpeg_vram_encode failed, " + std::string(e.what()));
   }
@@ -508,7 +508,7 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
           e->native_->next();
           if (ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), nullptr,
-                                 nullptr) == 0) {
+                                 nullptr, 0) == 0) {
             AdapterDesc *desc = descs + count;
             desc->luid = LUID(adapter.get()->desc1_);
             count += 1;

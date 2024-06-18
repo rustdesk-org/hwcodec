@@ -81,7 +81,7 @@ fn decode_encode(
         },
         align: 0,
         kbs: 1_000,
-        timebase: [1, 30],
+        fps: 30,
         gop: MAX_GOP as _,
         quality: Quality_Default,
         rc: RC_DEFAULT,
@@ -119,7 +119,7 @@ fn decode_encode(
             encode_buf.append(d);
         }
         yuv_file.write_all(&encode_buf).unwrap();
-        let frames = video_encoder.encode(&encode_buf).unwrap();
+        let frames = video_encoder.encode(&encode_buf, 0).unwrap();
         assert_eq!(frames.len(), 1);
         for f in frames {
             encode_file.write_all(&f.data).unwrap();
