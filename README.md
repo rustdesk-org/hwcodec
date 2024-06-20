@@ -55,6 +55,8 @@ Based on the information above, there are several optimizations and changes made
 
   [Hardware Platforms Supported by the Intel(R) Media SDK GPU Runtime](https://www.intel.com/content/www/us/en/docs/onevpl/upgrade-from-msdk/2023-1/onevpl-hardware-support-details.html#HARDWARE-PLATFORMS-SUPPORTED-BY-THE-INTEL-R-MEDIA-SDK-GPU-RUNTIME)
 
+  https://www.intel.com/content/www/us/en/docs/onevpl/developer-reference-media-intel-hardware/1-1/overview.html
+
 * AMD
 
   AMD Radeon Software Adrenalin Edition 23.1.2 (22.40.01.34) or newer
