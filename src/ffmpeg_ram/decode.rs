@@ -84,6 +84,11 @@ impl Decoder {
                 return Err(());
             }
 
+            // ffmpeg amd encoder doesn't handle colorspace, this can disable warning
+            if ctx.device_type == AV_HWDEVICE_TYPE_VIDEOTOOLBOX {
+                av_log_set_level(AV_LOG_ERROR as _);
+            }
+
             Ok(Decoder {
                 codec,
                 frames: Box::into_raw(Box::new(Vec::<DecodeFrame>::new())),

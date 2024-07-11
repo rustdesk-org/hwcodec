@@ -23,6 +23,7 @@ fn main() {
 
 fn build_common(builder: &mut Build) {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
     let common_dir = manifest_dir.join("cpp").join("common");
     bindgen::builder()
         .header(common_dir.join("common.h").to_string_lossy().to_string())
@@ -65,8 +66,7 @@ fn build_common(builder: &mut Build) {
         builder.include(&linux_path);
         builder.file(linux_path.join("linux.cpp"));
     }
-    #[cfg(target_os = "macos")]
-    {
+    if target_os == "macos" {
         let macos_path = _platform_path.join("mac");
         builder.include(&macos_path);
         builder.file(macos_path.join("mac.mm"));

@@ -21,6 +21,8 @@ use std::{
 };
 
 use super::Priority;
+#[cfg(any(windows, target_os = "linux"))]
+use crate::common::Driver;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EncodeContext {
@@ -191,10 +193,10 @@ impl Encoder {
             log_level = av_log_get_level();
             av_log_set_level(AV_LOG_PANIC as _);
         };
-        let mut codecs = vec![];
+        let mut codecs: Vec<CodecInfo> = vec![];
         #[cfg(any(windows, target_os = "linux"))]
         {
-            let contains = |_driver: crate::common::Driver, _format: DataFormat| {
+            let contains = |_driver: Driver, _format: DataFormat| {
                 #[cfg(all(windows, feature = "vram"))]
                 {
                     if let Some(_sdk) = _sdk.as_ref() {
@@ -282,15 +284,16 @@ impl Encoder {
 
         #[cfg(target_os = "macos")]
         {
-            let (h264, h265, _, _) = crate::common::get_video_toolbox_codec_support();
-            if h264 {
-                codecs.push(CodecInfo {
-                    name: "h264_videotoolbox".to_owned(),
-                    format: H264,
-                    priority: Priority::Best as _,
-                    ..Default::default()
-                });
-            }
+            let (_h264, h265, _, _) = crate::common::get_video_toolbox_codec_support();
+            // h264 encode failed too often, not AV_CODEC_CAP_HARDWARE
+            // if h264 {
+            //     codecs.push(CodecInfo {
+            //         name: "h264_videotoolbox".to_owned(),
+            //         format: H264,
+            //         priority: Priority::Best as _,
+            //         ..Default::default()
+            //     });
+            // }
             if h265 {
                 codecs.push(CodecInfo {
                     name: "hevc_videotoolbox".to_owned(),

@@ -87,14 +87,14 @@ pub(crate) fn get_video_toolbox_codec_support() -> (bool, bool, bool, bool) {
 }
 
 pub fn get_gpu_signature() -> u64 {
-    #[cfg(windows)]
+    #[cfg(any(windows, target_os = "macos"))]
     {
         extern "C" {
             pub fn GetHwcodecGpuSignature() -> u64;
         }
         unsafe { GetHwcodecGpuSignature() }
     }
-    #[cfg(not(windows))]
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         0
     }

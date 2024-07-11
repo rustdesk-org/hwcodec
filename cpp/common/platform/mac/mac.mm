@@ -45,5 +45,14 @@ extern "C" void checkVideoToolboxSupport(int32_t *h264Encoder, int32_t *h265Enco
     *h264Decoder = VTIsHardwareDecodeSupported(kCMVideoCodecType_H264);
     *h265Decoder = VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC);
 
-    return ;
+    return;
 }
+
+extern "C" uint64_t GetHwcodecGpuSignature() {
+    int32_t h264Encoder = 0;
+    int32_t h265Encoder = 0;
+    int32_t h264Decoder = 0;
+    int32_t h265Decoder = 0;
+    checkVideoToolboxSupport(&h264Encoder, &h265Encoder, &h264Decoder, &h265Decoder);
+    return (uint64_t)h264Encoder << 24 | (uint64_t)h265Encoder << 16 | (uint64_t)h264Decoder << 8 | (uint64_t)h265Decoder;
+}   
