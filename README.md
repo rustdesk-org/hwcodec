@@ -35,6 +35,12 @@ Based on the information above, there are several optimizations and changes made
 | amd encode    | vaapi, amf     |
 | amd decode    | vaapi          |
 
+### MacOS
+
+| FFmpeg ram encode   | FFmpeg ram decode   |
+| ------------------  | ------------------  |
+| h265 only           | Y                   |
+
 #### Issue
 
 * vaapi: only tested on intel with `va-driver-all`, and hevc_vaapi encoding not supported on my pc
