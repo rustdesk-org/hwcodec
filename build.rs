@@ -93,17 +93,24 @@ impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
 }
 
 mod ffmpeg {
+    #[allow(unused_imports)]
     use core::panic;
 
     use super::*;
 
     pub fn build_ffmpeg(builder: &mut Build) {
+        ffmpeg_ffi();
         link_vcpkg(builder, std::env::var("VCPKG_ROOT").unwrap().into());
-        link_ffmpeg(builder);
+        #[cfg(feature = "link")]
+        link_os(builder);
         build_ffmpeg_ram(builder);
         #[cfg(feature = "vram")]
         build_ffmpeg_vram(builder);
         build_mux(builder);
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        if target_os == "macos" || target_os == "ios" {
+            builder.flag("-std=c++11");
+        }
     }
 
     fn link_vcpkg(builder: &mut Build, mut path: PathBuf) -> PathBuf {
@@ -147,35 +154,26 @@ mod ffmpeg {
                 path.join("lib").to_str().unwrap()
             )
         );
-        let mut static_libs = vec!["avcodec", "avutil", "avformat"];
-        if target_os == "windows" {
-            static_libs.push("libmfx");
+        #[cfg(feature = "link")]
+        {
+            let mut static_libs = vec!["avcodec", "avutil", "avformat"];
+            if target_os == "windows" {
+                static_libs.push("libmfx");
+            }
+            static_libs
+                .iter()
+                .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
+                .count();
         }
-        static_libs
-            .iter()
-            .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
-            .count();
+
         let include = path.join("include");
         println!("{}", format!("cargo:include={}", include.to_str().unwrap()));
         builder.include(&include);
         include
     }
 
-    fn link_ffmpeg(builder: &mut Build) {
-        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let ffmpeg_ram_dir = manifest_dir.join("cpp").join("common");
-        let ffi_header = ffmpeg_ram_dir
-            .join("ffmpeg_ffi.h")
-            .to_string_lossy()
-            .to_string();
-        bindgen::builder()
-            .header(ffi_header)
-            .rustified_enum("*")
-            .generate()
-            .unwrap()
-            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ffi.rs"))
-            .unwrap();
-
+    #[cfg(feature = "link")]
+    fn link_os(builder: &mut Build) {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
@@ -204,8 +202,23 @@ mod ffmpeg {
             println!("cargo:rustc-link-lib=framework=CoreMedia");
             println!("cargo:rustc-link-lib=framework=VideoToolbox");
             println!("cargo:rustc-link-lib=framework=AVFoundation");
-            builder.flag("-std=c++11");
         }
+    }
+
+    fn ffmpeg_ffi() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let ffmpeg_ram_dir = manifest_dir.join("cpp").join("common");
+        let ffi_header = ffmpeg_ram_dir
+            .join("ffmpeg_ffi.h")
+            .to_string_lossy()
+            .to_string();
+        bindgen::builder()
+            .header(ffi_header)
+            .rustified_enum("*")
+            .generate()
+            .unwrap()
+            .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ffi.rs"))
+            .unwrap();
     }
 
     fn build_ffmpeg_ram(builder: &mut Build) {
