@@ -99,10 +99,16 @@ mod ffmpeg {
     use super::*;
 
     pub fn build_ffmpeg(builder: &mut Build) {
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        if target_os == "linux" && (target_arch == "aarch64" || target_arch == "arm") {
+            link_ffmpeg_from_prebuild();
+        } else {
+            link_ffmpeg_from_vcpkg(builder, std::env::var("VCPKG_ROOT").unwrap().into());
+        }
         ffmpeg_ffi();
-        link_vcpkg(builder, std::env::var("VCPKG_ROOT").unwrap().into());
         #[cfg(feature = "link")]
-        link_os(builder);
+        link_os();
         build_ffmpeg_ram(builder);
         #[cfg(feature = "vram")]
         build_ffmpeg_vram(builder);
@@ -113,7 +119,7 @@ mod ffmpeg {
         }
     }
 
-    fn link_vcpkg(builder: &mut Build, mut path: PathBuf) -> PathBuf {
+    fn link_ffmpeg_from_vcpkg(builder: &mut Build, mut path: PathBuf) -> PathBuf {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let mut target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         if target_arch == "x86_64" {
@@ -172,8 +178,73 @@ mod ffmpeg {
         include
     }
 
+    // android: both #[cfg(target_os = "linux")] and cfg!("target_os = "linux) is true, CARGO_CFG_TARGET_OS is android
+    fn link_ffmpeg_from_prebuild() {
+        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        // https://doc.rust-lang.org/reference/conditional-compilation.html#target_os
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        println!("ffmpeg: target_os: {target_os}, target_arch: {target_arch}");
+        let arch_dir = match target_os.as_str() {
+            "windows" => {
+                if target_arch == "x86_64" {
+                    "windows-x86_64"
+                } else if target_arch == "x86" {
+                    "windows-i686"
+                } else {
+                    panic!("unsupported target_arch: {target_arch}");
+                }
+            }
+            "linux" => {
+                if target_arch == "x86_64" {
+                    "linux-x86_64"
+                } else if target_arch == "aarch64" {
+                    "linux-aarch64"
+                } else if target_arch == "arm" {
+                    "linux-armv7"
+                } else {
+                    panic!("unsupported target_arch: {target_arch}");
+                }
+            }
+            "macos" => {
+                if target_arch == "aarch64" {
+                    "macos-aarch64"
+                } else if target_arch == "x86_64" {
+                    "macos-x86_64"
+                } else {
+                    panic!("unsupported target_arch: {target_arch}");
+                }
+            }
+            "android" => {
+                if target_arch == "aarch64" {
+                    "android-aarch64"
+                } else if target_arch == "arm" {
+                    "android-armv7"
+                } else {
+                    panic!("unsupported target_arch: {target_arch}");
+                }
+            }
+            "ios" => {
+                if target_arch == "aarch64" {
+                    "ios-aarch64"
+                } else {
+                    panic!("unsupported target_arch: {target_arch}");
+                }
+            }
+            _ => panic!("unsupported os"),
+        };
+        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
+        let mut static_libs = vec!["avcodec", "avutil", "avformat"];
+        if target_os == "windows" {
+            static_libs.push("mfx");
+        }
+        static_libs
+            .iter()
+            .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
+            .count();
+    }
+
     #[cfg(feature = "link")]
-    fn link_os(builder: &mut Build) {
+    fn link_os() {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let dyn_libs: Vec<&str> = if target_os == "windows" {

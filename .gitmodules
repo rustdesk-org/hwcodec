@@ -1,3 +1,7 @@
 [submodule "externals"]
 	path = externals
 	url = https://github.com/21pages/externals.git
+[submodule "deps"]
+	path = deps
+	url = https://github.com/21pages/deps.git
+	branch = arm_linux_lib
