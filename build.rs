@@ -101,6 +101,7 @@ mod ffmpeg {
     pub fn build_ffmpeg(builder: &mut Build) {
         ffmpeg_ffi();
         link_vcpkg(builder, std::env::var("VCPKG_ROOT").unwrap().into());
+        #[cfg(feature = "link")]
         link_os();
         build_ffmpeg_ram(builder);
         #[cfg(feature = "vram")]
@@ -153,6 +154,7 @@ mod ffmpeg {
                 path.join("lib").to_str().unwrap()
             )
         );
+        #[cfg(feature = "link")]
         {
             let mut static_libs = vec!["avcodec", "avutil", "avformat"];
             if target_os == "windows" {
@@ -170,6 +172,7 @@ mod ffmpeg {
         include
     }
 
+    #[cfg(feature = "link")]
     fn link_os() {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
