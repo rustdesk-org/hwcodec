@@ -8,7 +8,6 @@ edition = "2021"
 [features]
 default = []
 vram = []
-link = []
 
 [dependencies]
 log = "0.4"
