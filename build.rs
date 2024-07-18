@@ -102,7 +102,7 @@ mod ffmpeg {
         ffmpeg_ffi();
         link_vcpkg(builder, std::env::var("VCPKG_ROOT").unwrap().into());
         #[cfg(feature = "link")]
-        link_os(builder);
+        link_os();
         build_ffmpeg_ram(builder);
         #[cfg(feature = "vram")]
         build_ffmpeg_vram(builder);
@@ -173,7 +173,7 @@ mod ffmpeg {
     }
 
     #[cfg(feature = "link")]
-    fn link_os(builder: &mut Build) {
+    fn link_os() {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
@@ -283,15 +283,6 @@ mod sdk {
     use super::*;
 
     pub(crate) fn build_sdk(builder: &mut Build) {
-        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-        let arch_dir = if target_arch == "x86_64" {
-            "windows-x86_64"
-        } else if target_arch == "x86" {
-            "windows-i686"
-        } else {
-            panic!("unsupported target_arch: {target_arch}");
-        };
-        println!("cargo:rustc-link-search=native=deps/sdk/{arch_dir}");
         build_amf(builder);
         build_nv(builder);
         build_mfx(builder);
