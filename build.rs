@@ -92,74 +92,73 @@ impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
     }
 }
 
-// android: both #[cfg(target_os = "linux")] and cfg!("target_os = "linux) is true, CARGO_CFG_TARGET_OS is android
-fn get_ffmpeg_arch() -> String {
-    let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-    // https://doc.rust-lang.org/reference/conditional-compilation.html#target_os
-    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
-    println!("ffmpeg: target_os: {target_os}, target_arch: {target_arch}");
-    let arch_dir = match target_os.as_str() {
-        "windows" => {
-            if target_arch == "x86_64" {
-                "windows-x86_64"
-            } else if target_arch == "x86" {
-                "windows-i686"
-            } else {
-                panic!("unsupported target_arch: {target_arch}");
-            }
-        }
-        "linux" => {
-            if target_arch == "x86_64" {
-                "linux-x86_64"
-            } else if target_arch == "aarch64" {
-                "linux-aarch64"
-            } else if target_arch == "arm" {
-                "linux-armv7"
-            } else {
-                panic!("unsupported target_arch: {target_arch}");
-            }
-        }
-        "macos" => {
-            if target_arch == "aarch64" {
-                "macos-aarch64"
-            } else if target_arch == "x86_64" {
-                "macos-x86_64"
-            } else {
-                panic!("unsupported target_arch: {target_arch}");
-            }
-        }
-        "android" => {
-            if target_arch == "aarch64" {
-                "android-aarch64"
-            } else if target_arch == "arm" {
-                "android-armv7"
-            } else {
-                panic!("unsupported target_arch: {target_arch}");
-            }
-        }
-        "ios" => {
-            if target_arch == "aarch64" {
-                "ios-aarch64"
-            } else {
-                panic!("unsupported target_arch: {target_arch}");
-            }
-        }
-        _ => panic!("unsupported os"),
-    };
-    arch_dir.to_string()
-}
-
 mod ffmpeg {
     use core::panic;
 
     use super::*;
 
     pub fn build_ffmpeg(builder: &mut Build) {
+        link_vcpkg(builder, std::env::var("VCPKG_ROOT").unwrap().into());
         link_ffmpeg(builder);
         build_ffmpeg_ram(builder);
         #[cfg(feature = "vram")]
         build_ffmpeg_vram(builder);
         build_mux(builder);
+    }
+
+    fn link_vcpkg(builder: &mut Build, mut path: PathBuf) -> PathBuf {
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        let mut target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+        if target_arch == "x86_64" {
+            target_arch = "x64".to_owned();
+        } else if target_arch == "x86" {
+            target_arch = "x86".to_owned();
+        } else if target_arch == "loongarch64" {
+            target_arch = "loongarch64".to_owned();
+        } else if target_arch == "aarch64" {
+            target_arch = "arm64".to_owned();
+        } else {
+            target_arch = "arm".to_owned();
+        }
+        let mut target = if target_os == "macos" {
+            if target_arch == "x64" {
+                "x64-osx".to_owned()
+            } else if target_arch == "arm64" {
+                "arm64-osx".to_owned()
+            } else {
+                format!("{}-{}", target_arch, target_os)
+            }
+        } else if target_os == "windows" {
+            "x64-windows-static".to_owned()
+        } else {
+            format!("{}-{}", target_arch, target_os)
+        };
+        if target_arch == "x86" {
+            target = target.replace("x64", "x86");
+        }
+        println!("cargo:info={}", target);
+        path.push("installed");
+        path.push(target);
+
+        println!(
+            "{}",
+            format!(
+                "cargo:rustc-link-search=native={}",
+                path.join("lib").to_str().unwrap()
+            )
+        );
+        let mut static_libs = vec!["avcodec", "avutil", "avformat"];
+        if target_os == "windows" {
+            static_libs.push("libmfx");
+        }
+        static_libs
+            .iter()
+            .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
+            .count();
+        let include = path.join("include");
+        println!("{}", format!("cargo:include={}", include.to_str().unwrap()));
+        builder.include(&include);
+        include
     }
 
     fn link_ffmpeg(builder: &mut Build) {
@@ -177,18 +176,8 @@ mod ffmpeg {
             .write_to_file(Path::new(&env::var_os("OUT_DIR").unwrap()).join("ffmpeg_ffi.rs"))
             .unwrap();
 
-        let arch_dir = get_ffmpeg_arch();
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
         let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-        let mut static_libs = vec!["avcodec", "avutil", "avformat"];
-        if target_os == "windows" {
-            static_libs.push("mfx");
-        }
-        static_libs
-            .iter()
-            .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
-            .count();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
             ["User32", "bcrypt", "ole32", "advapi32"].to_vec()
         } else if target_os == "linux" {
@@ -208,7 +197,6 @@ mod ffmpeg {
             .iter()
             .map(|lib| println!("cargo:rustc-link-lib={}", lib))
             .count();
-        builder.include(format!("deps/ffmpeg/{arch_dir}/include"));
 
         if target_os == "macos" || target_os == "ios" {
             println!("cargo:rustc-link-lib=framework=CoreFoundation");
@@ -330,7 +318,6 @@ mod sdk {
         builder.include(ffnvcodec_path);
 
         // video codc sdk
-        println!("cargo:rustc-link-lib=static=video_codec_sdk");
         let sdk_path = externals_dir.join("Video_Codec_SDK_11.1.5");
         builder.includes([
             sdk_path.clone(),
@@ -340,6 +327,25 @@ mod sdk {
             sdk_path.join("Samples").join("NvCodec").join("NVEncoder"),
             sdk_path.join("Samples").join("NvCodec").join("NVDecoder"),
         ]);
+
+        for file in vec!["NvEncoder.cpp", "NvEncoderCuda.cpp", "NvEncoderD3D11.cpp"] {
+            builder.file(
+                sdk_path
+                    .join("Samples")
+                    .join("NvCodec")
+                    .join("NvEncoder")
+                    .join(file),
+            );
+        }
+        for file in vec!["NvDecoder.cpp"] {
+            builder.file(
+                sdk_path
+                    .join("Samples")
+                    .join("NvCodec")
+                    .join("NvDecoder")
+                    .join(file),
+            );
+        }
 
         // crate
         builder.files(["nv_encode.cpp", "nv_decode.cpp"].map(|f| nv_dir.join(f)));
@@ -366,10 +372,22 @@ mod sdk {
         println!("cargo:rustc-link-lib=stdc++");
 
         // amf
-        println!("cargo:rustc-link-lib=static=amf");
         let amf_path = externals_dir.join("AMF_v1.4.29");
         builder.include(format!("{}/amf/public/common", amf_path.display()));
         builder.include(amf_path.join("amf"));
+
+        for f in vec![
+            "AMFFactory.cpp",
+            "AMFSTL.cpp",
+            "Thread.cpp",
+            #[cfg(windows)]
+            "Windows/ThreadWindows.cpp",
+            #[cfg(target_os = "linux")]
+            "Linux/ThreadLinux.cpp",
+            "TraceAdapter.cpp",
+        ] {
+            builder.file(format!("{}/amf/public/common/{}", amf_path.display(), f));
+        }
 
         // crate
         builder.files(["amf_encode.cpp", "amf_decode.cpp"].map(|f| amf_dir.join(f)));
@@ -396,9 +414,6 @@ mod sdk {
         let mfx_path = sdk_path.join("api").join("mfx_dispatch");
         // include headers and reuse static lib
         builder.include(mfx_path.join("windows").join("include"));
-        let arch_dir = get_ffmpeg_arch();
-        println!("cargo:rustc-link-search=native=deps/ffmpeg/{arch_dir}/lib");
-        println!("cargo:rustc-link-lib=static=mfx");
 
         let sample_path = sdk_path.join("samples").join("sample_common");
         builder
