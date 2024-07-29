@@ -31,7 +31,7 @@ pub fn decode_calls() -> DecodeCalls {
 
 // to-do: hardware ability
 pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
-    if unsafe { amf_driver_support() } != 0 {
+    if unsafe { amf_driver_support(std::ptr::null_mut()) } != 0 {
         return vec![];
     }
     let mut devices = vec![];
@@ -54,7 +54,7 @@ pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
 }
 
 pub fn possible_support_decoders() -> Vec<InnerDecodeContext> {
-    if unsafe { amf_driver_support() } != 0 {
+    if unsafe { amf_driver_support(std::ptr::null_mut()) } != 0 {
         return vec![];
     }
     let mut devices = vec![];

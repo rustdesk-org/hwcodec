@@ -588,7 +588,7 @@ private:
 
 extern "C" {
 
-int nv_decode_driver_support() {
+int nv_decode_driver_support(void *device) {
   try {
     CudaFunctions *cudl = NULL;
     CuvidFunctions *cvdl = NULL;

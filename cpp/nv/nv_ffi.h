@@ -4,9 +4,9 @@
 #include "../common/callback.h"
 #include <stdbool.h>
 
-int nv_encode_driver_support();
+int nv_encode_driver_support(void *device);
 
-int nv_decode_driver_support();
+int nv_decode_driver_support(void *device);
 
 void *nv_new_encoder(void *handle, int64_t luid, int32_t api,
                      int32_t dataFormat, int32_t width, int32_t height,

@@ -195,7 +195,7 @@ impl Decoder {
         // windows disable nvdec to avoid gpu stuck
         #[cfg(target_os = "linux")]
         {
-            let (nv, _, _) = crate::common::supported_gpu(false);
+            let (nv, _, _) = crate::common::linux_supported_gpu();
             let contains = |_driver: Driver, _format: DataFormat| {
                 #[cfg(all(windows, feature = "vram"))]
                 {

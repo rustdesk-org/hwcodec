@@ -554,7 +554,7 @@ private:
 
 extern "C" {
 
-int mfx_driver_support() {
+int mfx_driver_support(void *device) {
   MFXVideoSession session;
   return InitSession(session) == MFX_ERR_NONE ? 0 : -1;
 }

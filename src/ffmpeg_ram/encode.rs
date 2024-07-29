@@ -211,7 +211,7 @@ impl Encoder {
                 }
                 true
             };
-            let (_nv, amf, _intel) = crate::common::supported_gpu(true);
+            let (_nv, amf, _intel) = (true, true, true); //crate::common::supported_gpu(true);
 
             #[cfg(windows)]
             if _intel && contains(Driver::MFX, H264) {

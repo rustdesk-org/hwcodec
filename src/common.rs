@@ -16,41 +16,19 @@ pub enum Driver {
     FFMPEG,
 }
 
-#[cfg(any(windows, target_os = "linux"))]
-pub(crate) fn supported_gpu(_encode: bool) -> (bool, bool, bool) {
-    #[cfg(target_os = "linux")]
+#[cfg(target_os = "linux")]
+pub(crate) fn linux_supported_gpu() -> (bool, bool, bool) {
     use std::ffi::c_int;
-    #[cfg(target_os = "linux")]
     extern "C" {
         pub(crate) fn linux_support_nv() -> c_int;
         pub(crate) fn linux_support_amd() -> c_int;
         pub(crate) fn linux_support_intel() -> c_int;
     }
-
-    #[allow(unused_unsafe)]
-    unsafe {
-        #[cfg(windows)]
-        {
-            #[cfg(feature = "vram")]
-            return (
-                _encode && crate::vram::nv::nv_encode_driver_support() == 0
-                    || !_encode && crate::vram::nv::nv_decode_driver_support() == 0,
-                crate::vram::amf::amf_driver_support() == 0,
-                crate::vram::mfx::mfx_driver_support() == 0,
-            );
-            #[cfg(not(feature = "vram"))]
-            return (true, true, true);
-        }
-
-        #[cfg(target_os = "linux")]
-        return (
-            linux_support_nv() == 0,
-            linux_support_amd() == 0,
-            linux_support_intel() == 0,
-        );
-        #[allow(unreachable_code)]
-        (false, false, false)
-    }
+    return (
+        linux_support_nv() == 0,
+        linux_support_amd() == 0,
+        linux_support_intel() == 0,
+    );
 }
 
 #[cfg(target_os = "macos")]

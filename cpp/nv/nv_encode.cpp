@@ -310,7 +310,7 @@ private:
 
 extern "C" {
 
-int nv_encode_driver_support() {
+int nv_encode_driver_support(void *device) {
   try {
     CudaFunctions *cuda_dl = NULL;
     NvencFunctions *nvenc_dl = NULL;

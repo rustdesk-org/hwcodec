@@ -43,4 +43,12 @@ enum RateControl {
   RC_CQ,
 };
 
+enum Capability {
+  CAP_ENCODE_H264 = 1 << 0,
+  CAP_ENCODE_H265 = 1 << 1,
+  CAP_DECODE_H264 = 1 << 2,
+  CAP_DECODE_H265 = 1 << 3,
+  CAP_INVALID = 1 << 31,
+};
+
 #endif // COMMON_H

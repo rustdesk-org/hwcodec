@@ -30,7 +30,7 @@ pub fn decode_calls() -> DecodeCalls {
 }
 
 pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
-    if unsafe { nv_encode_driver_support() } != 0 {
+    if unsafe { nv_encode_driver_support(std::ptr::null_mut()) } != 0 {
         return vec![];
     }
     let devices = vec![API_DX11];
@@ -48,7 +48,7 @@ pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
 }
 
 pub fn possible_support_decoders() -> Vec<InnerDecodeContext> {
-    if unsafe { nv_encode_driver_support() } != 0 {
+    if unsafe { nv_encode_driver_support(std::ptr::null_mut()) } != 0 {
         return vec![];
     }
     let devices = vec![API_DX11];

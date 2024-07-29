@@ -17,6 +17,7 @@ extern "C" {
 #include <uitl.h>
 #ifdef _WIN32
 #include "win.h"
+#include <libavutil/hwcontext_d3d11va.h>
 #endif
 
 static int calculate_offset_length(int pix_fmt, int height, const int *linesize,
@@ -185,6 +186,14 @@ public:
         LOG_ERROR("av_hwdevice_ctx_create failed");
         return false;
       }
+#ifdef _WIN32
+      if (hw_device_type_ == AV_HWDEVICE_TYPE_D3D11VA) {
+        AVHWDeviceContext *deviceContext =
+            (AVHWDeviceContext *)hw_device_ctx_->data;
+        AVD3D11VADeviceContext *d3d11vaDeviceContext =
+            (AVD3D11VADeviceContext *)deviceContext->hwctx;
+      }
+#endif
       if (set_hwframe_ctx() != 0) {
         LOG_ERROR("set_hwframe_ctx failed");
         return false;

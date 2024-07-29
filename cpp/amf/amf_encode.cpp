@@ -510,17 +510,97 @@ int amf_encode(void *encoder, void *tex, EncodeCallback callback, void *obj,
   return -1;
 }
 
-int amf_driver_support() {
+int amf_driver_support(void *device) {
+  if (device == NULL) {
+    try {
+      AMFFactoryHelper factory;
+      AMF_RESULT res = factory.Init();
+      if (res == AMF_OK) {
+        factory.Terminate();
+        return 0;
+      }
+    } catch (const std::exception &e) {
+    }
+    return -1;
+  }
+
+#include <public/include/components/VideoDecoderUVD.h>
+
+  AMFFactoryHelper factory;
+  amf::AMFContextPtr pContext = NULL;
+  amf::AMFComponentPtr encoderH264 = NULL;
+  amf::AMFComponentPtr encoderH265 = NULL;
+  amf::AMFComponentPtr decoderH264 = NULL;
+  amf::AMFComponentPtr decoderH265 = NULL;
+  int ret = 0;
+
   try {
-    AMFFactoryHelper factory;
     AMF_RESULT res = factory.Init();
+    if (res != AMF_OK) {
+      return ret;
+    }
+    res = factory.GetFactory()->CreateContext(&pContext);
+    if (res != AMF_OK) {
+      goto _exit;
+    }
+    res = pContext->InitDX11(device);
+    if (res != AMF_OK) {
+      goto _exit;
+    }
+    res = factory.GetFactory()->CreateComponent(
+        pContext, AMFVideoEncoderVCE_AVC, &encoderH264);
     if (res == AMF_OK) {
-      factory.Terminate();
-      return 0;
+      ret |= CAP_ENCODE_H264;
+      encoderH264->Terminate();
+      encoderH264 = NULL;
+    }
+    res = factory.GetFactory()->CreateComponent(pContext, AMFVideoEncoder_HEVC,
+                                                &encoderH265);
+    if (res == AMF_OK) {
+      ret |= CAP_ENCODE_H265;
+      encoderH265->Terminate();
+      encoderH265 = NULL;
+    }
+    res = factory.GetFactory()->CreateComponent(
+        pContext, AMFVideoDecoderUVD_H264_AVC, &decoderH264);
+    if (res == AMF_OK) {
+      ret |= CAP_DECODE_H264;
+      decoderH264->Terminate();
+      decoderH264 = NULL;
+    }
+    res = factory.GetFactory()->CreateComponent(
+        pContext, AMFVideoDecoderHW_H265_HEVC, &decoderH265);
+    if (res == AMF_OK) {
+      ret |= CAP_DECODE_H265;
+      decoderH265->Terminate();
+      decoderH265 = NULL;
     }
   } catch (const std::exception &e) {
   }
-  return -1;
+
+_exit:
+  if (decoderH265) {
+    decoderH265->Terminate();
+    decoderH265 = NULL;
+  }
+  if (decoderH264) {
+    decoderH264->Terminate();
+    decoderH264 = NULL;
+  }
+  if (encoderH265) {
+    encoderH265->Terminate();
+    encoderH265 = NULL;
+  }
+  if (encoderH264) {
+    encoderH264->Terminate();
+    encoderH264 = NULL;
+  }
+  if (pContext) {
+    pContext->Terminate();
+    pContext = NULL;
+  }
+  factory.Terminate();
+  return ret;
 }
 
 int amf_test_encode(void *outDescs, int32_t maxDescNum, int32_t *outDescNum,
