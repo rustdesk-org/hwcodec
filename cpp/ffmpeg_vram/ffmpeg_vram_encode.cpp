@@ -493,8 +493,8 @@ int ffmpeg_vram_test_encode(void *outDescs, int32_t maxDescNum,
   try {
     AdapterDesc *descs = (AdapterDesc *)outDescs;
     int count = 0;
-    AdapterVendor vendors[] = {ADAPTER_VENDOR_INTEL, ADAPTER_VENDOR_NVIDIA,
-                               ADAPTER_VENDOR_AMD};
+    // qsv has memory leak issue, add it back after fixed
+    AdapterVendor vendors[] = {ADAPTER_VENDOR_NVIDIA, ADAPTER_VENDOR_AMD};
     for (auto vendor : vendors) {
       Adapters adapters;
       if (!adapters.Init(vendor))

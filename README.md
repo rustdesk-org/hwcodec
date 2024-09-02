@@ -7,7 +7,7 @@
 
 | GPU           | FFmpeg ram        | FFmpeg vram | sdk vram |
 | ------------- | ----------------  | ----------- | -------- |
-| intel encode  | qsv               | qsv         | Y        |
+| intel encode  | qsv               |             | Y        |
 | intel decode  | d3d11             | d3d11       | Y        |
 | nvidia encode | nvenc(nv12->d3d11)| nvenc(d3d11)| Y        |
 | nvidia decode | d3d11             | d3d11       | N        |
@@ -23,6 +23,8 @@ Based on the information above, there are several optimizations and changes made
   - SDK decoding with CUDA acceleration: The CUDA acceleration support is disabled.
 
 * amd sdk remove h265 support, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/432
+
+* ffmpeg qsv vram encode is not well implemented, has memory leak issue
 
 ### Linux
 
