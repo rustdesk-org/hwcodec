@@ -325,6 +325,10 @@ private:
         }
         goto _exit;
       }
+      if (!pkt_->data || !pkt_->size) {
+        LOG_ERROR("avcodec_receive_packet failed, pkt size is 0");
+        goto _exit;
+      }
       encoded = true;
       if (callback)
         callback(pkt_->data, pkt_->size, pkt_->flags & AV_PKT_FLAG_KEY, obj,
