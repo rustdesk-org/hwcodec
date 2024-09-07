@@ -116,6 +116,7 @@ public:
     if (!choose_encoder(vendor)) {
       return false;
     }
+    LOG_INFO("encoder name: " + encoder_->name_);
     if (!(codec = avcodec_find_encoder_by_name(encoder_->name_.c_str()))) {
       LOG_ERROR("Codec " + encoder_->name_ + " not found");
       return false;
@@ -277,6 +278,7 @@ private:
       encoder_ = std::make_unique<Encoder>(
           EncoderDriver::NVENC, name, AV_HWDEVICE_TYPE_D3D11VA,
           AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_D3D11, AV_PIX_FMT_NV12);
+      return true;
     } else if (ADAPTER_VENDOR_AMD == vendor) {
       const char *name = nullptr;
       if (dataFormat_ == H264) {
@@ -290,6 +292,7 @@ private:
       encoder_ = std::make_unique<Encoder>(
           EncoderDriver::AMF, name, AV_HWDEVICE_TYPE_D3D11VA,
           AV_HWDEVICE_TYPE_NONE, AV_PIX_FMT_D3D11, AV_PIX_FMT_NV12);
+      return true;
     } else if (ADAPTER_VENDOR_INTEL == vendor) {
       const char *name = nullptr;
       if (dataFormat_ == H264) {
@@ -303,11 +306,12 @@ private:
       encoder_ = std::make_unique<Encoder>(
           EncoderDriver::QSV, name, AV_HWDEVICE_TYPE_D3D11VA,
           AV_HWDEVICE_TYPE_QSV, AV_PIX_FMT_QSV, AV_PIX_FMT_NV12);
+      return true;
     } else {
       LOG_ERROR("Unsupported vendor: " + std::to_string(vendor));
       return false;
     }
-    LOG_INFO("FFmpeg vram encoder name: " + encoder_->name_);
+    return false;
   }
   int do_encode(EncodeCallback callback, const void *obj, int64_t ms) {
     int ret;
