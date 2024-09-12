@@ -176,7 +176,7 @@ mod ffmpeg {
         let dyn_libs: Vec<&str> = if target_os == "windows" {
             ["User32", "bcrypt", "ole32", "advapi32"].to_vec()
         } else if target_os == "linux" {
-            let mut v = ["va", "va-drm", "va-x11", "vdpau", "X11", "stdc++"].to_vec();
+            let mut v = ["va", "va-drm", "drm", "va-x11", "vdpau", "X11", "stdc++"].to_vec();
             if target_arch == "x86_64" {
                 v.push("z");
             }
