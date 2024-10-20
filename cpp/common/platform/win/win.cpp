@@ -737,3 +737,11 @@ uint64_t GetHwcodecGpuSignature() {
   }
   return signature;
 }
+
+void hwcodec_get_d3d11_texture_width_height(ID3D11Texture2D *texture, int *w,
+                                             int *h) {
+  D3D11_TEXTURE2D_DESC desc;
+  texture->GetDesc(&desc);
+  *w = desc.Width;
+  *h = desc.Height;
+}
