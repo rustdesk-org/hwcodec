@@ -51,6 +51,7 @@ fn main() {
         let mut dup_sum = Duration::ZERO;
         let mut enc_sum = Duration::ZERO;
         let mut dec_sum = Duration::ZERO;
+        let mut pts_instant = Instant::now();
         loop {
             let start = Instant::now();
             let texture = capturer.capture(100);
@@ -59,7 +60,9 @@ fn main() {
             }
             dup_sum += start.elapsed();
             let start = Instant::now();
-            let frame = enc.encode(texture).unwrap();
+            let frame = enc
+                .encode(texture, pts_instant.elapsed().as_millis() as _)
+                .unwrap();
             enc_sum += start.elapsed();
             for f in frame {
                 file.write_all(&mut f.data).unwrap();

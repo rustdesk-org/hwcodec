@@ -44,6 +44,8 @@ public:
   bool init(const char *filename, int width, int height, int is265,
             int framerate) {
     OutputStream *ost = &video_st;
+    ost->st = NULL;
+    ost->tmp_pkt = NULL;
     int ret;
 
     if ((ret = avformat_alloc_output_context2(&oc, NULL, NULL, filename)) < 0) {

@@ -19,6 +19,14 @@ pub struct Decoder {
 unsafe impl Send for Decoder {}
 unsafe impl Sync for Decoder {}
 
+extern "C" {
+    fn hwcodec_get_d3d11_texture_width_height(
+        texture: *mut c_void,
+        width: *mut i32,
+        height: *mut i32,
+    );
+}
+
 impl Decoder {
     pub fn new(ctx: DecodeContext) -> Result<Self, ()> {
         let calls = match ctx.driver {
@@ -68,8 +76,15 @@ impl Decoder {
 
     unsafe extern "C" fn callback(texture: *mut c_void, obj: *const c_void) {
         let frames = &mut *(obj as *mut Vec<DecodeFrame>);
+        let mut width = 0;
+        let mut height = 0;
+        hwcodec_get_d3d11_texture_width_height(texture, &mut width, &mut height);
 
-        let frame = DecodeFrame { texture };
+        let frame = DecodeFrame {
+            texture,
+            width,
+            height,
+        };
         frames.push(frame);
     }
 }
@@ -87,6 +102,8 @@ impl Drop for Decoder {
 
 pub struct DecodeFrame {
     pub texture: *mut c_void,
+    pub width: i32,
+    pub height: i32,
 }
 
 pub fn available() -> Vec<DecodeContext> {
