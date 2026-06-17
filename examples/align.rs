@@ -5,7 +5,7 @@ use hwcodec::{
     vram::{DynamicContext, FeatureContext},
 };
 use hwcodec::{
-    common::{DataFormat, Quality::*, RateControl::*},
+    common::{DataFormat, RateControl::*},
     ffmpeg::AVPixelFormat::*,
     ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
@@ -36,10 +36,10 @@ fn setup_ram(max_align: i32) {
             fps: 30,
             gop: 60,
             rc: RC_CBR,
-            quality: Quality_Default,
             kbs: 0,
-            q: -1,
-            thread_count: 1,
+            qp: -1,
+            qp_min: 0,
+            qp_max: 0,
         },
         None,
     );
@@ -99,13 +99,13 @@ fn test_ram(width: i32, height: i32, encode_info: CodecInfo, decode_info: CodecI
         height,
         pixfmt: AV_PIX_FMT_NV12,
         align: 0,
-        kbs: 0,
+        kbs: 2000,
         fps: 30,
         gop: 60,
-        quality: Quality_Default,
         rc: RC_CBR,
-        thread_count: 1,
-        q: -1,
+        qp: 28,
+        qp_min: 22,
+        qp_max: 34,
     };
     let decode_ctx = DecodeContext {
         name: decode_info.name.clone(),
@@ -143,6 +143,10 @@ fn setup_vram(max_align: i32) {
         kbitrate: 1000,
         framerate: 30,
         gop: MAX_GOP as _,
+        qp: 0,
+        qp_min: 0,
+        qp_max: 0,
+        rc: RC_CQP,
     });
     let decoders = hwcodec::vram::decode::available();
 
@@ -192,6 +196,10 @@ fn test_vram(
             kbitrate: 1000,
             framerate: 30,
             gop: MAX_GOP as _,
+            qp: 28,
+            qp_min: 22,
+            qp_max: 34,
+            rc: RC_CQP,
         },
     };
     let mut encoder = hwcodec::vram::encode::Encoder::new(encode_ctx).unwrap();

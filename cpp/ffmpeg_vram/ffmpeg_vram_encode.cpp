@@ -76,13 +76,18 @@ public:
   int32_t kbs_;
   int32_t framerate_;
   int32_t gop_;
+  int32_t rc_;
+  int32_t qp_ = 0;
+  int32_t qp_min_ = 0;
+  int32_t qp_max_ = 0;
 
   const int align_ = 0;
   const bool full_range_ = false;
   const bool bt709_ = false;
   FFmpegVRamEncoder(void *handle, int64_t luid, DataFormat dataFormat,
                     int32_t width, int32_t height, int32_t kbs,
-                    int32_t framerate, int32_t gop) {
+                    int32_t framerate, int32_t gop,
+                    int32_t rc, int32_t qp, int32_t qp_min, int32_t qp_max) {
     handle_ = handle;
     luid_ = luid;
     dataFormat_ = dataFormat;
@@ -91,6 +96,10 @@ public:
     kbs_ = kbs;
     framerate_ = framerate;
     gop_ = gop;
+    rc_ = rc;
+    qp_ = qp;
+    qp_min_ = qp_min;
+    qp_max_ = qp_max;
   }
 
   ~FFmpegVRamEncoder() {}
@@ -129,13 +138,11 @@ public:
     c_->height = height_;
     c_->pix_fmt = encoder_->hw_pixfmt_;
     c_->sw_pix_fmt = encoder_->sw_pixfmt_;
-    util_encode::set_av_codec_ctx(c_, encoder_->name_, kbs_, gop_, framerate_);
+    util_encode::set_av_codec_ctx(c_, encoder_->name_, gop_, framerate_);
     if (!util_encode::set_lantency_free(c_->priv_data, encoder_->name_)) {
       return false;
     }
-    // util_encode::set_quality(c_->priv_data, encoder_->name_, Quality_Default);
-    util_encode::set_rate_control(c_, encoder_->name_, RC_CBR, -1);
-    util_encode::set_others(c_->priv_data, encoder_->name_);
+    util_encode::set_rate_control(c_, encoder_->name_, rc_, kbs_, qp_, qp_min_, qp_max_);
 
     hw_device_ctx_ = av_hwdevice_ctx_alloc(encoder_->device_type_);
     if (!hw_device_ctx_) {
@@ -252,7 +259,11 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    return util_encode::change_bit_rate(c_, encoder_->name_, kbs) ? 0 : -1;
+    return util_encode::change_bit_rate(c_, encoder_->name_, rc_, kbs) ? 0 : -1;
+  }
+
+  int set_qp(int qp, int qp_min, int qp_max) {
+    return util_encode::change_qp(c_, encoder_->name_, qp, qp_min, qp_max) ? 0 : -1;
   }
 
   int set_framerate(int framerate) {
@@ -432,11 +443,14 @@ extern "C" {
 FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
                                            DataFormat dataFormat, int32_t width,
                                            int32_t height, int32_t kbs,
-                                           int32_t framerate, int32_t gop) {
+                                           int32_t framerate, int32_t gop,
+                                           int32_t rc, int32_t qp, int32_t qp_min,
+                                           int32_t qp_max) {
   FFmpegVRamEncoder *encoder = NULL;
   try {
     encoder = new FFmpegVRamEncoder(handle, luid, dataFormat, width,
-                                    height, kbs, framerate, gop);
+                                    height, kbs, framerate, gop,
+                                    rc, qp, qp_min, qp_max);
     if (encoder) {
       if (encoder->init()) {
         return encoder;
@@ -479,7 +493,17 @@ int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) {
   try {
     return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
-    LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
+    LOG_ERROR(std::string("ffmpeg_vram_set_bitrate failed, ") + std::string(e.what()));
+  }
+  return -1;
+}
+
+int ffmpeg_vram_set_qp(FFmpegVRamEncoder *encoder, int32_t qp, int32_t qp_min,
+                        int32_t qp_max) {
+  try {
+    return encoder->set_qp(qp, qp_min, qp_max);
+  } catch (const std::exception &e) {
+    LOG_ERROR(std::string("ffmpeg_vram_set_qp failed, ") + std::string(e.what()));
   }
   return -1;
 }
@@ -497,6 +521,7 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
                             int32_t *outDescNum, DataFormat dataFormat,
                             int32_t width, int32_t height, int32_t kbs,
                             int32_t framerate, int32_t gop,
+                            int32_t rc, int32_t qp, int32_t qp_min, int32_t qp_max,
                             const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
     int count = 0;
@@ -522,7 +547,7 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
         
         FFmpegVRamEncoder *e = (FFmpegVRamEncoder *)ffmpeg_vram_new_encoder(
             (void *)adapter.get()->device_.Get(), currentLuid,
-            dataFormat, width, height, kbs, framerate, gop);
+            dataFormat, width, height, kbs, framerate, gop, rc, qp, qp_min, qp_max);
         if (!e)
           continue;
         if (e->native_->EnsureTexture(e->width_, e->height_)) {

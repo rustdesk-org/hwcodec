@@ -1,12 +1,13 @@
 use crate::{
     common::{
         DataFormat::{self, *},
-        Quality, RateControl, TEST_TIMEOUT_MS,
+        RateControl, TEST_TIMEOUT_MS,
     },
     ffmpeg::{init_av_log, AVPixelFormat},
     ffmpeg_ram::{
         ffmpeg_linesize_offset_length, ffmpeg_ram_encode, ffmpeg_ram_free_encoder,
-        ffmpeg_ram_new_encoder, ffmpeg_ram_set_bitrate, CodecInfo, AV_NUM_DATA_POINTERS,
+        ffmpeg_ram_new_encoder, ffmpeg_ram_set_bitrate, ffmpeg_ram_set_qp, CodecInfo,
+        AV_NUM_DATA_POINTERS,
     },
 };
 use log::trace;
@@ -32,10 +33,10 @@ pub struct EncodeContext {
     pub fps: i32,
     pub gop: i32,
     pub rc: RateControl,
-    pub quality: Quality,
     pub kbs: i32,
-    pub q: i32,
-    pub thread_count: i32,
+    pub qp: i32,
+    pub qp_min: i32,
+    pub qp_max: i32,
 }
 
 pub struct EncodeFrame {
@@ -87,10 +88,10 @@ impl Encoder {
                 ctx.fps,
                 ctx.gop,
                 ctx.rc as _,
-                ctx.quality as _,
                 ctx.kbs,
-                ctx.q,
-                ctx.thread_count,
+                ctx.qp,
+                ctx.qp_min,
+                ctx.qp_max,
                 gpu,
                 linesize.as_mut_ptr(),
                 offset.as_mut_ptr(),
@@ -143,6 +144,15 @@ impl Encoder {
 
     pub fn set_bitrate(&mut self, kbs: i32) -> Result<(), ()> {
         let ret = unsafe { ffmpeg_ram_set_bitrate(self.codec, kbs) };
+        if ret == 0 {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn set_qp(&mut self, qp: i32, qp_min: i32, qp_max: i32) -> Result<(), ()> {
+        let ret = unsafe { ffmpeg_ram_set_qp(self.codec, qp, qp_min, qp_max) };
         if ret == 0 {
             Ok(())
         } else {
@@ -315,76 +325,31 @@ impl Encoder {
                     ..ctx
                 };
 
-                match Encoder::new(c) {
-                    Ok(mut encoder) => {
-                        debug!("Encoder {} created successfully", codec.name);
-                        let mut passed = false;
-                        let mut last_err: Option<i32> = None;
+                if !Encoder::test_encode_once(c.clone(), &yuv) {
+                    continue;
+                }
 
-                        let max_attempts = if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-                            3
-                        } else {
-                            1
-                        };
-                        for attempt in 0..max_attempts {
-                            let pts = (attempt as i64) * 33; // 33ms is an approximation for 30 FPS (1000 / 30)
-                            let start = std::time::Instant::now();
-                            match encoder.encode(&yuv, pts) {
-                                Ok(frames) => {
-                                    let elapsed = start.elapsed().as_millis();
+                let needs_cqp_test = (codec.name.contains("qsv")
+                    || codec.name.contains("nvenc")
+                    || codec.name.contains("amf"))
+                    && ctx.rc != RateControl::RC_CQP;
 
-                                    if frames.len() == 1 {
-                                        if frames[0].key == 1 && elapsed < TEST_TIMEOUT_MS as _ {
-                                            debug!(
-                                                "Encoder {} test passed on attempt {}",
-                                                codec.name, attempt + 1
-                                            );
-                                            res.push(codec.clone());
-                                            passed = true;
-                                            break;
-                                        } else {
-                                            debug!(
-                                                "Encoder {} test failed on attempt {} - key: {}, timeout: {}ms",
-                                                codec.name,
-                                                attempt + 1,
-                                                frames[0].key,
-                                                elapsed
-                                            );
-                                        }
-                                    } else {
-                                        debug!(
-                                            "Encoder {} test failed on attempt {} - wrong frame count: {}",
-                                            codec.name,
-                                            attempt + 1,
-                                            frames.len()
-                                        );
-                                    }
-                                }
-                                Err(err) => {
-                                    last_err = Some(err);
-                                    debug!(
-                                        "Encoder {} test attempt {} returned error: {}",
-                                        codec.name,
-                                        attempt + 1,
-                                        err
-                                    );
-                                }
-                            }
-                        }
-
-                        if !passed {
-                            debug!(
-                                "Encoder {} test failed after retries{}",
-                                codec.name,
-                                last_err
-                                    .map(|e| format!(" (last err: {})", e))
-                                    .unwrap_or_default()
-                            );
-                        }
+                if needs_cqp_test {
+                    let cqp_c = EncodeContext {
+                        rc: RateControl::RC_CQP,
+                        ..c
+                    };
+                    if Encoder::test_encode_once(cqp_c, &yuv) {
+                        debug!(
+                            "Encoder {} passed both original and CQP tests",
+                            codec.name
+                        );
+                        res.push(codec.clone());
+                    } else {
+                        debug!("Encoder {} CQP test failed, skipping", codec.name);
                     }
-                    Err(_) => {
-                        debug!("Failed to create encoder {}", codec.name);
-                    }
+                } else {
+                    res.push(codec.clone());
                 }
             }
         } else {
@@ -392,6 +357,64 @@ impl Encoder {
         }
 
         res
+    }
+
+    fn test_encode_once(ctx: EncodeContext, yuv: &[u8]) -> bool {
+        use log::debug;
+        match Encoder::new(ctx.clone()) {
+            Ok(mut encoder) => {
+                debug!("Encoder {} (rc={:?}) created successfully", ctx.name, ctx.rc);
+                let max_attempts =
+                    if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+                        3
+                    } else {
+                        1
+                    };
+                for attempt in 0..max_attempts {
+                    let pts = (attempt as i64) * 33;
+                    let start = std::time::Instant::now();
+                    match encoder.encode(yuv, pts) {
+                        Ok(frames) => {
+                            let elapsed = start.elapsed().as_millis();
+                            if frames.len() == 1 {
+                                if frames[0].key == 1 && elapsed < TEST_TIMEOUT_MS as _ {
+                                    debug!(
+                                        "Encoder {} (rc={:?}) test passed on attempt {}",
+                                        ctx.name, ctx.rc, attempt + 1
+                                    );
+                                    return true;
+                                } else {
+                                    debug!(
+                                        "Encoder {} (rc={:?}) test failed on attempt {} - key: {}, timeout: {}ms",
+                                        ctx.name, ctx.rc, attempt + 1, frames[0].key, elapsed
+                                    );
+                                }
+                            } else {
+                                debug!(
+                                    "Encoder {} (rc={:?}) test failed on attempt {} - wrong frame count: {}",
+                                    ctx.name, ctx.rc, attempt + 1, frames.len()
+                                );
+                            }
+                        }
+                        Err(err) => {
+                            debug!(
+                                "Encoder {} (rc={:?}) test attempt {} returned error: {}",
+                                ctx.name, ctx.rc, attempt + 1, err
+                            );
+                        }
+                    }
+                }
+                debug!(
+                    "Encoder {} (rc={:?}) test failed after retries",
+                    ctx.name, ctx.rc
+                );
+                false
+            }
+            Err(_) => {
+                debug!("Failed to create encoder {} (rc={:?})", ctx.name, ctx.rc);
+                false
+            }
+        }
     }
 
     fn dummy_yuv(ctx: EncodeContext) -> Result<Vec<u8>, ()> {

@@ -17,7 +17,14 @@ extern "C" {
 
 namespace util_encode {
 
-void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
+int64_t calc_vbr_max_rate(int64_t bit_rate) {
+  // Keep both relative and absolute headroom for VBR burst allocation.
+  const int64_t by_ratio = (bit_rate * 3) / 2;
+  const int64_t by_offset = bit_rate + 500000;
+  return by_ratio > by_offset ? by_ratio : by_offset;
+}
+
+void set_av_codec_ctx(AVCodecContext *c, const std::string &name,
                       int gop, int fps) {
   c->has_b_frames = 0;
   c->max_b_frames = 0;
@@ -31,15 +38,6 @@ void set_av_codec_ctx(AVCodecContext *c, const std::string &name, int kbs,
     c->gop_size = std::numeric_limits<int>::max();
   }
   c->keyint_min = std::numeric_limits<int>::max();
-  /* put sample parameters */
-  // https://github.com/FFmpeg/FFmpeg/blob/415f012359364a77e8394436f222b74a8641a3ee/libavcodec/encode.c#L581
-  if (kbs > 0) {
-    c->bit_rate = kbs * 1000;
-    if (name.find("qsv") != std::string::npos) {
-      c->rc_max_rate = c->bit_rate;
-      c->bit_rate--; // cbr with vbr
-    }
-  }
   /* frames per second */
   c->time_base = av_make_q(1, 1000);
   c->framerate = av_make_q(fps, 1);
@@ -102,142 +100,160 @@ bool set_lantency_free(void *priv_data, const std::string &name) {
   return true;
 }
 
-bool set_quality(void *priv_data, const std::string &name, int quality) {
-  int ret = -1;
-
-  if (name.find("nvenc") != std::string::npos) {
-    switch (quality) {
-    // p7 isn't zero lantency
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "p4", 0)) < 0) {
-        LOG_ERROR(std::string("nvenc set opt preset p4 failed, ret = ") + av_err2str(ret));
-        return false;
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "p1", 0)) < 0) {
-        LOG_ERROR(std::string("nvenc set opt preset p1 failed, ret = ") + av_err2str(ret));
-        return false;
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (name.find("amf") != std::string::npos) {
-    switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "quality", "quality", 0)) < 0) {
-        LOG_ERROR(std::string("amf set opt quality quality failed, ret = ") +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "quality", "balanced", 0)) < 0) {
-        LOG_ERROR(std::string("amf set opt quality balanced failed, ret = ") +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "quality", "speed", 0)) < 0) {
-        LOG_ERROR(std::string("amf set opt quality speed failed, ret = ") + av_err2str(ret));
-        return false;
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (name.find("qsv") != std::string::npos) {
-    switch (quality) {
-    case Quality_High:
-      if ((ret = av_opt_set(priv_data, "preset", "veryslow", 0)) < 0) {
-        LOG_ERROR(std::string("qsv set opt preset veryslow failed, ret = ") +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    case Quality_Medium:
-      if ((ret = av_opt_set(priv_data, "preset", "medium", 0)) < 0) {
-        LOG_ERROR(std::string("qsv set opt preset medium failed, ret = ") + av_err2str(ret));
-        return false;
-      }
-      break;
-    case Quality_Low:
-      if ((ret = av_opt_set(priv_data, "preset", "veryfast", 0)) < 0) {
-        LOG_ERROR(std::string("qsv set opt preset veryfast failed, ret = ") +
-                  av_err2str(ret));
-        return false;
-      }
-      break;
-    default:
-      break;
-    }
-  }
-  if (name.find("mediacodec") != std::string::npos) {
-    if (name.find("h264") != std::string::npos) {
-      if ((ret = av_opt_set(priv_data, "level", "5.1", 0)) < 0) {
-        LOG_ERROR(std::string("mediacodec set opt level 5.1 failed, ret = ") +
-                  av_err2str(ret));
-        return false;
-      }
-    }
-    if (name.find("hevc") != std::string::npos) {
-      // https:en.wikipedia.org/wiki/High_Efficiency_Video_Coding_tiers_and_levels
-      if ((ret = av_opt_set(priv_data, "level", "h5.1", 0)) < 0) {
-        LOG_ERROR(std::string("mediacodec set opt level h5.1 failed, ret = ") +
-                  av_err2str(ret));
-        return false;
-      }
-    }
-  }
-  return true;
+static int clamp_qp(int qp) {
+  if (qp < 0) return 0;
+  if (qp > 51) return 51;
+  return qp;
 }
 
-struct CodecOptions {
-  std::string codec_name;
-  std::string option_name;
-  std::map<int, std::string> rc_values;
-};
+static int ensure_kbs(int kbs) {
+  return kbs > 0 ? kbs : DEFAULT_KBS;
+}
+
+void sanitize_qp(int &qp, int &qp_min, int &qp_max) {
+  if (qp <= 0) qp = DEFAULT_QP;
+  if (qp_min <= 0) qp_min = DEFAULT_QP_MIN;
+  if (qp_max <= 0) qp_max = DEFAULT_QP_MAX;
+  qp = clamp_qp(qp);
+  qp_min = clamp_qp(qp_min);
+  qp_max = clamp_qp(qp_max);
+  if (qp_min > qp) qp_min = qp;
+  if (qp_max < qp) qp_max = qp;
+}
+
+static void apply_nvenc_qp(AVCodecContext *c, int qp) {
+  av_opt_set(c->priv_data, "rc", "constqp", 0);
+  av_opt_set_int(c->priv_data, "qp", qp, 0);
+}
+
+static void apply_amf_qp(AVCodecContext *c, const std::string &name,
+                          int qp, int qp_min, int qp_max) {
+  av_opt_set(c->priv_data, "rc", "cqp", 0);
+  av_opt_set_int(c->priv_data, "vbaq", 0, 0);
+  av_opt_set_int(c->priv_data, "qp_i", qp, 0);
+  av_opt_set_int(c->priv_data, "qp_p", qp, 0);
+  if (name.find("h264") != std::string::npos) {
+    av_opt_set_int(c->priv_data, "qp_b", qp, 0);
+  }
+  if (qp_min > 0) c->qmin = qp_min;
+  if (qp_max > 0) c->qmax = qp_max;
+}
+
+static void apply_qsv_qp(AVCodecContext *c, int qp, int qp_min, int qp_max) {
+  c->global_quality = qp * FF_QP2LAMBDA;
+  if (qp_min > 0) c->qmin = qp_min;
+  if (qp_max > 0) c->qmax = qp_max;
+}
+
+static void set_cqp_common(AVCodecContext *c) {
+  c->flags |= AV_CODEC_FLAG_QSCALE;
+  c->bit_rate = 0;
+  c->rc_max_rate = 0;
+}
 
 bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
-                      int q) {
-  if (name.find("qsv") != std::string::npos) {
-    // https://github.com/LizardByte/Sunshine/blob/3e47cd3cc8fd37a7a88be82444ff4f3c0022856b/src/video.cpp#L1635
-    c->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
-  }
-  std::vector<CodecOptions> codecs = {
-      {"nvenc", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}}},
-      {"amf", "rc", {{RC_CBR, "cbr"}, {RC_VBR, "vbr_latency"}}},
-      {"mediacodec",
-       "bitrate_mode",
-       {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}, {RC_CQ, "cq"}}},
-      // {"videotoolbox", "constant_bit_rate", {{RC_CBR, "1"}}},
-    };
+                      int kbs, int qp, int qp_min, int qp_max) {
+  int ret;
 
-  for (const auto &codec : codecs) {
-    if (name.find(codec.codec_name) != std::string::npos) {
-      auto it = codec.rc_values.find(rc);
-      if (it != codec.rc_values.end()) {
-        int ret = av_opt_set(c->priv_data, codec.option_name.c_str(),
-                             it->second.c_str(), 0);
-        if (ret < 0) {
-          LOG_ERROR(codec.codec_name + " set opt " + codec.option_name + " " +
-                    it->second + " failed, ret = " + av_err2str(ret));
-          return false;
-        }
-        if (name.find("mediacodec") != std::string::npos) {
-          if (rc == RC_CQ) {
-            if (q >= 0 && q <= 51) {
-              c->global_quality = q;
-            }
-          }
-        }
+  if (name.find("qsv") != std::string::npos) {
+    c->strict_std_compliance = FF_COMPLIANCE_UNOFFICIAL;
+    if (rc == RC_CQP) {
+      sanitize_qp(qp, qp_min, qp_max);
+      set_cqp_common(c);
+      apply_qsv_qp(c, qp, qp_min, qp_max);
+    } else {
+      kbs = ensure_kbs(kbs);
+      c->bit_rate = kbs * 1000;
+      if (rc == RC_VBR) {
+        c->rc_max_rate = calc_vbr_max_rate(c->bit_rate);
+      } else if (rc == RC_CBR) {
+        c->rc_max_rate = c->bit_rate;
       }
-      break;
     }
+    struct QsvOpt {
+      const char *name;
+      int64_t value;
+    };
+    const QsvOpt qsv_opts[] = {
+        {"preset", 5},
+        {"scenario", 1},
+        {"adaptive_i", 1},
+        {"adaptive_b", 0},
+        {"b_strategy", 0},
+    };
+    for (const auto &opt : qsv_opts) {
+      ret = av_opt_set_int(c->priv_data, opt.name, opt.value, 0);
+      if (ret < 0) {
+        LOG_WARN(std::string("qsv set opt ") + opt.name + "=" +
+                 std::to_string(opt.value) + " failed, ret = " + av_err2str(ret));
+      }
+    }
+    if (rc != RC_CQP) {
+      av_opt_set_int(c->priv_data, "mbbrc", 1, 0);
+      // av_opt_set_int(c->priv_data, "extbrc", 1, 0); // extbrc causes bitrate spikes for h264, keep it disabled
+    }
+  } else if (name.find("nvenc") != std::string::npos) {
+    if (rc == RC_CQP) {
+      sanitize_qp(qp, qp_min, qp_max);
+      set_cqp_common(c);
+      apply_nvenc_qp(c, qp);
+    } else {
+      kbs = ensure_kbs(kbs);
+      c->bit_rate = kbs * 1000;
+      if (rc == RC_CBR) {
+        av_opt_set(c->priv_data, "rc", "cbr", 0);
+        c->rc_max_rate = c->bit_rate;
+      } else if (rc == RC_VBR) {
+        av_opt_set(c->priv_data, "rc", "vbr", 0);
+        c->rc_max_rate = calc_vbr_max_rate(c->bit_rate);
+      }
+    }
+  } else if (name.find("amf") != std::string::npos) {
+    if (rc == RC_CQP) {
+      sanitize_qp(qp, qp_min, qp_max);
+      set_cqp_common(c);
+      apply_amf_qp(c, name, qp, qp_min, qp_max);
+    } else {
+      kbs = ensure_kbs(kbs);
+      c->bit_rate = kbs * 1000;
+      if (rc == RC_CBR) {
+        av_opt_set(c->priv_data, "rc", "hqcbr", 0);
+        c->rc_max_rate = c->bit_rate;
+        c->rc_buffer_size = c->bit_rate * 2;
+      } else if (rc == RC_VBR) {
+        av_opt_set(c->priv_data, "rc", "hqvbr", 0);
+        c->rc_max_rate = calc_vbr_max_rate(c->bit_rate);
+        c->rc_buffer_size = c->rc_max_rate * 2;
+      }
+      c->rc_initial_buffer_occupancy = c->rc_buffer_size;
+      av_opt_set(c->priv_data, "quality", "quality", 0);
+    }
+  } else if (name.find("mediacodec") != std::string::npos) {
+    kbs = ensure_kbs(kbs);
+    c->bit_rate = kbs * 1000;
+    if (rc == RC_CBR) {
+      av_opt_set(c->priv_data, "bitrate_mode", "cbr", 0);
+    } else if (rc == RC_VBR) {
+      av_opt_set(c->priv_data, "bitrate_mode", "vbr", 0);
+    }
+  } else if (name.find("vaapi") != std::string::npos) {
+    kbs = ensure_kbs(kbs);
+    c->bit_rate = kbs * 1000;
+    if ((ret = av_opt_set_int(c->priv_data, "idr_interval",
+                              std::numeric_limits<int>::max(), 0)) < 0) {
+      LOG_ERROR(std::string("vaapi set idr_interval failed, ret = ") + av_err2str(ret));
+    }
+  } else if (name.find("_mf") != std::string::npos) {
+    kbs = ensure_kbs(kbs);
+    c->bit_rate = kbs * 1000;
+    if ((ret = av_opt_set_int(c->priv_data, "scenario", 1, 0)) < 0) {
+      LOG_ERROR(std::string("mediafoundation set scenario failed, ret = ") +
+                av_err2str(ret));
+    }
+  } else {
+    // fallback for other codecs (videotoolbox, etc.)
+    kbs = ensure_kbs(kbs);
+    c->bit_rate = kbs * 1000;
   }
 
   return true;
@@ -274,32 +290,43 @@ bool force_hw(void *priv_data, const std::string &name) {
   return true;
 }
 
-bool set_others(void *priv_data, const std::string &name) {
-  int ret;
-  if (name.find("_mf") != std::string::npos) {
-    // ff_eAVScenarioInfo_DisplayRemoting = 1
-    if ((ret = av_opt_set_int(priv_data, "scenario", 1, 0)) < 0) {
-      LOG_ERROR(std::string("mediafoundation set scenario failed, ret = ") +
-                av_err2str(ret));
-      return false;
+bool is_using_cqp(const std::string &name, AVCodecContext *c) {
+  (void)name;
+  return c && (c->flags & AV_CODEC_FLAG_QSCALE);
+}
+
+bool change_qp(AVCodecContext *c, const std::string &name, int qp, int qp_min,
+               int qp_max) {
+  if (!is_using_cqp(name, c)) return true;
+  sanitize_qp(qp, qp_min, qp_max);
+  if (name.find("nvenc") != std::string::npos) {
+    av_opt_set_int(c->priv_data, "qp", qp, 0);
+  } else if (name.find("amf") != std::string::npos) {
+    av_opt_set_int(c->priv_data, "qp_i", qp, 0);
+    av_opt_set_int(c->priv_data, "qp_p", qp, 0);
+    if (name.find("h264") != std::string::npos) {
+      av_opt_set_int(c->priv_data, "qp_b", qp, 0);
     }
-  }
-  if (name.find("vaapi") != std::string::npos) {
-    if ((ret = av_opt_set_int(priv_data, "idr_interval",
-                              std::numeric_limits<int>::max(), 0)) < 0) {
-      LOG_ERROR(std::string("vaapi set idr_interval failed, ret = ") + av_err2str(ret));
-      return false;
-    }
+    if (qp_min > 0) c->qmin = qp_min;
+    if (qp_max > 0) c->qmax = qp_max;
+  } else if (name.find("qsv") != std::string::npos) {
+    apply_qsv_qp(c, qp, qp_min, qp_max);
   }
   return true;
 }
 
-bool change_bit_rate(AVCodecContext *c, const std::string &name, int kbs) {
-  if (kbs > 0) {
-    c->bit_rate = kbs * 1000;
-    if (name.find("qsv") != std::string::npos) {
-      c->rc_max_rate = c->bit_rate;
-    }
+bool change_bit_rate(AVCodecContext *c, const std::string &name, int rc, int kbs) {
+  if (is_using_cqp(name, c)) return true;
+  kbs = ensure_kbs(kbs);
+  c->bit_rate = kbs * 1000;
+  if (rc == RC_VBR) {
+    c->rc_max_rate = calc_vbr_max_rate(c->bit_rate);
+  } else {
+    c->rc_max_rate = c->bit_rate;
+  }
+  if (name.find("amf") != std::string::npos) {
+    c->rc_buffer_size = c->rc_max_rate * 2;
+    c->rc_initial_buffer_occupancy = c->rc_buffer_size;
   }
   return true;
 }

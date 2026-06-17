@@ -1,5 +1,5 @@
 use crate::{
-    common::Driver::*,
+    common::{Driver::*, RateControl},
     ffmpeg::init_av_log,
     vram::{
         amf, ffmpeg, inner::EncodeCalls, mfx, nv, DynamicContext, EncodeContext, FeatureContext,
@@ -42,6 +42,10 @@ impl Encoder {
                 ctx.d.kbitrate,
                 ctx.d.framerate,
                 ctx.d.gop,
+                ctx.d.rc as i32,
+                ctx.d.qp,
+                ctx.d.qp_min,
+                ctx.d.qp_max,
             );
             if codec.is_null() {
                 return Err(());
@@ -87,6 +91,15 @@ impl Encoder {
     pub fn set_bitrate(&mut self, kbs: i32) -> Result<(), i32> {
         unsafe {
             match (self.calls.set_bitrate)(self.codec, kbs) {
+                0 => Ok(()),
+                err => Err(err),
+            }
+        }
+    }
+
+    pub fn set_qp(&mut self, qp: i32, qp_min: i32, qp_max: i32) -> Result<(), i32> {
+        unsafe {
+            match (self.calls.set_qp)(self.codec, qp, qp_min, qp_max) {
                 0 => Ok(()),
                 err => Err(err),
             }
@@ -192,6 +205,8 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
             .map(|(luid, format)| (*luid, *format))
             .unzip();
 
+
+        // Test with original rc
         let result = unsafe {
             test(
                 luids.as_mut_ptr(),
@@ -204,42 +219,112 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
                 input.d.kbitrate,
                 input.d.framerate,
                 input.d.gop,
+                input.d.rc as i32,
+                input.d.qp,
+                input.d.qp_min,
+                input.d.qp_max,
                 excluded_luids.as_ptr(),
                 exclude_formats.as_ptr(),
                 exclude_luid_formats.len() as i32,
             )
         };
 
-        if result == 0 {
-            if desc_count as usize <= luids.len() {
-                debug!(
-                    "vram encoder test passed: driver={:?}, adapters={}",
-                    input.f.driver, desc_count
-                );
-                for i in 0..desc_count as usize {
-                    let mut input = input.clone();
-                    input.f.luid = luids[i];
-                    input.f.vendor = match vendors[i] {
-                        0 => NV,
-                        1 => AMF,
-                        2 => MFX,
-                        _ => {
-                            log::error!(
-                                "Unexpected vendor value encountered: {}. Skipping.",
-                                vendors[i]
-                            );
-                            continue;
-                        },
-                    };
-                    exclude_luid_formats.push((luids[i], input.f.data_format as i32));
-                    outputs.push(input);
-                }
-            }
-        } else {
+        if result != 0 {
             debug!(
                 "vram encoder test failed: driver={:?}, error={}",
                 input.f.driver, result
             );
+            continue;
+        }
+
+        if desc_count as usize > luids.len() {
+            continue;
+        }
+
+        debug!(
+            "vram encoder original rc test passed: driver={:?}, adapters={}",
+            input.f.driver, desc_count
+        );
+
+        // Collect LUIDs that passed the original rc test
+        let mut original_passed: Vec<(i64, i32)> = Vec::new();
+        for i in 0..desc_count as usize {
+            original_passed.push((luids[i], vendors[i]));
+        }
+
+        // Test with CQP rc (skip if original rc is already CQP)
+        let cqp_passed_luids: Option<Vec<i64>> = if input.d.rc == RateControl::RC_CQP {
+            None
+        } else {
+            let mut cqp_luids: Vec<i64> = vec![0; crate::vram::MAX_ADATERS];
+            let mut cqp_vendors: Vec<i32> = vec![0; crate::vram::MAX_ADATERS];
+            let mut cqp_desc_count: i32 = 0;
+
+            let cqp_result = unsafe {
+                test(
+                    cqp_luids.as_mut_ptr(),
+                    cqp_vendors.as_mut_ptr(),
+                    cqp_luids.len() as _,
+                    &mut cqp_desc_count,
+                    input.f.data_format as i32,
+                    input.d.width,
+                    input.d.height,
+                    input.d.kbitrate,
+                    input.d.framerate,
+                    input.d.gop,
+                    RateControl::RC_CQP as i32,
+                    input.d.qp,
+                    input.d.qp_min,
+                    input.d.qp_max,
+                    excluded_luids.as_ptr(),
+                    exclude_formats.as_ptr(),
+                    exclude_luid_formats.len() as i32,
+                )
+            };
+
+            if cqp_result == 0 && cqp_desc_count as usize <= cqp_luids.len() {
+                debug!(
+                    "vram encoder CQP test passed: driver={:?}, adapters={}",
+                    input.f.driver, cqp_desc_count
+                );
+                Some(cqp_luids[..cqp_desc_count as usize].to_vec())
+            } else {
+                debug!(
+                    "vram encoder CQP test failed: driver={:?}, error={}",
+                    input.f.driver, cqp_result
+                );
+                Some(vec![])
+            }
+        };
+
+        // Only keep LUIDs that passed both tests
+        for (luid, vendor) in original_passed {
+            if let Some(ref cqp_luids) = cqp_passed_luids {
+                if !cqp_luids.contains(&luid) {
+                    debug!(
+                        "vram encoder CQP test not passed for luid={}, skipping",
+                        luid
+                    );
+                    continue;
+                }
+            }
+
+            let mut input = input.clone();
+            input.f.luid = luid;
+            input.f.vendor = match vendor {
+                0 => NV,
+                1 => AMF,
+                2 => MFX,
+                _ => {
+                    log::error!(
+                        "Unexpected vendor value encountered: {}. Skipping.",
+                        vendor
+                    );
+                    continue;
+                },
+            };
+            exclude_luid_formats.push((luid, input.f.data_format as i32));
+            outputs.push(input);
         }
     }
 

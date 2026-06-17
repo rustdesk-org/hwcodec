@@ -16,6 +16,7 @@ pub fn encode_calls() -> EncodeCalls {
         destroy: mfx_destroy_encoder,
         test: mfx_test_encode,
         set_bitrate: mfx_set_bitrate,
+        set_qp: mfx_set_qp,
         set_framerate: mfx_set_framerate,
     }
 }

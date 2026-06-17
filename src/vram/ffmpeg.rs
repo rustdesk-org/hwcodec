@@ -16,6 +16,7 @@ pub fn encode_calls() -> EncodeCalls {
         destroy: ffmpeg_vram_destroy_encoder,
         test: ffmpeg_vram_test_encode,
         set_bitrate: ffmpeg_vram_set_bitrate,
+        set_qp: ffmpeg_vram_set_qp,
         set_framerate: ffmpeg_vram_set_framerate,
     }
 }

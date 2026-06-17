@@ -8,7 +8,7 @@ pub(crate) mod nv;
 
 pub(crate) const MAX_ADATERS: usize = 16;
 
-use crate::common::{DataFormat, Driver};
+use crate::common::{DataFormat, Driver, RateControl};
 pub use serde;
 pub use serde_derive;
 use serde_derive::{Deserialize, Serialize};
@@ -31,6 +31,10 @@ pub struct DynamicContext {
     pub kbitrate: i32,
     pub framerate: i32,
     pub gop: i32,
+    pub rc: RateControl,
+    pub qp: i32,
+    pub qp_min: i32,
+    pub qp_max: i32,
 }
 
 unsafe impl Send for DynamicContext {}

@@ -38,14 +38,16 @@ enum Vendor {
   VENDOR_FFMPEG = 3
 };
 
-enum Quality { Quality_Default, Quality_High, Quality_Medium, Quality_Low };
-
 enum RateControl {
-  RC_DEFAULT,
   RC_CBR,
   RC_VBR,
-  RC_CQ,
+  RC_CQP,
 };
+
+#define DEFAULT_QP     28
+#define DEFAULT_QP_MIN 22
+#define DEFAULT_QP_MAX 34
+#define DEFAULT_KBS    2000
 
 enum HwcodecErrno {
   HWCODEC_SUCCESS = 0,

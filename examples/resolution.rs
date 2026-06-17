@@ -1,6 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    common::{Quality::*, RateControl::*, MAX_GOP},
+    common::{RateControl::*, MAX_GOP},
     ffmpeg::{
         AVHWDeviceType::{self, *},
         AVPixelFormat::*,
@@ -83,10 +83,10 @@ fn decode_encode(
         kbs: 1_000,
         fps: 30,
         gop: MAX_GOP as _,
-        quality: Quality_Default,
-        rc: RC_DEFAULT,
-        thread_count: 4,
-        q: -1,
+        rc: RC_CQP,
+        qp: 28,
+        qp_min: 22,
+        qp_max: 34,
     };
     let mut video_encoder = Encoder::new(enc_ctx).unwrap();
     let mut encode_file =

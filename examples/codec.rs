@@ -1,6 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    common::{Quality::*, RateControl::*},
+    common::RateControl::*,
     ffmpeg::{AVHWDeviceType::*, AVPixelFormat::*},
     ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
@@ -26,10 +26,10 @@ fn main() {
         kbs: 0,
         fps: 30,
         gop: 60,
-        quality: Quality_Default,
-        rc: RC_DEFAULT,
-        thread_count: 4,
-        q: -1,
+        rc: RC_CQP,
+        qp: 28,
+        qp_min: 22,
+        qp_max: 34,
     };
     let decode_ctx = DecodeContext {
         name: String::from("hevc"),

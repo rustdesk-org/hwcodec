@@ -34,6 +34,10 @@ fn main() {
                 kbitrate: 5000,
                 framerate: 30,
                 gop: MAX_GOP as _,
+                qp: 28,
+                qp_min: 22,
+                qp_max: 34,
+                rc: hwcodec::common::RateControl::RC_CQP,
             },
         };
         let de_ctx = DecodeContext {

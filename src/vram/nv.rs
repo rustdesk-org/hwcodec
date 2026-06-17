@@ -16,6 +16,7 @@ pub fn encode_calls() -> EncodeCalls {
         destroy: nv_destroy_encoder,
         test: nv_test_encode,
         set_bitrate: nv_set_bitrate,
+        set_qp: nv_set_qp,
         set_framerate: nv_set_framerate,
     }
 }

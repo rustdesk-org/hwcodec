@@ -83,13 +83,17 @@ public:
   int32_t kbs_;
   int32_t framerate_;
   int32_t gop_;
+  int32_t rc_;
+  int32_t qp_;
+  int32_t qp_min_;
+  int32_t qp_max_;
 
   bool full_range_ = false;
   bool bt709_ = false;
 
   VplEncoder(void *handle, int64_t luid, DataFormat dataFormat,
              int32_t width, int32_t height, int32_t kbs, int32_t framerate,
-             int32_t gop) {
+             int32_t gop, int32_t rc, int32_t qp, int32_t qp_min, int32_t qp_max) {
     handle_ = handle;
     luid_ = luid;
     dataFormat_ = dataFormat;
@@ -98,6 +102,10 @@ public:
     kbs_ = kbs;
     framerate_ = framerate;
     gop_ = gop;
+    rc_ = rc;
+    qp_ = qp;
+    qp_min_ = qp_min;
+    qp_max_ = qp_max;
   }
 
   ~VplEncoder() {}
@@ -339,11 +347,25 @@ private:
     // quality
     // https://www.intel.com/content/www/us/en/developer/articles/technical/common-bitrate-control-methods-in-intel-media-sdk.html
     mfxEncParams_.mfx.TargetUsage = MFX_TARGETUSAGE_BEST_SPEED;
-    mfxEncParams_.mfx.RateControlMethod = MFX_RATECONTROL_VBR;
-    mfxEncParams_.mfx.InitialDelayInKB = 0;
-    mfxEncParams_.mfx.BufferSizeInKB = 512;
-    mfxEncParams_.mfx.TargetKbps = kbs_;
-    mfxEncParams_.mfx.MaxKbps = kbs_;
+    if (rc_ == RC_CQP) {
+      mfxEncParams_.mfx.RateControlMethod = MFX_RATECONTROL_CQP;
+      mfxEncParams_.mfx.QPI = qp_;
+      mfxEncParams_.mfx.QPP = qp_;
+      mfxEncParams_.mfx.QPB = qp_;
+    } else {
+      if (kbs_ <= 0) kbs_ = DEFAULT_KBS;
+      mfxEncParams_.mfx.RateControlMethod =
+          (rc_ == RC_VBR) ? MFX_RATECONTROL_VBR : MFX_RATECONTROL_CBR;
+      int32_t maxKbps = (rc_ == RC_VBR)
+          ? (int32_t)(util_encode::calc_vbr_max_rate((int64_t)kbs_ * 1000) / 1000)
+          : kbs_;
+      int32_t topKbps = (maxKbps > kbs_) ? maxKbps : kbs_;
+      mfxU16 brc_mul = (topKbps > 0xFFFF)
+          ? (mfxU16)((topKbps + 0xFFFE) / 0xFFFF) : 1;
+      mfxEncParams_.mfx.BRCParamMultiplier = brc_mul;
+      mfxEncParams_.mfx.TargetKbps = (mfxU16)(kbs_ / brc_mul);
+      mfxEncParams_.mfx.MaxKbps = (mfxU16)(maxKbps / brc_mul);
+    }
     mfxEncParams_.mfx.NumSlice = 1;
     mfxEncParams_.mfx.NumRefFrame = 0;
 
@@ -532,6 +554,18 @@ private:
     coding_option2_.Header.BufferId = MFX_EXTBUFF_CODING_OPTION2;
     coding_option2_.Header.BufferSz = sizeof(mfxExtCodingOption2);
     coding_option2_.RepeatPPS = MFX_CODINGOPTION_OFF;
+    if (qp_min_ > 0) {
+      mfxU16 v = qp_min_ > 51 ? 51 : qp_min_;
+      coding_option2_.MinQPI = v;
+      coding_option2_.MinQPP = v;
+      coding_option2_.MinQPB = v;
+    }
+    if (qp_max_ > 0) {
+      mfxU16 v = qp_max_ > 51 ? 51 : qp_max_;
+      coding_option2_.MaxQPI = v;
+      coding_option2_.MaxQPP = v;
+      coding_option2_.MaxQPB = v;
+    }
     extbuffers_[1] = (mfxExtBuffer *)&coding_option2_;
 
     // coding option3
@@ -606,11 +640,13 @@ int mfx_destroy_encoder(void *encoder) {
 
 void *mfx_new_encoder(void *handle, int64_t luid,
                       DataFormat dataFormat, int32_t w, int32_t h, int32_t kbs,
-                      int32_t framerate, int32_t gop) {
+                      int32_t framerate, int32_t gop,
+                      int32_t rc, int32_t qp, int32_t qp_min, int32_t qp_max) {
   VplEncoder *p = NULL;
   try {
+    util_encode::sanitize_qp(qp, qp_min, qp_max);
     p = new VplEncoder(handle, luid, dataFormat, w, h, kbs, framerate,
-                       gop);
+                       gop, rc, qp, qp_min, qp_max);
     if (!p) {
       return NULL;
     }
@@ -649,7 +685,8 @@ int mfx_encode(void *encoder, ID3D11Texture2D *tex, EncodeCallback callback,
 int mfx_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, int32_t *outDescNum,
                     DataFormat dataFormat, int32_t width,
                     int32_t height, int32_t kbs, int32_t framerate,
-                    int32_t gop, const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
+                    int32_t gop, int32_t rc, int32_t qp, int32_t qp_min, int32_t qp_max,
+                    const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
     Adapters adapters;
     if (!adapters.Init(ADAPTER_VENDOR_INTEL))
@@ -663,7 +700,7 @@ int mfx_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, 
       
       VplEncoder *e = (VplEncoder *)mfx_new_encoder(
           (void *)adapter.get()->device_.Get(), currentLuid,
-          dataFormat, width, height, kbs, framerate, gop);
+          dataFormat, width, height, kbs, framerate, gop, rc, qp, qp_min, qp_max);
       if (!e)
         continue;
       if (e->native_->EnsureTexture(e->width_, e->height_)) {
@@ -702,15 +739,64 @@ int mfx_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxDescNum, 
 int mfx_set_bitrate(void *encoder, int32_t kbs) {
   try {
     VplEncoder *p = (VplEncoder *)encoder;
+    if (p->rc_ == RC_CQP) return 0;
     mfxStatus sts = MFX_ERR_NONE;
     // https://github.com/GStreamer/gstreamer/blob/e19428a802c2f4ee9773818aeb0833f93509a1c0/subprojects/gst-plugins-bad/sys/qsv/gstqsvencoder.cpp#L1312
     p->kbs_ = kbs;
     p->mfxENC_->GetVideoParam(&p->mfxEncParams_);
-    p->mfxEncParams_.mfx.TargetKbps = kbs;
-    p->mfxEncParams_.mfx.MaxKbps = kbs;
+    int32_t maxKbps = (p->rc_ == RC_VBR)
+        ? (int32_t)(util_encode::calc_vbr_max_rate((int64_t)kbs * 1000) / 1000)
+        : kbs;
+    int32_t topKbps = (maxKbps > kbs) ? maxKbps : kbs;
+    mfxU16 brc_mul = (topKbps > 0xFFFF)
+        ? (mfxU16)((topKbps + 0xFFFE) / 0xFFFF) : 1;
+    p->mfxEncParams_.mfx.BRCParamMultiplier = brc_mul;
+    p->mfxEncParams_.mfx.TargetKbps = (mfxU16)(kbs / brc_mul);
+    p->mfxEncParams_.mfx.MaxKbps = (mfxU16)(maxKbps / brc_mul);
     sts = p->mfxENC_->Reset(&p->mfxEncParams_);
-    if (sts != MFX_ERR_NONE) {
-      LOG_ERROR(std::string("reset failed, sts=") + std::to_string(sts));
+    if (sts > MFX_ERR_NONE) {
+      LOG_WARN(std::string("set bitrate reset warning, sts=") + std::to_string(sts));
+    } else if (sts < MFX_ERR_NONE) {
+      LOG_ERROR(std::string("set bitrate reset failed, sts=") + std::to_string(sts));
+      return -1;
+    }
+    return 0;
+  } catch (const std::exception &e) {
+    LOG_ERROR(std::string("Exception: ") + e.what());
+  }
+  return -1;
+}
+
+int mfx_set_qp(void *encoder, int32_t qp, int32_t qp_min, int32_t qp_max) {
+  try {
+    VplEncoder *p = (VplEncoder *)encoder;
+    if (p->rc_ != RC_CQP) return 0;
+    util_encode::sanitize_qp(qp, qp_min, qp_max);
+    mfxStatus sts = MFX_ERR_NONE;
+    p->qp_ = qp;
+    p->qp_min_ = qp_min;
+    p->qp_max_ = qp_max;
+    p->mfxENC_->GetVideoParam(&p->mfxEncParams_);
+    p->mfxEncParams_.mfx.QPI = qp;
+    p->mfxEncParams_.mfx.QPP = qp;
+    p->mfxEncParams_.mfx.QPB = qp;
+    if (qp_min > 0) {
+      mfxU16 v = qp_min > 51 ? 51 : qp_min;
+      p->coding_option2_.MinQPI = v;
+      p->coding_option2_.MinQPP = v;
+      p->coding_option2_.MinQPB = v;
+    }
+    if (qp_max > 0) {
+      mfxU16 v = qp_max > 51 ? 51 : qp_max;
+      p->coding_option2_.MaxQPI = v;
+      p->coding_option2_.MaxQPP = v;
+      p->coding_option2_.MaxQPB = v;
+    }
+    sts = p->mfxENC_->Reset(&p->mfxEncParams_);
+    if (sts > MFX_ERR_NONE) {
+      LOG_WARN(std::string("set qp reset warning, sts=") + std::to_string(sts));
+    } else if (sts < MFX_ERR_NONE) {
+      LOG_ERROR(std::string("set qp reset failed, sts=") + std::to_string(sts));
       return -1;
     }
     return 0;

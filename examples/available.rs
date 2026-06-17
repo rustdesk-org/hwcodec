@@ -1,6 +1,6 @@
 use env_logger::{init_from_env, Env, DEFAULT_FILTER_ENV};
 use hwcodec::{
-    common::{get_gpu_signature, Quality::*, RateControl::*},
+    common::{get_gpu_signature, RateControl::*},
     ffmpeg::AVPixelFormat,
     ffmpeg_ram::{
         decode::Decoder,
@@ -34,10 +34,10 @@ fn ram() {
         kbs: 1000,
         fps: 30,
         gop: i32::MAX,
-        quality: Quality_Default,
-        rc: RC_CBR,
-        q: -1,
-        thread_count: 1,
+        rc: RC_VBR,
+        qp: 28,
+        qp_min: 22,
+        qp_max: 34,
     };
     let encoders = Encoder::available_encoders(ctx.clone(), None);
     encoders.iter().map(|e| println!("{:?}", e)).count();
@@ -58,7 +58,11 @@ fn vram() {
         kbitrate: 5000,
         framerate: 30,
         gop: MAX_GOP as _,
+        qp: 28,
+        qp_min: 22,
+        qp_max: 34,
         device: None,
+        rc: RC_VBR,
     });
     encoders.iter().map(|e| println!("{:?}", e)).count();
     println!("decoders:");

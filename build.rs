@@ -38,7 +38,9 @@ fn build_common(builder: &mut Build) {
     // system
     #[cfg(windows)]
     {
-        ["d3d11", "dxgi"].map(|lib| println!("cargo:rustc-link-lib={}", lib));
+        for lib in ["d3d11", "dxgi"] {
+            println!("cargo:rustc-link-lib={}", lib);
+        }
     }
 
     builder.include(&common_dir);
@@ -80,7 +82,7 @@ fn build_common(builder: &mut Build) {
 struct CommonCallbacks;
 impl bindgen::callbacks::ParseCallbacks for CommonCallbacks {
     fn add_derives(&self, name: &str) -> Vec<String> {
-        let names = vec!["DataFormat", "SurfaceFormat", "API"];
+        let names = vec!["DataFormat", "SurfaceFormat", "API", "RateControl"];
         if names.contains(&name) {
             vec!["Serialize", "Deserialize"]
                 .drain(..)
@@ -307,11 +309,12 @@ mod sdk {
 
         // system
         #[cfg(target_os = "windows")]
-        [
+        for lib in [
             "kernel32", "user32", "gdi32", "winspool", "shell32", "ole32", "oleaut32", "uuid",
             "comdlg32", "advapi32", "d3d11", "dxgi",
-        ]
-        .map(|lib| println!("cargo:rustc-link-lib={}", lib));
+        ] {
+            println!("cargo:rustc-link-lib={}", lib);
+        };
         #[cfg(target_os = "linux")]
         println!("cargo:rustc-link-lib=stdc++");
 
@@ -448,11 +451,12 @@ mod sdk {
             );
 
         // link
-        [
+        for lib in [
             "kernel32", "user32", "gdi32", "winspool", "shell32", "ole32", "oleaut32", "uuid",
             "comdlg32", "advapi32", "d3d11", "dxgi",
-        ]
-        .map(|lib| println!("cargo:rustc-link-lib={}", lib));
+        ] {
+            println!("cargo:rustc-link-lib={}", lib)
+        };
 
         builder
             .files(["mfx_encode.cpp", "mfx_decode.cpp"].map(|f| mfx_dir.join(f)))

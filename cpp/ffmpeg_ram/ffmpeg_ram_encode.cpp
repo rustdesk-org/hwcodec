@@ -107,12 +107,12 @@ public:
   AVPixelFormat pixfmt_ = AV_PIX_FMT_NV12;
   int align_ = 0;
   int rc_ = 0;
-  int quality_ = 0;
   int kbs_ = 0;
-  int q_ = 0;
+  int qp_ = 0;
+  int qp_min_ = 0;
+  int qp_max_ = 0;
   int fps_ = 30;
   int gop_ = 0xFFFF;
-  int thread_count_ = 1;
   int gpu_ = 0;
   RamEncodeCallback callback_ = NULL;
   int offset_[AV_NUM_DATA_POINTERS] = {0};
@@ -123,8 +123,8 @@ public:
   AVFrame *hw_frame_ = NULL;
 
   FFmpegRamEncoder(const char *name, const char *mc_name, int width, int height,
-                   int pixfmt, int align, int fps, int gop, int rc, int quality,
-                   int kbs, int q, int thread_count, int gpu,
+                   int pixfmt, int align, int fps, int gop, int rc,
+                   int kbs, int qp, int qp_min, int qp_max, int gpu,
                    RamEncodeCallback callback) {
     name_ = name;
     mc_name_ = mc_name ? mc_name : "";
@@ -135,10 +135,10 @@ public:
     fps_ = fps;
     gop_ = gop;
     rc_ = rc;
-    quality_ = quality;
     kbs_ = kbs;
-    q_ = q;
-    thread_count_ = thread_count;
+    qp_ = qp;
+    qp_min_ = qp_min;
+    qp_max_ = qp_max;
     gpu_ = gpu;
     callback_ = callback;
     if (name_.find("vaapi") != std::string::npos) {
@@ -230,16 +230,14 @@ public:
     c_->pix_fmt =
         hw_pixfmt_ != AV_PIX_FMT_NONE ? hw_pixfmt_ : (AVPixelFormat)pixfmt_;
     c_->sw_pix_fmt = (AVPixelFormat)pixfmt_;
-    util_encode::set_av_codec_ctx(c_, name_, kbs_, gop_, fps_);
+    util_encode::set_av_codec_ctx(c_, name_, gop_, fps_);
     if (!util_encode::set_lantency_free(c_->priv_data, name_)) {
       LOG_ERROR(std::string("set_lantency_free failed, name: ") + name_);
       return false;
     }
-    // util_encode::set_quality(c_->priv_data, name_, quality_);
-    util_encode::set_rate_control(c_, name_, rc_, q_);
+    util_encode::set_rate_control(c_, name_, rc_, kbs_, qp_, qp_min_, qp_max_);
     util_encode::set_gpu(c_->priv_data, name_, gpu_);
     util_encode::force_hw(c_->priv_data, name_);
-    util_encode::set_others(c_->priv_data, name_);
     if (name_.find("mediacodec") != std::string::npos) {
       if (mc_name_.length() > 0) {
         LOG_INFO(std::string("mediacodec codec_name: ") + mc_name_);
@@ -304,7 +302,11 @@ public:
   }
 
   int set_bitrate(int kbs) {
-    return util_encode::change_bit_rate(c_, name_, kbs) ? 0 : -1;
+    return util_encode::change_bit_rate(c_, name_, rc_, kbs) ? 0 : -1;
+  }
+
+  int set_qp(int qp, int qp_min, int qp_max) {
+    return util_encode::change_qp(c_, name_, qp, qp_min, qp_max) ? 0 : -1;
   }
 
 private:
@@ -410,13 +412,13 @@ private:
 extern "C" FFmpegRamEncoder *
 ffmpeg_ram_new_encoder(const char *name, const char *mc_name, int width,
                        int height, int pixfmt, int align, int fps, int gop,
-                       int rc, int quality, int kbs, int q, int thread_count,
-                       int gpu, int *linesize, int *offset, int *length,
-                       RamEncodeCallback callback) {
+                       int rc, int kbs, int qp, int qp_min, int qp_max,
+                       int gpu, int *linesize, int *offset,
+                       int *length, RamEncodeCallback callback) {
   FFmpegRamEncoder *encoder = NULL;
   try {
     encoder = new FFmpegRamEncoder(name, mc_name, width, height, pixfmt, align,
-                                   fps, gop, rc, quality, kbs, q, thread_count,
+                                   fps, gop, rc, kbs, qp, qp_min, qp_max,
                                    gpu, callback);
     if (encoder) {
       if (encoder->init(linesize, offset, length)) {
@@ -461,6 +463,16 @@ extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int kbs) {
     return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
+  }
+  return -1;
+}
+
+extern "C" int ffmpeg_ram_set_qp(FFmpegRamEncoder *encoder, int qp, int qp_min,
+                                  int qp_max) {
+  try {
+    return encoder->set_qp(qp, qp_min, qp_max);
+  } catch (const std::exception &e) {
+    LOG_ERROR(std::string("ffmpeg_ram_set_qp failed, ") + std::string(e.what()));
   }
   return -1;
 }
