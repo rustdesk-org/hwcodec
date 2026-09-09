@@ -66,6 +66,26 @@ impl Encoder {
         }
     }
 
+    /// Re-encode the last successful input without copying or converting a new texture.
+    /// Returns an error until a normal encode succeeds. Repeat failures leave the input reusable.
+    /// Like normal encoding, producing no output is reported as an error.
+    pub fn encode_repeat(&mut self, ms: i64) -> Result<&mut Vec<EncodeFrame>, i32> {
+        unsafe {
+            (&mut *self.frames).clear();
+            let result = ffmpeg::ffmpeg_vram_encode_repeat(
+                self.codec,
+                Some(Self::callback),
+                self.frames as *mut _ as *mut c_void,
+                ms,
+            );
+            if result != 0 {
+                Err(result)
+            } else {
+                Ok(&mut *self.frames)
+            }
+        }
+    }
+
     extern "C" fn callback(data: *const u8, size: c_int, key: i32, obj: *const c_void, pts: i64) {
         unsafe {
             let frames = &mut *(obj as *mut Vec<EncodeFrame>);

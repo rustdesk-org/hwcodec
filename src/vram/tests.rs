@@ -102,3 +102,58 @@ fn available_vram_backends_use_ffmpeg() {
     assert!(decoders.iter().all(|d| d.vendor != Driver::FFMPEG));
     eprintln!("encoders: {encoders:?}\ndecoders: {decoders:?}");
 }
+
+#[test]
+#[ignore = "requires hardware H.264/H.265 encoders"]
+fn repeat_requires_successful_input_and_rejects_failed_captures() {
+    let d = DynamicContext {
+        device: None,
+        width: 640,
+        height: 360,
+        kbitrate: 5000,
+        framerate: 30,
+        gop: MAX_GOP as _,
+    };
+    let features = super::encode::available(d);
+    assert!(!features.is_empty(), "no hardware encoder available");
+    for f in features {
+        let mut tool = tool::Tool::new(f.luid).unwrap();
+        let mut encoder = Encoder::new(EncodeContext {
+            f,
+            d: DynamicContext {
+                device: Some(tool.device()),
+                ..d
+            },
+        })
+        .unwrap();
+        assert!(encoder.encode_repeat(0).is_err());
+        let texture = tool.get_texture(d.width, d.height);
+        assert!(!texture.is_null());
+        assert!(!encoder.encode(texture, 0).unwrap().is_empty());
+        for ms in [100, 200] {
+            let frames = encoder.encode_repeat(ms).unwrap();
+            assert!(!frames.is_empty());
+            assert!(frames.iter().all(|frame| frame.pts == ms));
+        }
+
+        // A null capture must fail even when a previous input is available.
+        assert!(encoder.encode(std::ptr::null_mut(), 300).is_err());
+        assert!(encoder.encode_repeat(400).is_err());
+        assert!(!encoder.encode(texture, 500).unwrap().is_empty());
+        assert!(!encoder.encode_repeat(600).unwrap().is_empty());
+
+        // A real conversion failure also invalidates the previous input.
+        let too_small = tool.get_texture(2, 2);
+        assert!(!too_small.is_null());
+        assert!(encoder.encode(too_small, 700).is_err());
+        assert!(encoder.encode_repeat(800).is_err());
+        let texture = tool.get_texture(d.width, d.height);
+        assert!(!texture.is_null());
+        assert!(!encoder.encode(texture, 900).unwrap().is_empty());
+        drop(tool);
+        let frames = encoder.encode_repeat(1000).unwrap();
+        assert!(!frames.is_empty());
+        assert!(frames.iter().all(|frame| frame.pts == 1000));
+        eprintln!("PASS repeat entry and invalidation: {:?}", encoder.ctx.f);
+    }
+}

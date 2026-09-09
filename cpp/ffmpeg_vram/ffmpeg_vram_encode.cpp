@@ -62,6 +62,7 @@ public:
   AVFrame *frame_ = NULL;
   AVFrame *mapped_frame_ = NULL;
   ID3D11Texture2D *encode_texture_ = NULL; // no free
+  bool repeat_ready_ = false;
   AVPacket *pkt_ = NULL;
   std::unique_ptr<NativeDevice> native_ = nullptr;
   ID3D11Device *d3d11Device_ = NULL;
@@ -224,11 +225,23 @@ public:
   }
 
   int encode(void *texture, EncodeCallback callback, void *obj, int64_t ms) {
-
-    if (!convert(texture))
+    repeat_ready_ = false;
+    if (!texture || !convert(texture))
       return -1;
 
-    return do_encode(callback, obj, ms);
+    int result = do_encode(callback, obj, ms);
+    repeat_ready_ = result == 0;
+    return result;
+  }
+
+  int encode_repeat(EncodeCallback callback, void *obj, int64_t ms) {
+    if (!repeat_ready_)
+      return -1;
+
+    int result = do_encode(callback, obj, ms);
+    if (result < 0)
+      LOG_DEBUG(std::string("repeat encode failed, ret = ") + av_err2str(result));
+    return result;
   }
 
   void destroy() {
@@ -459,6 +472,16 @@ int ffmpeg_vram_encode(FFmpegVRamEncoder *encoder, void *texture,
     return encoder->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_encode failed, ") + std::string(e.what()));
+  }
+  return -1;
+}
+
+int ffmpeg_vram_encode_repeat(FFmpegVRamEncoder *encoder,
+                              EncodeCallback callback, void *obj, int64_t ms) {
+  try {
+    return encoder->encode_repeat(callback, obj, ms);
+  } catch (const std::exception &e) {
+    LOG_ERROR(std::string("ffmpeg_vram_encode_repeat failed, ") + std::string(e.what()));
   }
   return -1;
 }
