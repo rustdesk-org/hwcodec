@@ -6,28 +6,8 @@ include!(concat!(env!("OUT_DIR"), "/ffmpeg_vram_ffi.rs"));
 
 use crate::{
     common::DataFormat::*,
-    vram::inner::{DecodeCalls, EncodeCalls, InnerDecodeContext, InnerEncodeContext},
+    vram::inner::{InnerDecodeContext, InnerEncodeContext},
 };
-
-pub fn encode_calls() -> EncodeCalls {
-    EncodeCalls {
-        new: ffmpeg_vram_new_encoder,
-        encode: ffmpeg_vram_encode,
-        destroy: ffmpeg_vram_destroy_encoder,
-        test: ffmpeg_vram_test_encode,
-        set_bitrate: ffmpeg_vram_set_bitrate,
-        set_framerate: ffmpeg_vram_set_framerate,
-    }
-}
-
-pub fn decode_calls() -> DecodeCalls {
-    DecodeCalls {
-        new: ffmpeg_vram_new_decoder,
-        decode: ffmpeg_vram_decode,
-        destroy: ffmpeg_vram_destroy_decoder,
-        test: ffmpeg_vram_test_decode,
-    }
-}
 
 pub fn possible_support_encoders() -> Vec<InnerEncodeContext> {
     let dataFormats = vec![H264, H265];

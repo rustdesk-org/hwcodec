@@ -1,9 +1,7 @@
 use crate::{
     common::Driver::*,
     ffmpeg::init_av_log,
-    vram::{
-        amf, ffmpeg, inner::EncodeCalls, mfx, nv, DynamicContext, EncodeContext, FeatureContext,
-    },
+    vram::{ffmpeg, DynamicContext, EncodeContext, FeatureContext},
 };
 use log::trace;
 use std::{
@@ -11,7 +9,6 @@ use std::{
 };
 
 pub struct Encoder {
-    calls: EncodeCalls,
     codec: *mut c_void,
     frames: *mut Vec<EncodeFrame>,
     pub ctx: EncodeContext,
@@ -26,14 +23,11 @@ impl Encoder {
         if ctx.d.width % 2 == 1 || ctx.d.height % 2 == 1 {
             return Err(());
         }
-        let calls = match ctx.f.driver {
-            NV => nv::encode_calls(),
-            AMF => amf::encode_calls(),
-            MFX => mfx::encode_calls(),
-            FFMPEG => ffmpeg::encode_calls(),
-        };
+        if ctx.f.driver != FFMPEG {
+            return Err(());
+        }
         unsafe {
-            let codec = (calls.new)(
+            let codec = ffmpeg::ffmpeg_vram_new_encoder(
                 ctx.d.device.unwrap_or(std::ptr::null_mut()),
                 ctx.f.luid,
                 ctx.f.data_format as i32,
@@ -47,7 +41,6 @@ impl Encoder {
                 return Err(());
             }
             Ok(Self {
-                calls,
                 codec,
                 frames: Box::into_raw(Box::new(Vec::<EncodeFrame>::new())),
                 ctx,
@@ -58,7 +51,7 @@ impl Encoder {
     pub fn encode(&mut self, tex: *mut c_void, ms: i64) -> Result<&mut Vec<EncodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
-            let result = (self.calls.encode)(
+            let result = ffmpeg::ffmpeg_vram_encode(
                 self.codec,
                 tex,
                 Some(Self::callback),
@@ -86,7 +79,7 @@ impl Encoder {
 
     pub fn set_bitrate(&mut self, kbs: i32) -> Result<(), i32> {
         unsafe {
-            match (self.calls.set_bitrate)(self.codec, kbs) {
+            match ffmpeg::ffmpeg_vram_set_bitrate(self.codec, kbs) {
                 0 => Ok(()),
                 err => Err(err),
             }
@@ -95,7 +88,7 @@ impl Encoder {
 
     pub fn set_framerate(&mut self, framerate: i32) -> Result<(), i32> {
         unsafe {
-            match (self.calls.set_framerate)(self.codec, framerate) {
+            match ffmpeg::ffmpeg_vram_set_framerate(self.codec, framerate) {
                 0 => Ok(()),
                 err => Err(err),
             }
@@ -106,7 +99,7 @@ impl Encoder {
 impl Drop for Encoder {
     fn drop(&mut self) {
         unsafe {
-            (self.calls.destroy)(self.codec);
+            ffmpeg::ffmpeg_vram_destroy_encoder(self.codec);
             self.codec = std::ptr::null_mut();
             let _ = Box::from_raw(self.frames);
             trace!("Encoder dropped");
@@ -136,24 +129,6 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
             .map(|n| (FFMPEG, n))
             .collect(),
     );
-    natives.append(
-        &mut nv::possible_support_encoders()
-            .drain(..)
-            .map(|n| (NV, n))
-            .collect(),
-    );
-    natives.append(
-        &mut amf::possible_support_encoders()
-            .drain(..)
-            .map(|n| (AMF, n))
-            .collect(),
-    );
-    natives.append(
-        &mut mfx::possible_support_encoders()
-            .drain(..)
-            .map(|n| (MFX, n))
-            .collect(),
-    );
     let inputs: Vec<EncodeContext> = natives
         .drain(..)
         .map(|(driver, n)| EncodeContext {
@@ -176,13 +151,6 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
             input.f.driver, input.f.data_format
         );
 
-        let test = match input.f.driver {
-            NV => nv::encode_calls().test,
-            AMF => amf::encode_calls().test,
-            MFX => mfx::encode_calls().test,
-            FFMPEG => ffmpeg::encode_calls().test,
-        };
-
         let mut luids: Vec<i64> = vec![0; crate::vram::MAX_ADATERS];
         let mut vendors: Vec<i32> = vec![0; crate::vram::MAX_ADATERS];
         let mut desc_count: i32 = 0;
@@ -193,7 +161,7 @@ pub fn available(d: DynamicContext) -> Vec<FeatureContext> {
             .unzip();
 
         let result = unsafe {
-            test(
+            ffmpeg::ffmpeg_vram_test_encode(
                 luids.as_mut_ptr(),
                 vendors.as_mut_ptr(),
                 luids.len() as _,
