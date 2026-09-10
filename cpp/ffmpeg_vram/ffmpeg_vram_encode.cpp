@@ -457,6 +457,8 @@ FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
     }
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("new FFmpegVRamEncoder failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   if (encoder) {
     encoder->destroy();
@@ -472,6 +474,8 @@ int ffmpeg_vram_encode(FFmpegVRamEncoder *encoder, void *texture,
     return encoder->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_encode failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
@@ -482,6 +486,8 @@ int ffmpeg_vram_encode_repeat(FFmpegVRamEncoder *encoder,
     return encoder->encode_repeat(callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_encode_repeat failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
@@ -495,6 +501,8 @@ void ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) {
     encoder = NULL;
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("free encoder failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
 }
 
@@ -503,6 +511,8 @@ int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) {
     return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
@@ -512,6 +522,8 @@ int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) {
     return encoder->set_bitrate(framerate);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_set_framerate failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
@@ -574,6 +586,8 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
     return 0;
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("test failed: ") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }

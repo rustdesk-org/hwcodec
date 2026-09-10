@@ -15,6 +15,8 @@ int amf_driver_support() {
     }
   } catch (const std::exception &e) {
     LOG_TRACE(std::string("AMF driver unavailable: ") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }

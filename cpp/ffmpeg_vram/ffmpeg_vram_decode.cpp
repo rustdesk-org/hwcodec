@@ -311,6 +311,8 @@ extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
     return 0;
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_free_decoder exception:") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
@@ -328,6 +330,8 @@ extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
     }
   } catch (std::exception &e) {
     LOG_ERROR(std::string("new decoder exception:") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   if (decoder) {
     decoder->destroy();
@@ -349,6 +353,8 @@ extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
     }
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_decode exception:") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return HWCODEC_ERR_COMMON;
 }
@@ -405,6 +411,8 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
     return 0;
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
