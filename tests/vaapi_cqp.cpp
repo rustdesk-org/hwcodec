@@ -24,7 +24,8 @@ static const AVOption options[] = {
     {"rc_mode", nullptr, offsetof(Options, rc_mode), AV_OPT_TYPE_INT,
      {.i64 = 0}, 0, 6, 0, "rc_mode"},
     {"CQP", nullptr, 0, AV_OPT_TYPE_CONST, {.i64 = 1}, 0, 0, 0, "rc_mode"},
-    {"qp", nullptr, offsetof(Options, qp), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 51},
+    // H.264/HEVC VAAPI accept 0..52 in AVOptions, then clamp CQP to 1..51.
+    {"qp", nullptr, offsetof(Options, qp), AV_OPT_TYPE_INT, {.i64 = 0}, 0, 52},
     {nullptr},
 };
 
@@ -41,7 +42,7 @@ int main() {
   ctx.bit_rate = 1000000;
 
   for (const auto &name : {"h264_vaapi", "hevc_vaapi"}) {
-    for (int qp : {1, 16, 23, 26, 51}) {
+    for (int qp : {1, 16, 23, 26, 51, 52}) {
       av_opt_set_defaults(&priv);
       assert(util_encode::set_rate_control(&ctx, name, RC_CQ, qp));
       assert(priv.rc_mode == 1);
@@ -54,7 +55,7 @@ int main() {
       assert(priv.rc_mode == 1);
       assert(priv.qp == 23);
     }
-    for (int qp : {52, 100}) {
+    for (int qp : {53, 100}) {
       av_opt_set_defaults(&priv);
       assert(!util_encode::set_rate_control(&ctx, name, RC_CQ, qp));
       assert(priv.rc_mode == 1);
