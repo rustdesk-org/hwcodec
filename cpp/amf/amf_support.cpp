@@ -5,7 +5,7 @@
 
 extern "C" {
 
-int amf_driver_support() {
+int amf_driver_support() noexcept {
   try {
     AMFFactoryHelper factory;
     AMF_RESULT res = factory.Init();

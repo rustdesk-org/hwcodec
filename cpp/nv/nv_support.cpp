@@ -7,7 +7,7 @@
 
 extern "C" {
 
-int nv_encode_driver_support() {
+int nv_encode_driver_support() noexcept {
   CudaFunctions *cuda = NULL;
   NvencFunctions *nvenc = NULL;
   try {
@@ -27,7 +27,7 @@ int nv_encode_driver_support() {
   }
 }
 
-int nv_decode_driver_support() {
+int nv_decode_driver_support() noexcept {
   CudaFunctions *cuda = NULL;
   CuvidFunctions *cuvid = NULL;
   try {

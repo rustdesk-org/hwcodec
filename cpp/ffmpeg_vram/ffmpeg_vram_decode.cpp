@@ -301,7 +301,7 @@ void unlockContext(void *lock_ctx) { (void)lock_ctx; }
 
 } // namespace
 
-extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
+extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) noexcept {
   try {
     if (!decoder)
       return 0;
@@ -319,7 +319,7 @@ extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
 
 extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
                                                       int64_t luid,
-                                                      DataFormat dataFormat) {
+                                                      DataFormat dataFormat) noexcept {
   FFmpegVRamDecoder *decoder = NULL;
   try {
     decoder = new FFmpegVRamDecoder(device, luid, dataFormat);
@@ -343,7 +343,7 @@ extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
 
 extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
                                   const uint8_t *data, int length,
-                                  DecodeCallback callback, const void *obj) {
+                                  DecodeCallback callback, const void *obj) noexcept {
   try {
     int ret = decoder->decode(data, length, callback, obj);
     if (DataFormat::H265 == decoder->dataFormat_ && util_decode::has_flag_could_not_find_ref_with_poc()) {
@@ -363,7 +363,7 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
                                        int32_t maxDescNum, int32_t *outDescNum,
                                        DataFormat dataFormat,
                                        uint8_t *data, int32_t length,
-                                       const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
+                                       const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) noexcept {
   try {
     int count = 0;
     struct VendorMapping {

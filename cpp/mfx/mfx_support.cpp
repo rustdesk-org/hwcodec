@@ -21,7 +21,7 @@ mfxStatus InitSession(MFXVideoSession &session) {
 
 extern "C" {
 
-int mfx_driver_support() {
+int mfx_driver_support() noexcept {
   // Never let an exception escape this extern "C" boundary. On some Intel
   // drivers MFXVideoSession::InitEx may throw (including non-std exceptions);
   // letting it propagate out of C calls std::terminate -> abort ->
@@ -39,5 +39,5 @@ int mfx_driver_support() {
 }
 } // extern "C"
 #else
-extern "C" int mfx_driver_support() { return -1; }
+extern "C" int mfx_driver_support() noexcept { return -1; }
 #endif
