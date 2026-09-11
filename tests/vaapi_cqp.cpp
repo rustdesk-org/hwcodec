@@ -48,11 +48,16 @@ int main() {
       assert(priv.qp == qp);
       assert(ctx.bit_rate == 1000000);
     }
-    for (int qp : {-100, -1, 0, 52, 100}) {
+    for (int qp : {-100, -1, 0}) {
       av_opt_set_defaults(&priv);
       assert(util_encode::set_rate_control(&ctx, name, RC_CQ, qp));
       assert(priv.rc_mode == 1);
       assert(priv.qp == 23);
+    }
+    for (int qp : {52, 100}) {
+      av_opt_set_defaults(&priv);
+      assert(!util_encode::set_rate_control(&ctx, name, RC_CQ, qp));
+      assert(priv.rc_mode == 1);
     }
   }
 
