@@ -285,6 +285,8 @@ extern "C" void ffmpeg_ram_free_decoder(FFmpegRamDecoder *decoder) {
     decoder = NULL;
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_free_decoder exception:") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
 }
 
@@ -301,6 +303,8 @@ ffmpeg_ram_new_decoder(const char *name, int device_type, int thread_count,
     }
   } catch (std::exception &e) {
     LOG_ERROR(std::string("new decoder exception:") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   if (decoder) {
     decoder->free_decoder();
@@ -321,6 +325,8 @@ extern "C" int ffmpeg_ram_decode(FFmpegRamDecoder *decoder, const uint8_t *data,
     }
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_decode exception:") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return HWCODEC_ERR_COMMON;
 }

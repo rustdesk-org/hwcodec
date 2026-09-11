@@ -244,6 +244,10 @@ mod ffmpeg {
 
     #[cfg(feature = "vram")]
     fn build_ffmpeg_vram(builder: &mut Build) {
+        if builder.get_compiler().is_like_msvc() {
+            // Probe ownership must unwind when a C++ operation throws.
+            builder.flag("/EHsc");
+        }
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let ffmpeg_ram_dir = manifest_dir.join("cpp").join("ffmpeg_vram");
         let ffi_header = ffmpeg_ram_dir
@@ -322,38 +326,7 @@ mod sdk {
             .join("ffnvcodec");
         builder.include(ffnvcodec_path);
 
-        // video codc sdk
-        let sdk_path = externals_dir.join("Video_Codec_SDK_12.1.14");
-        builder.includes([
-            sdk_path.clone(),
-            sdk_path.join("Interface"),
-            sdk_path.join("Samples").join("Utils"),
-            sdk_path.join("Samples").join("NvCodec"),
-            sdk_path.join("Samples").join("NvCodec").join("NVEncoder"),
-            sdk_path.join("Samples").join("NvCodec").join("NVDecoder"),
-        ]);
-
-        for file in vec!["NvEncoder.cpp", "NvEncoderD3D11.cpp"] {
-            builder.file(
-                sdk_path
-                    .join("Samples")
-                    .join("NvCodec")
-                    .join("NvEncoder")
-                    .join(file),
-            );
-        }
-        for file in vec!["NvDecoder.cpp"] {
-            builder.file(
-                sdk_path
-                    .join("Samples")
-                    .join("NvCodec")
-                    .join("NvDecoder")
-                    .join(file),
-            );
-        }
-
-        // crate
-        builder.files(["nv_encode.cpp", "nv_decode.cpp"].map(|f| nv_dir.join(f)));
+        builder.file(nv_dir.join("nv_support.cpp"));
     }
 
     fn build_amf(builder: &mut Build) {
@@ -378,24 +351,20 @@ mod sdk {
 
         // amf
         let amf_path = externals_dir.join("AMF_v1.4.35");
-        builder.include(format!("{}/amf/public/common", amf_path.display()));
         builder.include(amf_path.join("amf"));
 
         for f in vec![
             "AMFFactory.cpp",
-            "AMFSTL.cpp",
-            "Thread.cpp",
             #[cfg(windows)]
             "Windows/ThreadWindows.cpp",
             #[cfg(target_os = "linux")]
             "Linux/ThreadLinux.cpp",
-            "TraceAdapter.cpp",
         ] {
             builder.file(format!("{}/amf/public/common/{}", amf_path.display(), f));
         }
 
         // crate
-        builder.files(["amf_encode.cpp", "amf_decode.cpp"].map(|f| amf_dir.join(f)));
+        builder.file(amf_dir.join("amf_support.cpp"));
     }
 
     fn build_mfx(builder: &mut Build) {
@@ -415,37 +384,7 @@ mod sdk {
         // MediaSDK
         let sdk_path = externals_dir.join("MediaSDK_22.5.4");
 
-        // mfx_dispatch
-        let mfx_path = sdk_path.join("api").join("mfx_dispatch");
-        // include headers and reuse static lib
-        builder.include(mfx_path.join("windows").join("include"));
-
-        let sample_path = sdk_path.join("samples").join("sample_common");
-        builder
-            .includes([
-                sdk_path.join("api").join("include"),
-                sample_path.join("include"),
-            ])
-            .files(
-                [
-                    "sample_utils.cpp",
-                    "base_allocator.cpp",
-                    "d3d11_allocator.cpp",
-                    "avc_bitstream.cpp",
-                    "avc_spl.cpp",
-                    "avc_nal_spl.cpp",
-                ]
-                .map(|f| sample_path.join("src").join(f)),
-            )
-            .files(
-                [
-                    "time.cpp",
-                    "atomic.cpp",
-                    "shared_object.cpp",
-                    "thread_windows.cpp",
-                ]
-                .map(|f| sample_path.join("src").join("vm").join(f)),
-            );
+        builder.include(sdk_path.join("api").join("include"));
 
         // link
         [
@@ -455,9 +394,8 @@ mod sdk {
         .map(|lib| println!("cargo:rustc-link-lib={}", lib));
 
         builder
-            .files(["mfx_encode.cpp", "mfx_decode.cpp"].map(|f| mfx_dir.join(f)))
+            .file(mfx_dir.join("mfx_support.cpp"))
             .define("NOMINMAX", None)
-            .define("MFX_DEPRECATED_OFF", None)
-            .define("MFX_D3D11_SUPPORT", None);
+            .define("MFX_DEPRECATED_OFF", None);
     }
 }

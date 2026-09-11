@@ -5,14 +5,14 @@
 
 ### Windows
 
-| GPU           | FFmpeg ram        | FFmpeg vram | sdk vram |
-| ------------- | ----------------  | ----------- | -------- |
-| intel encode  | qsv               | qsv         | Y        |
-| intel decode  | d3d11             | d3d11       | Y        |
-| nvidia encode | nvenc(nv12->d3d11)| nvenc(d3d11)| Y        |
-| nvidia decode | d3d11             | d3d11       | N        |
-| amd encode    | amf               | amf         | Y        |
-| amd decode    | d3d11             | d3d11       | Y        |
+| GPU           | FFmpeg ram        | FFmpeg vram |
+| ------------- | ----------------  | ----------- |
+| intel encode  | qsv               | qsv |
+| intel decode  | d3d11             | d3d11 |
+| nvidia encode | nvenc(nv12->d3d11)| nvenc(d3d11) |
+| nvidia decode | d3d11             | d3d11 |
+| amd encode    | amf               | amf |
+| amd decode    | d3d11             | d3d11 |
 
 #### Notes
 
@@ -20,9 +20,8 @@
 Based on the information above, there are several optimizations and changes made to the codec:
   - FFmpeg encoding AV_PIX_FMT_NV12 directly: The codec is modified to transfer AV_PIX_FMT_NV12 to AV_PIX_FMT_D3D11. This is done because FFmpeg doesn't use Cucontext if the device type is AV_HWDEVICE_TYPE_D3D11VA.
   - FFmpeg decoding with AV_HWDEVICE_TYPE_CUDA acceleration: This functionality is disabled and replaced with AV_HWDEVICE_TYPE_D3D11VA. The decoding process now utilizes D3D11VA acceleration instead of CUDA.
-  - SDK decoding with CUDA acceleration: The CUDA acceleration support is disabled.
 
-* amd sdk remove h265 support, https://github.com/GPUOpen-LibrariesAndSDKs/AMF/issues/432
+* VRAM encoding and decoding use FFmpeg only. SDK code is retained only for driver availability checks.
 
 ### Linux
 

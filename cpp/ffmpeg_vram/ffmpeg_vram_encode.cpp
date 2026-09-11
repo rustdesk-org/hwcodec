@@ -59,9 +59,15 @@ class FFmpegVRamEncoder {
 public:
   AVCodecContext *c_ = NULL;
   AVBufferRef *hw_device_ctx_ = NULL;
+  // These frames own the NV12 input; encode_texture_ only borrows their texture.
+  // Releasing the original capture texture does not invalidate this input.
   AVFrame *frame_ = NULL;
   AVFrame *mapped_frame_ = NULL;
   ID3D11Texture2D *encode_texture_ = NULL; // no free
+  // Failed normal encode or detected device loss invalidates the repeat input;
+  // other repeat failures allow retries. Encoder recreation (including resize)
+  // requires a new successful normal encode before repeating.
+  bool repeat_ready_ = false;
   AVPacket *pkt_ = NULL;
   std::unique_ptr<NativeDevice> native_ = nullptr;
   ID3D11Device *d3d11Device_ = NULL;
@@ -224,11 +230,28 @@ public:
   }
 
   int encode(void *texture, EncodeCallback callback, void *obj, int64_t ms) {
-
-    if (!convert(texture))
+    repeat_ready_ = false;
+    if (!texture || !convert(texture))
       return -1;
 
-    return do_encode(callback, obj, ms);
+    int result = do_encode(callback, obj, ms);
+    repeat_ready_ = result == 0;
+    return result;
+  }
+
+  int encode_repeat(EncodeCallback callback, void *obj, int64_t ms) {
+    if (!repeat_ready_)
+      return -1;
+
+    if (FAILED(d3d11Device_->GetDeviceRemovedReason())) {
+      repeat_ready_ = false;
+      return -1;
+    }
+
+    int result = do_encode(callback, obj, ms);
+    if (result < 0)
+      LOG_DEBUG(std::string("repeat encode failed, ret = ") + av_err2str(result));
+    return result;
   }
 
   void destroy() {
@@ -432,7 +455,7 @@ extern "C" {
 FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
                                            DataFormat dataFormat, int32_t width,
                                            int32_t height, int32_t kbs,
-                                           int32_t framerate, int32_t gop) {
+                                           int32_t framerate, int32_t gop) noexcept {
   FFmpegVRamEncoder *encoder = NULL;
   try {
     encoder = new FFmpegVRamEncoder(handle, luid, dataFormat, width,
@@ -444,6 +467,8 @@ FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
     }
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("new FFmpegVRamEncoder failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   if (encoder) {
     encoder->destroy();
@@ -454,16 +479,30 @@ FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
 }
 
 int ffmpeg_vram_encode(FFmpegVRamEncoder *encoder, void *texture,
-                       EncodeCallback callback, void *obj, int64_t ms) {
+                       EncodeCallback callback, void *obj, int64_t ms) noexcept {
   try {
     return encoder->encode(texture, callback, obj, ms);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_encode failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
 
-void ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) {
+int ffmpeg_vram_encode_repeat(FFmpegVRamEncoder *encoder,
+                              EncodeCallback callback, void *obj, int64_t ms) noexcept {
+  try {
+    return encoder->encode_repeat(callback, obj, ms);
+  } catch (const std::exception &e) {
+    LOG_ERROR(std::string("ffmpeg_vram_encode_repeat failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
+  }
+  return -1;
+}
+
+void ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) noexcept {
   try {
     if (!encoder)
       return;
@@ -472,23 +511,29 @@ void ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) {
     encoder = NULL;
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("free encoder failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
 }
 
-int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) {
+int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) noexcept {
   try {
     return encoder->set_bitrate(kbs);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
 
-int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) {
+int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) noexcept {
   try {
     return encoder->set_bitrate(framerate);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_set_framerate failed, ") + std::string(e.what()));
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
@@ -497,8 +542,10 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
                             int32_t *outDescNum, DataFormat dataFormat,
                             int32_t width, int32_t height, int32_t kbs,
                             int32_t framerate, int32_t gop,
-                            const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
+                            const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) noexcept {
   try {
+    using EncoderPtr = std::unique_ptr<FFmpegVRamEncoder,
+                                      decltype(&ffmpeg_vram_destroy_encoder)>;
     int count = 0;
     struct VendorMapping {
        AdapterVendor adapter_vendor;
@@ -520,16 +567,18 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
           continue;
         }
         
-        FFmpegVRamEncoder *e = (FFmpegVRamEncoder *)ffmpeg_vram_new_encoder(
-            (void *)adapter.get()->device_.Get(), currentLuid,
-            dataFormat, width, height, kbs, framerate, gop);
+        EncoderPtr e(
+            ffmpeg_vram_new_encoder(
+                (void *)adapter.get()->device_.Get(), currentLuid,
+                dataFormat, width, height, kbs, framerate, gop),
+            ffmpeg_vram_destroy_encoder);
         if (!e)
           continue;
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
           e->native_->next();
           int32_t key_obj = 0;
           auto start = util::now();
-          bool succ = ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
+          bool succ = ffmpeg_vram_encode(e.get(), e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
                                  &key_obj, 0) == 0 && key_obj == 1;
           int64_t elapsed = util::elapsed_ms(start);
           if (succ && elapsed < TEST_TIMEOUT_MS) {
@@ -538,9 +587,7 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
             count += 1;
           }
         }
-        e->destroy();
-        delete e;
-        e = nullptr;
+        e.reset();
         if (count >= maxDescNum)
           break;
       }
@@ -551,6 +598,8 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
     return 0;
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("test failed: ") + e.what());
+  } catch (...) {
+    // Logging can allocate, so do not log while handling an unknown exception.
   }
   return -1;
 }
