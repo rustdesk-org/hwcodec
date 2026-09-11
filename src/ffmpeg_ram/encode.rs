@@ -312,6 +312,13 @@ impl Encoder {
                 let c = EncodeContext {
                     name: codec.name.clone(),
                     mc_name: codec.mc_name.clone(),
+                    // RustDesk uses CQP for VAAPI; probing with a bitrate-based
+                    // mode would reject drivers that only support CQP.
+                    rc: if codec.name.contains("vaapi") {
+                        RateControl::RC_CQ
+                    } else {
+                        ctx.rc
+                    },
                     ..ctx
                 };
 
