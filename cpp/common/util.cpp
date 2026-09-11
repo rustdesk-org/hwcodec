@@ -238,7 +238,8 @@ bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
         }
         if (name.find("vaapi") != std::string::npos && rc == RC_CQ) {
           constexpr int default_qp = 23;
-          const int qp = q >= 0 && q <= 51 ? q : default_qp;
+          // FFmpeg treats qp = 0 as unspecified, not as an explicit QP.
+          const int qp = q > 0 && q <= 51 ? q : default_qp;
           ret = av_opt_set_int(c->priv_data, "qp", qp, 0);
           if (ret < 0) {
             LOG_ERROR(std::string("vaapi set opt qp failed, ret = ") +
