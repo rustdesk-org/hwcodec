@@ -3,6 +3,8 @@ use super::{
 };
 use crate::common::{DataFormat, Driver, MAX_GOP};
 
+mod repeat;
+
 #[test]
 fn removed_sdk_backends_are_rejected() {
     for driver in [Driver::NV, Driver::AMF, Driver::MFX] {

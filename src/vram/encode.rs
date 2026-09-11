@@ -66,9 +66,25 @@ impl Encoder {
         }
     }
 
-    /// Re-encode the last successful input without copying or converting a new texture.
-    /// Returns an error until a normal encode succeeds. Repeat failures leave the input reusable.
-    /// Like normal encoding, producing no output is reported as an error.
+    /// Re-encode the last successful input with the caller-supplied timestamp `ms`.
+    ///
+    /// Reuses the encoder-owned hardware frame without another capture-texture copy or
+    /// conversion. The original capture texture may be released after `encode` returns.
+    /// `ms` is the new input PTS; it is not inherited from the original capture.
+    ///
+    /// A new encoder cannot repeat until a normal `encode` succeeds. A failed normal
+    /// encode invalidates the cached input, whereas a repeat failure leaves it available
+    /// for another attempt. Producing no output is reported as an error, even when FFmpeg
+    /// accepted the input; retrying does not guarantee recovery from a device failure.
+    ///
+    /// Changing bitrate preserves the cached input. Resolution or codec changes require
+    /// a new encoder and therefore a new successful normal encode. A capture gap that
+    /// does not call `encode` leaves the cached input available.
+    ///
+    /// Serialize calls on the same encoder, including bitrate changes and destruction.
+    /// Safe Rust enforces this through mutable borrowing; direct C callers must enforce
+    /// it themselves. Returned packets borrow internal storage and are cleared by the
+    /// next normal or repeat encode; copy packets that need to outlive that call.
     pub fn encode_repeat(&mut self, ms: i64) -> Result<&mut Vec<EncodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
