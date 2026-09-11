@@ -88,8 +88,11 @@ int main() {
                                    expected_ms) < 0);
   assert(send_calls == 0);
 
-  // Model an input made ready by normal encoding; this fixture does not use a
-  // GPU.
+  // WARP supplies a valid device for the repeat health check without a GPU.
+  assert(SUCCEEDED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0,
+                                    nullptr, 0, D3D11_SDK_VERSION,
+                                    &encoder->d3d11Device_, nullptr, nullptr)));
+  // Model an input made ready by normal encoding.
   encoder->repeat_ready_ = true;
   const int errors[] = {AVERROR(EAGAIN), AVERROR(EIO), AVERROR_EOF};
   int scenarios = 1;

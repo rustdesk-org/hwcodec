@@ -74,7 +74,8 @@ impl Encoder {
     ///
     /// A new encoder cannot repeat until a normal `encode` succeeds. A failed normal
     /// encode invalidates the cached input, whereas a repeat failure leaves it available
-    /// for another attempt. Producing no output is reported as an error, even when FFmpeg
+    /// for another attempt unless the pre-submit check detects device loss, which also
+    /// invalidates it. Producing no output is reported as an error, even when FFmpeg
     /// accepted the input; retrying does not guarantee recovery from a device failure.
     ///
     /// Changing bitrate preserves the cached input. Resolution or codec changes require

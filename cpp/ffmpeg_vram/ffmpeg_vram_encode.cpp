@@ -238,6 +238,11 @@ public:
     if (!repeat_ready_)
       return -1;
 
+    if (FAILED(d3d11Device_->GetDeviceRemovedReason())) {
+      repeat_ready_ = false;
+      return -1;
+    }
+
     int result = do_encode(callback, obj, ms);
     if (result < 0)
       LOG_DEBUG(std::string("repeat encode failed, ret = ") + av_err2str(result));
