@@ -534,6 +534,8 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
                             int32_t framerate, int32_t gop,
                             const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
   try {
+    using EncoderPtr = std::unique_ptr<FFmpegVRamEncoder,
+                                      decltype(&ffmpeg_vram_destroy_encoder)>;
     int count = 0;
     struct VendorMapping {
        AdapterVendor adapter_vendor;
@@ -555,16 +557,18 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
           continue;
         }
         
-        FFmpegVRamEncoder *e = (FFmpegVRamEncoder *)ffmpeg_vram_new_encoder(
-            (void *)adapter.get()->device_.Get(), currentLuid,
-            dataFormat, width, height, kbs, framerate, gop);
+        EncoderPtr e(
+            ffmpeg_vram_new_encoder(
+                (void *)adapter.get()->device_.Get(), currentLuid,
+                dataFormat, width, height, kbs, framerate, gop),
+            ffmpeg_vram_destroy_encoder);
         if (!e)
           continue;
         if (e->native_->EnsureTexture(e->width_, e->height_)) {
           e->native_->next();
           int32_t key_obj = 0;
           auto start = util::now();
-          bool succ = ffmpeg_vram_encode(e, e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
+          bool succ = ffmpeg_vram_encode(e.get(), e->native_->GetCurrentTexture(), util_encode::vram_encode_test_callback,
                                  &key_obj, 0) == 0 && key_obj == 1;
           int64_t elapsed = util::elapsed_ms(start);
           if (succ && elapsed < TEST_TIMEOUT_MS) {
@@ -573,9 +577,7 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
             count += 1;
           }
         }
-        e->destroy();
-        delete e;
-        e = nullptr;
+        e.reset();
         if (count >= maxDescNum)
           break;
       }
