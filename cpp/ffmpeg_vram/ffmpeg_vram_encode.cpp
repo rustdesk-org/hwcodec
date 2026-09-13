@@ -527,7 +527,7 @@ int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) noexcept {
 
 int ffmpeg_vram_set_framerate(FFmpegVRamEncoder *encoder, int32_t framerate) noexcept {
   try {
-    return encoder->set_bitrate(framerate);
+    return encoder->set_framerate(framerate);
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_vram_set_framerate failed, ") + std::string(e.what()));
   } catch (...) {
