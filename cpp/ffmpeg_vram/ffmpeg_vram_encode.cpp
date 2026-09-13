@@ -249,8 +249,6 @@ public:
     }
 
     int result = do_encode(callback, obj, ms);
-    if (result < 0)
-      LOG_DEBUG(std::string("repeat encode failed, ret = ") + av_err2str(result));
     return result;
   }
 
