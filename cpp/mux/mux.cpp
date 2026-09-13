@@ -153,7 +153,7 @@ extern "C" Muxer *hwcodec_new_muxer(const char *filename, int width, int height,
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("new muxer exception: ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("hwcodec_new_muxer: unknown exception");
   }
   if (muxer) {
     muxer->destroy();
@@ -170,7 +170,7 @@ extern "C" int hwcodec_write_video_frame(Muxer *muxer, const uint8_t *data,
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("write_video_frame exception: ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("hwcodec_write_video_frame: unknown exception");
   }
   return -1;
 }
@@ -189,6 +189,6 @@ extern "C" void hwcodec_free_muxer(Muxer *muxer) {
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("free_muxer exception: ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("hwcodec_free_muxer: unknown exception");
   }
 }

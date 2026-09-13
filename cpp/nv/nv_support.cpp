@@ -22,7 +22,7 @@ int nv_encode_driver_support() noexcept {
   } catch (...) {
     nvenc_free_functions(&nvenc);
     cuda_free_functions(&cuda);
-    // Logging can allocate, so do not log again while handling an exception.
+    LOG_ERROR("nv_encode_driver_support: unknown exception");
     return -1;
   }
 }
@@ -42,6 +42,7 @@ int nv_decode_driver_support() noexcept {
   } catch (...) {
     cuvid_free_functions(&cuvid);
     cuda_free_functions(&cuda);
+    LOG_ERROR("nv_decode_driver_support: unknown exception");
     return -1;
   }
 }

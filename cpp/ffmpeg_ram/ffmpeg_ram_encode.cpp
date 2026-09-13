@@ -426,7 +426,7 @@ ffmpeg_ram_new_encoder(const char *name, const char *mc_name, int width,
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("new FFmpegRamEncoder failed, ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("ffmpeg_ram_new_encoder: unknown exception");
   }
   if (encoder) {
     encoder->free_encoder();
@@ -443,7 +443,7 @@ extern "C" int ffmpeg_ram_encode(FFmpegRamEncoder *encoder, const uint8_t *data,
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_encode failed, ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("ffmpeg_ram_encode: unknown exception");
   }
   return -1;
 }
@@ -458,7 +458,7 @@ extern "C" void ffmpeg_ram_free_encoder(FFmpegRamEncoder *encoder) {
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("free encoder failed, ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("ffmpeg_ram_free_encoder: unknown exception");
   }
 }
 
@@ -468,7 +468,7 @@ extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int kbs) {
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_set_bitrate failed, ") + std::string(e.what()));
   } catch (...) {
-    // Logging can allocate, so do not log while handling an unknown exception.
+    LOG_ERROR("ffmpeg_ram_set_bitrate: unknown exception");
   }
   return -1;
 }
