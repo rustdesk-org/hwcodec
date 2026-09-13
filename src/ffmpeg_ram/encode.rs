@@ -165,7 +165,7 @@ impl Encoder {
         Err(())
     }
 
-    pub fn available_encoders(ctx: EncodeContext, _sdk: Option<String>) -> Vec<CodecInfo> {
+    pub fn available_encoders(ctx: EncodeContext, _vram: Option<String>) -> Vec<CodecInfo> {
         use log::debug;
 
         if !(cfg!(windows) || cfg!(target_os = "linux") || cfg!(target_os = "macos")) {
@@ -177,10 +177,10 @@ impl Encoder {
             let contains = |_vendor: Driver, _format: DataFormat| {
                 #[cfg(all(windows, feature = "vram"))]
                 {
-                    if let Some(_sdk) = _sdk.as_ref() {
-                        if !_sdk.is_empty() {
+                    if let Some(_vram) = _vram.as_ref() {
+                        if !_vram.is_empty() {
                             if let Ok(available) =
-                                crate::vram::Available::deserialize(_sdk.as_str())
+                                crate::vram::Available::deserialize(_vram.as_str())
                             {
                                 return available.contains(true, _vendor, _format);
                             }
@@ -237,8 +237,7 @@ impl Encoder {
                     ..Default::default()
                 });
             }
-            if amf {
-                // sdk not use h265
+            if amf && contains(Driver::AMF, H265) {
                 codecs.push(CodecInfo {
                     name: "hevc_amf".to_owned(),
                     format: H265,
