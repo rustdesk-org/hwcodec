@@ -409,7 +409,6 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
           outVendors[count] = (int32_t)vendorMap.driver_vendor;  // Map adapter vendor to driver vendor
           count += 1;
         }
-        p.reset();
         if (count >= maxDescNum)
           break;
       }

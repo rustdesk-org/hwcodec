@@ -597,7 +597,6 @@ int ffmpeg_vram_test_encode(int64_t *outLuids, int32_t *outVendors, int32_t maxD
             count += 1;
           }
         }
-        e.reset();
         if (count >= maxDescNum)
           break;
       }
