@@ -6,6 +6,7 @@ extern "C" {
 #include <cstdio>
 #include <deque>
 #include <initializer_list>
+#include <vector>
 
 #ifdef NDEBUG
 #error These tests require assertions.
@@ -18,15 +19,30 @@ int send_error;
 int send_calls;
 int callbacks;
 std::deque<int> receive_results;
+bool delayed_output = false;
+std::deque<int64_t> pending_pts;
+std::vector<int64_t> output_pts;
 
 int injected_send(AVCodecContext *, const AVFrame *frame) {
   ++send_calls;
   assert(frame == expected_frame);
   assert(frame->pts == expected_ms);
+  if (delayed_output && send_error == 0)
+    pending_pts.push_back(frame->pts);
   return send_error;
 }
 
 int injected_receive(AVCodecContext *, AVPacket *packet) {
+  if (delayed_output) {
+    // Keep one accepted input buffered until a later submission arrives.
+    if (pending_pts.size() < 2)
+      return AVERROR(EAGAIN);
+    assert(av_new_packet(packet, 1) == 0);
+    packet->data[0] = 42;
+    packet->pts = pending_pts.front();
+    pending_pts.pop_front();
+    return 0;
+  }
   assert(!receive_results.empty());
   int result = receive_results.front();
   receive_results.pop_front();
@@ -58,7 +74,9 @@ extern "C" void hwcodec_av_log_callback(int, const char *) {}
 namespace {
 void output(const uint8_t *data, int size, int, const void *, int64_t pts) {
   assert(size == 1 && data[0] == 42);
-  assert(pts == expected_ms);
+  if (!delayed_output)
+    assert(pts == expected_ms);
+  output_pts.push_back(pts);
   ++callbacks;
 }
 
@@ -83,6 +101,18 @@ int main() {
   assert(encoder->c_ && encoder->frame_ && encoder->pkt_);
   expected_frame = encoder->frame_;
 
+  encoder->c_->time_base = av_make_q(1, 1000);
+  encoder->c_->framerate = av_make_q(30, 1);
+  encoder->c_->bit_rate = 5000000;
+  assert(ffmpeg_vram_set_framerate(encoder.get(), 60) == 0);
+  assert(encoder->c_->time_base.num == 1 && encoder->c_->time_base.den == 1000);
+  assert(encoder->c_->framerate.num == 60 && encoder->c_->framerate.den == 1);
+  assert(encoder->c_->bit_rate == 5000000);
+  for (int invalid : {0, -1}) {
+    assert(ffmpeg_vram_set_framerate(encoder.get(), invalid) < 0);
+    assert(encoder->c_->framerate.num == 60 && encoder->c_->framerate.den == 1);
+  }
+
   prepare(0, {});
   assert(ffmpeg_vram_encode_repeat(encoder.get(), output, nullptr,
                                    expected_ms) < 0);
@@ -95,7 +125,7 @@ int main() {
   // Model an input made ready by normal encoding.
   encoder->repeat_ready_ = true;
   const int errors[] = {AVERROR(EAGAIN), AVERROR(EIO), AVERROR_EOF};
-  int scenarios = 1;
+  int scenarios = 2;
   for (int error : errors) {
     for (bool fail_send : {true, false}) {
       prepare(fail_send ? error : 0, fail_send
@@ -136,6 +166,23 @@ int main() {
   }
   ++scenarios;
 
+  delayed_output = true;
+  output_pts.clear();
+  std::vector<int64_t> submitted_pts;
+  for (int i = 0; i < 3; ++i) {
+    prepare(0, {});
+    submitted_pts.push_back(expected_ms);
+    int result = ffmpeg_vram_encode_repeat(encoder.get(), output, nullptr,
+                                           expected_ms);
+    assert(result == (i == 0 ? -1 : 0));
+    assert(send_calls == 1 && callbacks == (i == 0 ? 0 : 1));
+    assert(pending_pts.size() == 1 && pending_pts.front() == expected_ms);
+  }
+  assert(output_pts == std::vector<int64_t>(submitted_pts.begin(), submitted_pts.end() - 1));
+  pending_pts.clear();
+  delayed_output = false;
+  ++scenarios;
+
   prepare(0, {});
   assert(ffmpeg_vram_encode(encoder.get(), nullptr, output, nullptr,
                             expected_ms) < 0);
@@ -145,5 +192,5 @@ int main() {
   assert(send_calls == 0 && callbacks == 0);
   ++scenarios;
 
-  std::printf("PASS %d repeat failure/retry scenarios\n", scenarios);
+  std::printf("PASS %d repeat/framerate scenarios\n", scenarios);
 }

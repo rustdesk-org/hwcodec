@@ -252,24 +252,37 @@ public:
     return result;
   }
 
-  void destroy() {
+  int destroy() noexcept {
+    int result = 0;
+    auto release = [&result](auto cleanup) noexcept {
+      try {
+        cleanup();
+      } catch (const std::exception &e) {
+        result = -1;
+        LOG_ERROR(std::string("encoder cleanup failed: ") + e.what());
+      } catch (...) {
+        result = -1;
+        LOG_ERROR("encoder cleanup: unknown exception");
+      }
+    };
     if (pkt_)
-      av_packet_free(&pkt_);
+      release([&] { av_packet_free(&pkt_); });
     if (frame_)
-      av_frame_free(&frame_);
+      release([&] { av_frame_free(&frame_); });
     if (mapped_frame_)
-      av_frame_free(&mapped_frame_);
+      release([&] { av_frame_free(&mapped_frame_); });
     if (c_)
-      avcodec_free_context(&c_);
+      release([&] { avcodec_free_context(&c_); });
     if (hw_device_ctx_) {
-      av_buffer_unref(&hw_device_ctx_);
+      release([&] { av_buffer_unref(&hw_device_ctx_); });
       // AVHWDeviceContext takes ownership of d3d11 object
       d3d11Device_ = nullptr;
       d3d11DeviceContext_ = nullptr;
     } else {
-      SAFE_RELEASE(d3d11Device_);
-      SAFE_RELEASE(d3d11DeviceContext_);
+      release([&] { SAFE_RELEASE(d3d11Device_); });
+      release([&] { SAFE_RELEASE(d3d11DeviceContext_); });
     }
+    return result;
   }
 
   int set_bitrate(int kbs) {
@@ -277,8 +290,9 @@ public:
   }
 
   int set_framerate(int framerate) {
-    c_->time_base = av_make_q(1, framerate);
-    c_->framerate = av_inv_q(c_->time_base);
+    if (framerate <= 0)
+      return -1;
+    c_->framerate = av_make_q(framerate, 1);
     return 0;
   }
 
@@ -450,28 +464,26 @@ void unlockContext(void *lock_ctx) { (void)lock_ctx; }
 } // namespace
 
 extern "C" {
+int ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) noexcept;
+
 FFmpegVRamEncoder *ffmpeg_vram_new_encoder(void *handle, int64_t luid,
                                            DataFormat dataFormat, int32_t width,
                                            int32_t height, int32_t kbs,
                                            int32_t framerate, int32_t gop) noexcept {
-  FFmpegVRamEncoder *encoder = NULL;
   try {
-    encoder = new FFmpegVRamEncoder(handle, luid, dataFormat, width,
-                                    height, kbs, framerate, gop);
+    std::unique_ptr<FFmpegVRamEncoder, decltype(&ffmpeg_vram_destroy_encoder)> encoder(
+        new FFmpegVRamEncoder(handle, luid, dataFormat, width,
+                              height, kbs, framerate, gop),
+        ffmpeg_vram_destroy_encoder);
     if (encoder) {
       if (encoder->init()) {
-        return encoder;
+        return encoder.release();
       }
     }
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("new FFmpegVRamEncoder failed, ") + std::string(e.what()));
   } catch (...) {
     LOG_ERROR("ffmpeg_vram_new_encoder: unknown exception");
-  }
-  if (encoder) {
-    encoder->destroy();
-    delete encoder;
-    encoder = NULL;
   }
   return NULL;
 }
@@ -500,18 +512,18 @@ int ffmpeg_vram_encode_repeat(FFmpegVRamEncoder *encoder,
   return -1;
 }
 
-void ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) noexcept {
+int ffmpeg_vram_destroy_encoder(FFmpegVRamEncoder *encoder) noexcept {
+  std::unique_ptr<FFmpegVRamEncoder> owner(encoder);
   try {
     if (!encoder)
-      return;
-    encoder->destroy();
-    delete encoder;
-    encoder = NULL;
+      return 0;
+    return encoder->destroy();
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("free encoder failed, ") + std::string(e.what()));
   } catch (...) {
     LOG_ERROR("ffmpeg_vram_destroy_encoder: unknown exception");
   }
+  return -1;
 }
 
 int ffmpeg_vram_set_bitrate(FFmpegVRamEncoder *encoder, int kbs) noexcept {

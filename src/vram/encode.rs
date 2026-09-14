@@ -77,6 +77,8 @@ impl Encoder {
     /// for another attempt unless the pre-submit check detects device loss, which also
     /// invalidates it. Producing no output is reported as an error, even when FFmpeg
     /// accepted the input; retrying does not guarantee recovery from a device failure.
+    /// Each subsequent call attempts a new submission with its own `ms`. Buffered output
+    /// may belong to an earlier submission; each packet retains its actual output PTS.
     ///
     /// Changing bitrate preserves the cached input. Resolution or codec changes require
     /// a new encoder and therefore a new successful normal encode. A capture gap that
@@ -84,8 +86,9 @@ impl Encoder {
     ///
     /// Serialize calls on the same encoder, including bitrate changes and destruction.
     /// Safe Rust enforces this through mutable borrowing; direct C callers must enforce
-    /// it themselves. Returned packets borrow internal storage and are cleared by the
-    /// next normal or repeat encode; copy packets that need to outlive that call.
+    /// it themselves. The returned vector borrows the encoder's result storage, which
+    /// the next normal or repeat encode clears. Each packet owns its bytes; move or
+    /// copy results out of the vector to retain them across calls.
     pub fn encode_repeat(&mut self, ms: i64) -> Result<&mut Vec<EncodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();

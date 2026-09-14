@@ -21,7 +21,15 @@ This compiles the production C++ encoder implementation into a separate test
 executable, substituting only `avcodec_send_frame` and `avcodec_receive_packet`.
 It checks repeat failure/retry behavior for `EAGAIN`, I/O errors, end-of-stream,
 empty packets, output draining without a callback, and normal-input invalidation.
+It also queues accepted input timestamps to check delayed output across repeat
+calls, and verifies that changing the frame rate preserves the millisecond time base.
 The fixture starts with a cached input marked ready and uses a WARP software
 device for the device-status check, requiring no hardware GPU. Successful
 retries after a scripted error verify the API state; they do not imply a real
 failed FFmpeg context or lost GPU device can recover without recreation.
+
+The same script runs encoder and decoder ownership tests with initialization and
+cleanup failures, including C++ exceptions, Windows SEH/access violations, and
+throwing error logs. They also check that a failed release does not skip the
+remaining frames, packets, codec context, or hardware buffer. These tests do not
+prove that a failing driver releases the resource whose release operation failed.

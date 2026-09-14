@@ -23,17 +23,21 @@ try {
 
     $outDir = (New-Item -ItemType Directory -Force 'target/repeat-failures').FullName
     $vcpkg = Join-Path $env:VCPKG_ROOT 'installed/x64-windows-static'
-    $testExe = Join-Path $outDir 'repeat_failures.exe'
-    & cl.exe /nologo /EHsc /std:c++17 /MT /DNOMINMAX `
-        "/I$vcpkg/include" "/I$repo/cpp/common" `
-        "/Fo$outDir/repeat_failures.obj" "/Fe$testExe" `
-        "$PSScriptRoot/repeat_failures.cpp" /link "/LIBPATH:$vcpkg/lib" `
-        (Join-Path $native.out_dir 'hwcodec.lib') `
-        avcodec.lib avutil.lib avformat.lib libmfx.lib d3d11.lib dxgi.lib `
-        user32.lib bcrypt.lib ole32.lib advapi32.lib gdi32.lib shell32.lib oleaut32.lib uuid.lib
-    if ($LASTEXITCODE -ne 0) { throw 'Building repeat failure tests failed.' }
-    & $testExe
-    if ($LASTEXITCODE -ne 0) { throw 'Repeat failure tests failed.' }
+    foreach ($test in @('repeat_failures', 'encoder_cleanup', 'decoder_cleanup')) {
+        $testExe = Join-Path $outDir "$test.exe"
+        $source = if ($test -eq 'repeat_failures') { 'repeat_failures.cpp' } else { 'cleanup_failures.cpp' }
+        $defines = @(if ($test -eq 'encoder_cleanup') { '/DTEST_ENCODER' })
+        & cl.exe /nologo /EHa /O2 /std:c++17 /MT /DNOMINMAX @defines `
+            "/I$vcpkg/include" "/I$repo/cpp/common" `
+            "/Fo$outDir/$test.obj" "/Fe$testExe" `
+            "$PSScriptRoot/$source" /link "/LIBPATH:$vcpkg/lib" `
+            (Join-Path $native.out_dir 'hwcodec.lib') `
+            avcodec.lib avutil.lib avformat.lib libmfx.lib d3d11.lib dxgi.lib `
+            user32.lib bcrypt.lib ole32.lib advapi32.lib gdi32.lib shell32.lib oleaut32.lib uuid.lib
+        if ($LASTEXITCODE -ne 0) { throw "Building $test failed." }
+        & $testExe
+        if ($LASTEXITCODE -ne 0) { throw "$test failed." }
+    }
 } finally {
     Pop-Location
 }
