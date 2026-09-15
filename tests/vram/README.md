@@ -29,7 +29,13 @@ retries after a scripted error verify the API state; they do not imply a real
 failed FFmpeg context or lost GPU device can recover without recreation.
 
 The same script runs encoder and decoder ownership tests with initialization and
-cleanup failures, including C++ exceptions, Windows SEH/access violations, and
-throwing error logs. They also check that a failed release does not skip the
-remaining frames, packets, codec context, or hardware buffer. These tests do not
-prove that a failing driver releases the resource whose release operation failed.
+cleanup failures, including standard/non-standard C++ exceptions and throwing
+error logs. They also check that a throwing release does not skip the remaining
+frames, packets, codec context, or hardware buffer. These tests do not prove that
+a failing driver releases the resource whose release operation failed.
+
+The tests use `/EHs`, matching the production exception model. A separate fixture
+links the production MFX probe with throwing driver calls to verify C++ exception
+handling and session cleanup. Windows SEH/access violations run in child test
+processes; the script checks their exact exception exit codes to ensure neither
+the codec initialization/cleanup paths nor the driver probe swallow these faults.

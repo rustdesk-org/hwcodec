@@ -185,12 +185,29 @@ void check_released() {
 }
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
   codec_size = sizeof(Codec);
+  if (argc > 1) {
+    assert(argc == 3);
+    init_error = std::atoi(argv[1]);
+    cleanup_error = std::atoi(argv[2]);
+    prepare();
+    if (init_error) {
+      create_codec();
+    } else {
+      Codec *codec = allocate_codec();
+      codec->native_ = std::make_unique<FailingNativeDevice>();
+      codec->frame_ = av_frame_alloc();
+      assert(codec->frame_);
+      destroy_codec(codec);
+    }
+    std::puts("FAIL: SEH returned through a codec boundary");
+    return 1;
+  }
   assert(destroy_codec(nullptr) == 0);
   int scenarios = 1;
-  for (cleanup_error = 0; cleanup_error < 5; ++cleanup_error) {
+  for (cleanup_error = 0; cleanup_error < 3; ++cleanup_error) {
     prepare();
     Codec *codec = allocate_codec();
     codec->native_ = std::make_unique<FailingNativeDevice>();
@@ -200,7 +217,7 @@ int main() {
     check_released();
     ++scenarios;
 
-    for (init_error = 0; init_error < 5; ++init_error) {
+    for (init_error = 0; init_error < 3; ++init_error) {
       prepare();
       assert(!create_codec());
       check_released();
@@ -216,7 +233,7 @@ int main() {
   };
   for (CleanupSite site : sites) {
     cleanup_site = site;
-    for (cleanup_error = 1; cleanup_error < 5; ++cleanup_error) {
+    for (cleanup_error = 1; cleanup_error < 3; ++cleanup_error) {
       prepare();
       Codec *codec = allocate_codec();
       codec->native_ = std::make_unique<FailingNativeDevice>();

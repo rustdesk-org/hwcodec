@@ -23,12 +23,13 @@ try {
 
     $outDir = (New-Item -ItemType Directory -Force 'target/repeat-failures').FullName
     $vcpkg = Join-Path $env:VCPKG_ROOT 'installed/x64-windows-static'
-    foreach ($test in @('repeat_failures', 'encoder_cleanup', 'decoder_cleanup')) {
+    foreach ($test in @('repeat_failures', 'encoder_cleanup', 'decoder_cleanup', 'mfx_exceptions')) {
         $testExe = Join-Path $outDir "$test.exe"
-        $source = if ($test -eq 'repeat_failures') { 'repeat_failures.cpp' } else { 'cleanup_failures.cpp' }
+        $source = if ($test -in @('encoder_cleanup', 'decoder_cleanup')) { 'cleanup_failures.cpp' } else { "$test.cpp" }
         $defines = @(if ($test -eq 'encoder_cleanup') { '/DTEST_ENCODER' })
-        & cl.exe /nologo /EHa /O2 /std:c++17 /MT /DNOMINMAX @defines `
+        & cl.exe /nologo /EHs /O2 /std:c++17 /MT /DNOMINMAX @defines `
             "/I$vcpkg/include" "/I$repo/cpp/common" `
+            "/I$repo/externals/MediaSDK_22.5.4/api/include" `
             "/Fo$outDir/$test.obj" "/Fe$testExe" `
             "$PSScriptRoot/$source" /link "/LIBPATH:$vcpkg/lib" `
             (Join-Path $native.out_dir 'hwcodec.lib') `
@@ -37,6 +38,25 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Building $test failed." }
         & $testExe
         if ($LASTEXITCODE -ne 0) { throw "$test failed." }
+        if ($test -ne 'repeat_failures') {
+            foreach ($mode in @(3, 4)) {
+                # The injected 0xE0424242 exception and STATUS_ACCESS_VIOLATION.
+                $expectedExit = if ($mode -eq 3) { -532528574 } else { -1073741819 }
+                $sites = if ($test -eq 'mfx_exceptions') { @('probe') } else { @('init', 'cleanup') }
+                foreach ($site in $sites) {
+                    $testArgs = switch ($site) {
+                        'probe' { @($mode) }
+                        'init' { @($mode, 0) }
+                        'cleanup' { @(0, $mode) }
+                    }
+                    & $testExe @testArgs
+                    if ($LASTEXITCODE -ne $expectedExit) {
+                        throw "$test $site mode=$mode returned $LASTEXITCODE instead of SEH exit $expectedExit."
+                    }
+                    Write-Output "PASS $test $site mode=$mode remains unhandled (exit $LASTEXITCODE)"
+                }
+            }
+        }
     }
 } finally {
     Pop-Location
