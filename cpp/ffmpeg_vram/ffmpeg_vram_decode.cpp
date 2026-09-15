@@ -418,11 +418,7 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
     *outDescNum = count;
     return 0;
   } catch (const std::exception &e) {
-    try {
-      std::cerr << e.what() << '\n';
-    } catch (...) {
-      // Logging must not let another exception escape the FFI boundary.
-    }
+    LOG_ERROR(std::string("test failed: ") + e.what());
   } catch (...) {
     LOG_ERROR("ffmpeg_vram_test_decode: unknown exception");
   }
