@@ -7,8 +7,13 @@ cargo +stable test --release --features vram --lib vram::tests -- --include-igno
 The repeat tests cover bitrate changes, encoder recreation for resolution and
 H.264/H.265 changes, timestamps, input invalidation, and 120 normal/repeat cycles
 per available GPU/codec combination. They decode the outputs to check dimensions
-and validity. They do not validate pixel accuracy, live display changes, network
-reconnects, GPU device resets, or long-running memory usage.
+and validity. A content test encodes a four-quadrant image A, overwrites and
+releases the source texture, and checks that repeat still produces A. It then
+encodes B and repeats the overwrite/release checks for B. Each decoded image is
+sampled at nine points per quadrant with a tolerance of 16 per B/G/R channel
+for compression and color conversion; source uploads are checked without tolerance.
+These tests do not validate live display changes, network reconnects, GPU device
+resets, or long-running memory usage.
 
 Run deterministic failure tests from an **x64 MSVC developer PowerShell**, with
 `VCPKG_ROOT` pointing to the installation used by hwcodec:
