@@ -44,3 +44,13 @@ links the production MFX probe with throwing driver calls to verify C++ exceptio
 handling and session cleanup. Windows SEH/access violations run in child test
 processes; the script checks their exact exception exit codes to ensure neither
 the codec initialization/cleanup paths nor the driver probe swallow these faults.
+
+## Windows CI
+
+The [Windows VRAM failure injection workflow](../../.github/workflows/windows-vram.yml)
+runs this script on `windows-2022` for pull requests, pushes to `master`, and manual
+dispatches. It uses WARP and does not run the hardware-dependent Rust tests above.
+The job builds FFmpeg 7.1.1 and the Intel dispatcher using pinned vcpkg and RustDesk
+overlay ports, caches dependency binaries, and uploads test/build logs. The pinned
+versions are in the workflow and its [dependency manifest](../../.github/vcpkg/vcpkg.json);
+update the workflow's vcpkg commit and the manifest's baseline together.

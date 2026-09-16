@@ -1,0 +1,20 @@
+{
+  "builtin-baseline": "120deac3062162151622ca4860575a33844ba10b",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": ["amf", "nvcodec", "qsv"]
+    }
+  ],
+  "overrides": [
+    {
+      "name": "ffnvcodec",
+      "version": "12.1.14.0"
+    },
+    {
+      "name": "amd-amf",
+      "version": "1.4.35"
+    }
+  ]
+}
