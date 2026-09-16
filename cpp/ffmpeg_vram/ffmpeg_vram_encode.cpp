@@ -243,8 +243,16 @@ public:
     if (!repeat_ready_)
       return -1;
 
-    if (FAILED(d3d11Device_->GetDeviceRemovedReason())) {
+    const HRESULT hr = d3d11Device_->GetDeviceRemovedReason();
+    if (FAILED(hr)) {
       repeat_ready_ = false;
+      LOG_ERROR([&] {
+        std::stringstream message;
+        message << "encode_repeat: device lost, cached input invalidated, hr=0x"
+                << std::hex << hr << std::dec << ", luid=" << luid_
+                << ", encoder=" << encoder_->name_;
+        return message.str();
+      }());
       return -1;
     }
 
