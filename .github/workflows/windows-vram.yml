@@ -41,6 +41,8 @@ jobs:
           repository: microsoft/vcpkg
           ref: ${{ env.VCPKG_COMMIT }}
           path: target/ci-vcpkg
+          # Pinned port versions require trees from vcpkg's history.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Checkout FFmpeg and dispatcher ports
