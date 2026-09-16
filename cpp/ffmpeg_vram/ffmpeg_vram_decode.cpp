@@ -69,30 +69,44 @@ public:
 
   ~FFmpegVRamDecoder() {}
 
-  void destroy() {
+  int destroy() noexcept {
+    int result = 0;
+    auto release = [&result](auto cleanup) noexcept {
+      try {
+        cleanup();
+      } catch (const std::exception &e) {
+        result = -1;
+        LOG_ERROR(std::string("decoder cleanup failed: ") + e.what());
+      } catch (...) {
+        result = -1;
+        LOG_ERROR("decoder cleanup: unknown exception");
+      }
+    };
     if (frame_)
-      av_frame_free(&frame_);
+      release([&] { av_frame_free(&frame_); });
     if (pkt_)
-      av_packet_free(&pkt_);
+      release([&] { av_packet_free(&pkt_); });
     if (c_)
-      avcodec_free_context(&c_);
+      release([&] { avcodec_free_context(&c_); });
     if (hw_device_ctx_) {
-      av_buffer_unref(&hw_device_ctx_);
+      release([&] { av_buffer_unref(&hw_device_ctx_); });
       // AVHWDeviceContext takes ownership of d3d11 object
       d3d11Device_ = nullptr;
       d3d11DeviceContext_ = nullptr;
     } else {
-      SAFE_RELEASE(d3d11Device_);
-      SAFE_RELEASE(d3d11DeviceContext_);
+      release([&] { SAFE_RELEASE(d3d11Device_); });
+      release([&] { SAFE_RELEASE(d3d11DeviceContext_); });
     }
 
     frame_ = NULL;
     pkt_ = NULL;
     c_ = NULL;
     hw_device_ctx_ = NULL;
+    return result;
   }
   int reset() {
-    destroy();
+    if (destroy() != 0)
+      return -1;
     if (!native_) {
       native_ = std::make_unique<NativeDevice>();
       if (!native_->Init(luid_, (ID3D11Device *)device_, 4)) {
@@ -301,45 +315,43 @@ void unlockContext(void *lock_ctx) { (void)lock_ctx; }
 
 } // namespace
 
-extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) {
+extern "C" int ffmpeg_vram_destroy_decoder(FFmpegVRamDecoder *decoder) noexcept {
+  std::unique_ptr<FFmpegVRamDecoder> owner(decoder);
   try {
     if (!decoder)
       return 0;
-    decoder->destroy();
-    delete decoder;
-    decoder = NULL;
-    return 0;
+    return decoder->destroy();
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_free_decoder exception:") + e.what());
+  } catch (...) {
+    LOG_ERROR("ffmpeg_vram_destroy_decoder: unknown exception");
   }
   return -1;
 }
 
 extern "C" FFmpegVRamDecoder *ffmpeg_vram_new_decoder(void *device,
                                                       int64_t luid,
-                                                      DataFormat dataFormat) {
-  FFmpegVRamDecoder *decoder = NULL;
+                                                      DataFormat dataFormat) noexcept {
   try {
-    decoder = new FFmpegVRamDecoder(device, luid, dataFormat);
+    std::unique_ptr<FFmpegVRamDecoder, decltype(&ffmpeg_vram_destroy_decoder)> decoder(
+        new FFmpegVRamDecoder(device, luid, dataFormat),
+        ffmpeg_vram_destroy_decoder);
     if (decoder) {
       if (decoder->reset() == 0) {
-        return decoder;
+        return decoder.release();
       }
     }
   } catch (std::exception &e) {
     LOG_ERROR(std::string("new decoder exception:") + e.what());
-  }
-  if (decoder) {
-    decoder->destroy();
-    delete decoder;
-    decoder = NULL;
+  } catch (...) {
+    LOG_ERROR("ffmpeg_vram_new_decoder: unknown exception");
   }
   return NULL;
 }
 
 extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
                                   const uint8_t *data, int length,
-                                  DecodeCallback callback, const void *obj) {
+                                  DecodeCallback callback, const void *obj) noexcept {
   try {
     int ret = decoder->decode(data, length, callback, obj);
     if (DataFormat::H265 == decoder->dataFormat_ && util_decode::has_flag_could_not_find_ref_with_poc()) {
@@ -349,6 +361,8 @@ extern "C" int ffmpeg_vram_decode(FFmpegVRamDecoder *decoder,
     }
   } catch (const std::exception &e) {
     LOG_ERROR(std::string("ffmpeg_ram_decode exception:") + e.what());
+  } catch (...) {
+    LOG_ERROR("ffmpeg_vram_decode: unknown exception");
   }
   return HWCODEC_ERR_COMMON;
 }
@@ -357,8 +371,10 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
                                        int32_t maxDescNum, int32_t *outDescNum,
                                        DataFormat dataFormat,
                                        uint8_t *data, int32_t length,
-                                       const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) {
+                                       const int64_t *excludedLuids, const int32_t *excludeFormats, int32_t excludeCount) noexcept {
   try {
+    using DecoderPtr = std::unique_ptr<FFmpegVRamDecoder,
+                                      decltype(&ffmpeg_vram_destroy_decoder)>;
     int count = 0;
     struct VendorMapping {
       AdapterVendor adapter_vendor;
@@ -380,21 +396,19 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
           continue;
         }
 
-        FFmpegVRamDecoder *p = (FFmpegVRamDecoder *)ffmpeg_vram_new_decoder(
-            nullptr, LUID(adapter.get()->desc1_), dataFormat);
+        DecoderPtr p(
+            ffmpeg_vram_new_decoder(nullptr, LUID(adapter.get()->desc1_), dataFormat),
+            ffmpeg_vram_destroy_decoder);
         if (!p)
           continue;
         auto start = util::now();
-        bool succ = ffmpeg_vram_decode(p, data, length, nullptr, nullptr) == 0;
+        bool succ = ffmpeg_vram_decode(p.get(), data, length, nullptr, nullptr) == 0;
         int64_t elapsed = util::elapsed_ms(start);
         if (succ && elapsed < TEST_TIMEOUT_MS) {
           outLuids[count] = LUID(adapter.get()->desc1_);
           outVendors[count] = (int32_t)vendorMap.driver_vendor;  // Map adapter vendor to driver vendor
           count += 1;
         }
-        p->destroy();
-        delete p;
-        p = nullptr;
         if (count >= maxDescNum)
           break;
       }
@@ -404,7 +418,9 @@ extern "C" int ffmpeg_vram_test_decode(int64_t *outLuids, int32_t *outVendors,
     *outDescNum = count;
     return 0;
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    LOG_ERROR(std::string("test failed: ") + e.what());
+  } catch (...) {
+    LOG_ERROR("ffmpeg_vram_test_decode: unknown exception");
   }
   return -1;
 }

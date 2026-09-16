@@ -21,16 +21,53 @@ void debug(const std::string &message);
 void trace(const std::string &message);
 } // namespace gol
 
-#define LOG_ERROR(message)                                                     \
+#define DO_LOG_ERROR(message)                                                     \
   gol::error(std::string("[") + LOG_MODULE + "] " + message)
-#define LOG_WARN(message)                                                      \
+#define DO_LOG_WARN(message)                                                      \
   gol::warn(std::string("[") + LOG_MODULE + "] " + message)
-#define LOG_INFO(message)                                                      \
+#define DO_LOG_INFO(message)                                                      \
   gol::info(std::string("[") + LOG_MODULE + "] " + message)
-#define LOG_DEBUG(message)                                                     \
+#define DO_LOG_DEBUG(message)                                                     \
   gol::debug(std::string("[") + LOG_MODULE + "] " + message)
-#define LOG_TRACE(message)                                                     \
+#define DO_LOG_TRACE(message)                                                     \
   gol::trace(std::string("[") + LOG_MODULE + "] " + message)
+
+// Guard message construction as well as output, including in FFI catch handlers.
+#define LOG_ERROR(message)                                                    \
+  do {                                                                        \
+    try {                                                                     \
+      DO_LOG_ERROR(message);                                                  \
+    } catch (...) {                                                           \
+    }                                                                         \
+  } while (false)
+#define LOG_WARN(message)                                                     \
+  do {                                                                        \
+    try {                                                                     \
+      DO_LOG_WARN(message);                                                   \
+    } catch (...) {                                                           \
+    }                                                                         \
+  } while (false)
+#define LOG_INFO(message)                                                     \
+  do {                                                                        \
+    try {                                                                     \
+      DO_LOG_INFO(message);                                                   \
+    } catch (...) {                                                           \
+    }                                                                         \
+  } while (false)
+#define LOG_DEBUG(message)                                                    \
+  do {                                                                        \
+    try {                                                                     \
+      DO_LOG_DEBUG(message);                                                  \
+    } catch (...) {                                                           \
+    }                                                                         \
+  } while (false)
+#define LOG_TRACE(message)                                                    \
+  do {                                                                        \
+    try {                                                                     \
+      DO_LOG_TRACE(message);                                                  \
+    } catch (...) {                                                           \
+    }                                                                         \
+  } while (false)
 
 // https://github.com/joncampbell123/composite-video-simulator/issues/5#issuecomment-611885908
 #ifdef av_err2str

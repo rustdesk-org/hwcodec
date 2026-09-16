@@ -1,13 +1,12 @@
 use crate::{
     common::{DataFormat::*, Driver::*},
     ffmpeg::init_av_log,
-    vram::{amf, ffmpeg, inner::DecodeCalls, mfx, nv, DecodeContext},
+    vram::{ffmpeg, DecodeContext},
 };
 use log::trace;
 use std::ffi::c_void;
 
 pub struct Decoder {
-    calls: DecodeCalls,
     codec: *mut c_void,
     frames: *mut Vec<DecodeFrame>,
     pub ctx: DecodeContext,
@@ -27,14 +26,11 @@ extern "C" {
 impl Decoder {
     pub fn new(ctx: DecodeContext) -> Result<Self, ()> {
         init_av_log();
-        let calls = match ctx.driver {
-            NV => nv::decode_calls(),
-            AMF => amf::decode_calls(),
-            MFX => mfx::decode_calls(),
-            FFMPEG => ffmpeg::decode_calls(),
-        };
+        if ctx.driver != FFMPEG {
+            return Err(());
+        }
         unsafe {
-            let codec = (calls.new)(
+            let codec = ffmpeg::ffmpeg_vram_new_decoder(
                 ctx.device.unwrap_or(std::ptr::null_mut()),
                 ctx.luid,
                 ctx.data_format as i32,
@@ -43,7 +39,6 @@ impl Decoder {
                 return Err(());
             }
             Ok(Self {
-                calls,
                 codec,
                 frames: Box::into_raw(Box::new(Vec::<DecodeFrame>::new())),
                 ctx,
@@ -54,7 +49,7 @@ impl Decoder {
     pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
         unsafe {
             (&mut *self.frames).clear();
-            let ret = (self.calls.decode)(
+            let ret = ffmpeg::ffmpeg_vram_decode(
                 self.codec,
                 packet.as_ptr() as _,
                 packet.len() as _,
@@ -88,7 +83,7 @@ impl Decoder {
 impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
-            (self.calls.destroy)(self.codec);
+            ffmpeg::ffmpeg_vram_destroy_decoder(self.codec);
             self.codec = std::ptr::null_mut();
             let _ = Box::from_raw(self.frames);
             trace!("Decoder dropped");
@@ -106,29 +101,10 @@ pub fn available() -> Vec<DecodeContext> {
     use log::debug;
 
     let mut codecs: Vec<_> = vec![];
-    // disable nv sdk decode
-    // codecs.append(
-    //     &mut nv::possible_support_decoders()
-    //         .drain(..)
-    //         .map(|n| (NV, n))
-    //         .collect(),
-    // );
     codecs.append(
         &mut ffmpeg::possible_support_decoders()
             .drain(..)
             .map(|n| (FFMPEG, n))
-            .collect(),
-    );
-    codecs.append(
-        &mut amf::possible_support_decoders()
-            .drain(..)
-            .map(|n| (AMF, n))
-            .collect(),
-    );
-    codecs.append(
-        &mut mfx::possible_support_decoders()
-            .drain(..)
-            .map(|n| (MFX, n))
             .collect(),
     );
 
@@ -154,13 +130,6 @@ pub fn available() -> Vec<DecodeContext> {
             input.driver, input.data_format
         );
 
-        let test = match input.driver {
-            NV => nv::decode_calls().test,
-            AMF => amf::decode_calls().test,
-            MFX => mfx::decode_calls().test,
-            FFMPEG => ffmpeg::decode_calls().test,
-        };
-
         let mut luids: Vec<i64> = vec![0; crate::vram::MAX_ADATERS];
         let mut vendors: Vec<i32> = vec![0; crate::vram::MAX_ADATERS];
         let mut desc_count: i32 = 0;
@@ -180,7 +149,7 @@ pub fn available() -> Vec<DecodeContext> {
             .unzip();
 
         let result = unsafe {
-            test(
+            ffmpeg::ffmpeg_vram_test_decode(
                 luids.as_mut_ptr(),
                 vendors.as_mut_ptr(),
                 luids.len() as _,

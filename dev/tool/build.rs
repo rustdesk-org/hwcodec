@@ -29,6 +29,7 @@ fn main() {
     );
 
     builder.file("src/tool.cpp");
+    builder.file("src/texture.cpp");
 
     // crate
     builder

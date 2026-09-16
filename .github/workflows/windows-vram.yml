@@ -1,0 +1,111 @@
+name: Windows VRAM failure injection
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VCPKG_COMMIT: 120deac3062162151622ca4860575a33844ba10b
+  RUSTDESK_PORTS_COMMIT: f591882558b35110bcf3aa979846676c6fde2e2d
+  VCPKG_ROOT: ${{ github.workspace }}/target/ci-vcpkg
+  VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/target/vcpkg-cache,readwrite
+  LIBCLANG_PATH: C:\Program Files\LLVM\bin
+  CARGO_TERM_COLOR: always
+
+jobs:
+  failure-injection:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout hwcodec
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Checkout vcpkg
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: microsoft/vcpkg
+          ref: ${{ env.VCPKG_COMMIT }}
+          path: target/ci-vcpkg
+          # Pinned port versions require trees from vcpkg's history.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout FFmpeg and dispatcher ports
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: rustdesk/rustdesk
+          ref: ${{ env.RUSTDESK_PORTS_COMMIT }}
+          path: target/ci-rustdesk
+          sparse-checkout: |
+            res/vcpkg/ffmpeg
+            res/vcpkg/mfx-dispatch
+          persist-credentials: false
+
+      - name: Prepare Rust and binary cache
+        id: environment
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          if ($LASTEXITCODE -ne 0) { throw 'Installing Rust failed.' }
+          New-Item -ItemType Directory -Force target/vcpkg-cache | Out-Null
+          "image=$env:ImageVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Cache vcpkg binaries
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: target/vcpkg-cache
+          key: windows-vram-${{ steps.environment.outputs.image }}-${{ env.VCPKG_COMMIT }}-${{ env.RUSTDESK_PORTS_COMMIT }}-${{ hashFiles('.github/vcpkg/vcpkg.json') }}
+
+      - name: Build FFmpeg dependencies
+        run: |
+          & "$env:VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { throw 'Bootstrapping vcpkg failed.' }
+          & "$env:VCPKG_ROOT/vcpkg.exe" install --triplet x64-windows-static `
+            "--x-manifest-root=$env:GITHUB_WORKSPACE/.github/vcpkg" `
+            "--x-install-root=$env:VCPKG_ROOT/installed" `
+            "--overlay-ports=$env:GITHUB_WORKSPACE/target/ci-rustdesk/res/vcpkg"
+          if ($LASTEXITCODE -ne 0) { throw 'Installing FFmpeg dependencies failed.' }
+
+      - name: Run failure injection with WARP
+        timeout-minutes: 15
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'MSVC x64 tools are missing.' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          # The developer shell can replace VCPKG_ROOT with Visual Studio's copy.
+          $env:VCPKG_ROOT = "$env:GITHUB_WORKSPACE/target/ci-vcpkg"
+          $PSNativeCommandUseErrorActionPreference = $false
+          try {
+            & ./tests/vram/repeat_failures.ps1 *>&1 | Tee-Object -FilePath target/repeat-failures.log
+          } catch {
+            $_ | Out-String | Add-Content -LiteralPath target/repeat-failures.log
+            throw
+          }
+          # The script validates intentional SEH crashes; their exit codes remain in LASTEXITCODE.
+          exit 0
+
+      - name: Upload test and dependency build logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-vram-logs
+          path: |
+            target/repeat-failures.log
+            target/ci-vcpkg/buildtrees/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7

@@ -88,3 +88,6 @@ impl Available {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
