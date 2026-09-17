@@ -46,10 +46,10 @@ int fill_prime(AVFrame *mapped, FFmpegPrimeFrame *out) {
   }
   memset(out, 0, sizeof(*out));
   out->kind = FFMPEG_GPU_FRAME_PRIME;
-  out->n_fds = desc->nb_objects;
-  if (out->n_fds > 4) {
-    out->n_fds = 4;
+  if (desc->nb_objects > 4) {
+    return 0;
   }
+  out->n_fds = desc->nb_objects;
   for (int i = 0; i < out->n_fds; i++) {
     int fd = dup(desc->objects[i].fd);
     if (fd < 0) {
@@ -108,8 +108,7 @@ extern "C" void *ffmpeg_vaapi_prime_new(int hevc) {
   int ret = av_hwdevice_ctx_create(&d->hw_device_ctx, AV_HWDEVICE_TYPE_VAAPI,
                                    nullptr, nullptr, 0);
   if (ret < 0) {
-    avcodec_free_context(&d->c);
-    delete d;
+    ffmpeg_vaapi_prime_free(d);
     return nullptr;
   }
   d->c->hw_device_ctx = av_buffer_ref(d->hw_device_ctx);
