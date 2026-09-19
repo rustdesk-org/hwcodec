@@ -197,8 +197,9 @@ private:
           LOG_ERROR(std::string("hw_frames_ctx is NULL"));
           goto _exit;
         }
-        if (sw_frame_->width != frame_->width ||
-            sw_frame_->height != frame_->height) {
+        if ((sw_frame_->width != 0 || sw_frame_->height != 0) &&
+            (sw_frame_->width != frame_->width ||
+             sw_frame_->height != frame_->height)) {
           av_frame_unref(sw_frame_);
         }
         if ((ret = av_hwframe_transfer_data(sw_frame_, frame_, 0)) < 0) {
