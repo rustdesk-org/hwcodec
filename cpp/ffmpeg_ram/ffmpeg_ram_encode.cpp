@@ -116,6 +116,7 @@ public:
   int gpu_ = 0;
   RamEncodeCallback callback_ = NULL;
   int offset_[AV_NUM_DATA_POINTERS] = {0};
+  int input_linesize_[AV_NUM_DATA_POINTERS] = {0};
 
   AVHWDeviceType hw_device_type_ = AV_HWDEVICE_TYPE_NONE;
   AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_NONE;
@@ -262,6 +263,7 @@ public:
 
     for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
       linesize[i] = frame_->linesize[i];
+      input_linesize_[i] = frame_->linesize[i];
       offset[i] = offset_[i];
     }
     return true;
@@ -368,39 +370,41 @@ private:
 
   int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
                  const int *const offset) {
+    const uint8_t *src[4] = {data, NULL, NULL, NULL};
     switch (frame->format) {
     case AV_PIX_FMT_NV12:
       if (data_length <
-          frame->height * (frame->linesize[0] + frame->linesize[1] / 2)) {
+          frame->height * (input_linesize_[0] + input_linesize_[1] / 2)) {
         LOG_ERROR(std::string("fill_frame: NV12 data length error. data_length:") +
                   std::to_string(data_length) +
-                  ", linesize[0]:" + std::to_string(frame->linesize[0]) +
-                  ", linesize[1]:" + std::to_string(frame->linesize[1]));
+                  ", linesize[0]:" + std::to_string(input_linesize_[0]) +
+                  ", linesize[1]:" + std::to_string(input_linesize_[1]));
         return -1;
       }
-      frame->data[0] = data;
-      frame->data[1] = data + offset[0];
+      src[1] = data + offset[0];
       break;
     case AV_PIX_FMT_YUV420P:
       if (data_length <
-          frame->height * (frame->linesize[0] + frame->linesize[1] / 2 +
-                           frame->linesize[2] / 2)) {
+          frame->height * (input_linesize_[0] + input_linesize_[1] / 2 +
+                           input_linesize_[2] / 2)) {
         LOG_ERROR(std::string("fill_frame: 420P data length error. data_length:") +
                   std::to_string(data_length) +
-                  ", linesize[0]:" + std::to_string(frame->linesize[0]) +
-                  ", linesize[1]:" + std::to_string(frame->linesize[1]) +
-                  ", linesize[2]:" + std::to_string(frame->linesize[2]));
+                  ", linesize[0]:" + std::to_string(input_linesize_[0]) +
+                  ", linesize[1]:" + std::to_string(input_linesize_[1]) +
+                  ", linesize[2]:" + std::to_string(input_linesize_[2]));
         return -1;
       }
-      frame->data[0] = data;
-      frame->data[1] = data + offset[0];
-      frame->data[2] = data + offset[1];
+      src[1] = data + offset[0];
+      src[2] = data + offset[1];
       break;
     default:
       LOG_ERROR(std::string("fill_frame: unsupported format, ") +
                 std::to_string(frame->format));
       return -1;
     }
+    // Encoder references must keep pixels alive after the caller releases data.
+    av_image_copy(frame->data, frame->linesize, src, input_linesize_,
+                  (AVPixelFormat)frame->format, frame->width, frame->height);
     return 0;
   }
 };
