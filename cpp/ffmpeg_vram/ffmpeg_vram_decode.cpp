@@ -216,6 +216,7 @@ private:
       locked = true;
       if (!convert(frame_, callback, obj)) {
         LOG_ERROR(std::string("Failed to convert"));
+        decoded = false;
         goto _exit;
       }
       if (callback)
@@ -258,7 +259,10 @@ private:
       return false;
     }
     native_->EndQuery();
-    native_->Query();
+    if (!native_->Query()) {
+      LOG_ERROR(std::string("Failed to query"));
+      return false;
+    }
 
 #else
     native_->BeginQuery();
