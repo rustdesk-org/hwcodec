@@ -117,6 +117,7 @@ public:
   RamEncodeCallback callback_ = NULL;
   int offset_[AV_NUM_DATA_POINTERS] = {0};
   int input_linesize_[AV_NUM_DATA_POINTERS] = {0};
+  int input_length_ = 0;
 
   AVHWDeviceType hw_device_type_ = AV_HWDEVICE_TYPE_NONE;
   AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_NONE;
@@ -260,6 +261,7 @@ public:
     if (ffmpeg_ram_get_linesize_offset_length(pixfmt_, width_, height_, align_,
                                               NULL, offset_, length) != 0)
       return false;
+    input_length_ = *length;
 
     for (int i = 0; i < AV_NUM_DATA_POINTERS; i++) {
       linesize[i] = frame_->linesize[i];
@@ -272,11 +274,25 @@ public:
   int encode(const uint8_t *data, int length, const void *obj, uint64_t ms) {
     int ret;
 
-    if ((ret = av_frame_make_writable(frame_)) != 0) {
-      LOG_ERROR(std::string("av_frame_make_writable failed, ret = ") + av_err2str(ret));
-      return ret;
+    if (!data || length < input_length_) {
+      LOG_ERROR(std::string("encode: input data length error. length:") +
+                std::to_string(length) + ", required:" +
+                std::to_string(input_length_));
+      return -1;
     }
-    if ((ret = fill_frame(frame_, (uint8_t *)data, length, offset_)) != 0)
+    if (!av_frame_is_writable(frame_)) {
+      // All pixels will be overwritten; do not copy the previous frame.
+      // References retained by the encoder keep their existing buffers alive.
+      av_frame_unref(frame_);
+      frame_->format = pixfmt_;
+      frame_->width = width_;
+      frame_->height = height_;
+      if ((ret = av_frame_get_buffer(frame_, align_)) < 0) {
+        LOG_ERROR(std::string("av_frame_get_buffer failed, ret = ") + av_err2str(ret));
+        return ret;
+      }
+    }
+    if ((ret = fill_frame(frame_, data)) != 0)
       return ret;
     AVFrame *tmp_frame;
     if (hw_device_type_ != AV_HWDEVICE_TYPE_NONE) {
@@ -368,34 +384,15 @@ private:
     return encoded ? 0 : -1;
   }
 
-  int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
-                 const int *const offset) {
+  int fill_frame(AVFrame *frame, const uint8_t *data) {
     const uint8_t *src[4] = {data, NULL, NULL, NULL};
     switch (frame->format) {
     case AV_PIX_FMT_NV12:
-      if (data_length <
-          frame->height * (input_linesize_[0] + input_linesize_[1] / 2)) {
-        LOG_ERROR(std::string("fill_frame: NV12 data length error. data_length:") +
-                  std::to_string(data_length) +
-                  ", linesize[0]:" + std::to_string(input_linesize_[0]) +
-                  ", linesize[1]:" + std::to_string(input_linesize_[1]));
-        return -1;
-      }
-      src[1] = data + offset[0];
+      src[1] = data + offset_[0];
       break;
     case AV_PIX_FMT_YUV420P:
-      if (data_length <
-          frame->height * (input_linesize_[0] + input_linesize_[1] / 2 +
-                           input_linesize_[2] / 2)) {
-        LOG_ERROR(std::string("fill_frame: 420P data length error. data_length:") +
-                  std::to_string(data_length) +
-                  ", linesize[0]:" + std::to_string(input_linesize_[0]) +
-                  ", linesize[1]:" + std::to_string(input_linesize_[1]) +
-                  ", linesize[2]:" + std::to_string(input_linesize_[2]));
-        return -1;
-      }
-      src[1] = data + offset[0];
-      src[2] = data + offset[1];
+      src[1] = data + offset_[0];
+      src[2] = data + offset_[1];
       break;
     default:
       LOG_ERROR(std::string("fill_frame: unsupported format, ") +

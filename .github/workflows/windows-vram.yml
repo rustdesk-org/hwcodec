@@ -1,4 +1,4 @@
-name: Windows VRAM failure injection
+name: Windows codec regression tests
 
 on:
   pull_request:
@@ -80,6 +80,22 @@ jobs:
             "--overlay-ports=$env:GITHUB_WORKSPACE/target/ci-rustdesk/res/vcpkg"
           if ($LASTEXITCODE -ne 0) { throw 'Installing FFmpeg dependencies failed.' }
 
+      - name: Run RAM input lifetime tests
+        timeout-minutes: 15
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vs) { throw 'MSVC x64 tools are missing.' }
+          & "$vs/Common7/Tools/Launch-VsDevShell.ps1" -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+          $env:VCPKG_ROOT = "$env:GITHUB_WORKSPACE/target/ci-vcpkg"
+          $PSNativeCommandUseErrorActionPreference = $false
+          try {
+            & ./tests/ffmpeg_ram/input_lifetime.ps1 *>&1 | Tee-Object -FilePath target/ram-input-lifetime.log
+          } catch {
+            $_ | Out-String | Add-Content -LiteralPath target/ram-input-lifetime.log
+            throw
+          }
+
       - name: Run failure injection with WARP
         timeout-minutes: 15
         run: |
@@ -106,6 +122,7 @@ jobs:
           name: windows-vram-logs
           path: |
             target/repeat-failures.log
+            target/ram-input-lifetime.log
             target/ci-vcpkg/buildtrees/**/*.log
           if-no-files-found: ignore
           retention-days: 7

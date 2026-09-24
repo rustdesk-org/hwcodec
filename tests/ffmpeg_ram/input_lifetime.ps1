@@ -10,7 +10,7 @@ if (-not $env:VCPKG_ROOT) {
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 Push-Location $repo
 try {
-    $build = @(& cargo +stable build --offline --release --message-format=json)
+    $build = @(& cargo +stable build --release --message-format=json)
     if ($LASTEXITCODE -ne 0) { throw 'Building hwcodec failed.' }
     $native = $build | ForEach-Object { $_ | ConvertFrom-Json } |
         Where-Object {
