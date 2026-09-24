@@ -18,6 +18,10 @@
 
 #define NUMVERTICES 6
 
+namespace {
+using QueryClock = std::chrono::steady_clock;
+}
+
 typedef struct _VERTEX {
   DirectX::XMFLOAT3 Pos;
   DirectX::XMFLOAT2 TexCoord;
@@ -380,22 +384,26 @@ void NativeDevice::BeginQuery() { context_->Begin(query_.Get()); }
 void NativeDevice::EndQuery() { context_->End(query_.Get()); }
 
 bool NativeDevice::Query() {
-  BOOL bResult = FALSE;
+  const auto deadline =
+      QueryClock::now() + std::chrono::milliseconds(DECODE_TIMEOUT_MS);
   int attempts = 0;
-  while (!bResult) {
+  // The deadline bounds polling, not a GetData call blocked inside the driver.
+  while (QueryClock::now() < deadline) {
+    BOOL bResult = FALSE;
     HRESULT hr = context_->GetData(query_.Get(), &bResult, sizeof(BOOL), 0);
-    if (SUCCEEDED(hr)) {
-      if (bResult) {
-        break;
-      }
+    if (FAILED(hr)) {
+      LOG_ERROR(std::string("GetData failed, hr = ") + std::to_string(hr));
+      return false;
     }
+    if (hr == S_OK && bResult == TRUE)
+      return true;
     attempts++;
+    // Keep the existing short spin for queries that complete promptly.
     if (attempts > 100)
       Sleep(1);
-    if (attempts > 1000)
-      break;
   }
-  return bResult == TRUE;
+  LOG_ERROR("GPU query timed out");
+  return false;
 }
 
 bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out, int width,

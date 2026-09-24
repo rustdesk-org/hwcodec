@@ -58,6 +58,7 @@ try {
             }
         }
     }
+    & "$PSScriptRoot/../ffmpeg_io/run.ps1"
 } finally {
     Pop-Location
 }
