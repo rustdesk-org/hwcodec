@@ -80,11 +80,10 @@ public:
     }
 
     if (strcmp(oc->oformat->name, "mp4") == 0) {
-      // Wait for codec parameters in the first frame, and cut fragments even
-      // when the encoder does not send another keyframe for a long time.
-      // Omit the trailer index: timed fragments can start on non-keyframes.
+      // Keep incomplete recordings recoverable and finalize normal recordings
+      // as ordinary MP4 for player compatibility.
       if ((ret = av_opt_set(oc->priv_data, "movflags",
-                            "delay_moov+frag_keyframe+skip_trailer", 0)) < 0 ||
+                            "frag_keyframe+hybrid_fragmented", 0)) < 0 ||
           (ret = av_opt_set_int(oc->priv_data, "frag_duration", 2000000, 0)) < 0) {
         LOG_WARN(std::string("Failed to configure MP4 fragments, ret = ") +
                   std::to_string(ret));
