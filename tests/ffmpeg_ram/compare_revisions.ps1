@@ -9,7 +9,11 @@ try {
         Where-Object { $_.reason -eq 'build-script-executed' -and (Test-Path (Join-Path $_.out_dir 'hwcodec.lib')) } |
         Select-Object -Last 1
     if (-not $native) { throw 'Native library not found.' }
-    $label = if ($Revision) { (& git rev-parse --short $Revision).Trim() } else { 'working' }
+    $label = if ($Revision) {
+        $revisionLabel = & git rev-parse --short $Revision
+        if ($LASTEXITCODE -ne 0) { throw "Invalid revision: $Revision" }
+        $revisionLabel.Trim()
+    } else { 'working' }
     $outDir = (New-Item -ItemType Directory -Force "target/ram-comparison/$label").FullName
     $file = 'cpp/ffmpeg_ram/ffmpeg_ram_encode.cpp'
     $source = if ($Revision) { (& git show "${Revision}:$file") -join "`n" } else { Get-Content -Raw $file }
