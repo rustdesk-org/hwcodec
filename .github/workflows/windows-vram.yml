@@ -15,7 +15,6 @@ concurrency:
 
 env:
   VCPKG_COMMIT: 120deac3062162151622ca4860575a33844ba10b
-  RUSTDESK_PORTS_COMMIT: f591882558b35110bcf3aa979846676c6fde2e2d
   VCPKG_ROOT: ${{ github.workspace }}/target/ci-vcpkg
   VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/target/vcpkg-cache,readwrite
   LIBCLANG_PATH: C:\Program Files\LLVM\bin
@@ -46,10 +45,11 @@ jobs:
           persist-credentials: false
 
       - name: Checkout FFmpeg and dispatcher ports
+        id: rustdesk-ports
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: rustdesk/rustdesk
-          ref: ${{ env.RUSTDESK_PORTS_COMMIT }}
+          ref: master
           path: target/ci-rustdesk
           sparse-checkout: |
             res/vcpkg/ffmpeg
@@ -68,7 +68,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: target/vcpkg-cache
-          key: windows-vram-${{ steps.environment.outputs.image }}-${{ env.VCPKG_COMMIT }}-${{ env.RUSTDESK_PORTS_COMMIT }}-${{ hashFiles('.github/vcpkg/vcpkg.json') }}
+          key: windows-vram-${{ steps.environment.outputs.image }}-${{ env.VCPKG_COMMIT }}-${{ steps.rustdesk-ports.outputs.commit }}-${{ hashFiles('.github/vcpkg/vcpkg.json') }}
 
       - name: Build FFmpeg dependencies
         run: |
