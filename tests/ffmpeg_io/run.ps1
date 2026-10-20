@@ -11,8 +11,13 @@ try {
         Select-Object -Last 1
     if (-not $native) { throw 'Native library not found.' }
     $vcpkg = Join-Path $env:VCPKG_ROOT 'installed/x64-windows-static'
-    $label = if ($Revision) { (& git rev-parse --short $Revision).Trim() } else { 'working' }
-    if ($LASTEXITCODE -ne 0) { throw 'Invalid revision.' }
+    if ($Revision) {
+        $resolved = & git rev-parse --verify --short $Revision
+        if ($LASTEXITCODE -ne 0 -or -not $resolved) { throw 'Invalid revision.' }
+        $label = $resolved.Trim()
+    } else {
+        $label = 'working'
+    }
     $outDir = (New-Item -ItemType Directory -Force "target/codec-comparison/$label").FullName
     $failures = 0
     foreach ($test in @('query', 'decode_query')) {
