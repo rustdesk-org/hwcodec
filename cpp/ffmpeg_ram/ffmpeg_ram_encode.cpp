@@ -363,7 +363,12 @@ private:
     }
   _exit:
     av_packet_unref(pkt_);
-    return encoded ? 0 : -1;
+    if (encoded) return 0;
+    // EAGAIN (flow control): the encoder accepted the frame but produced no
+    // output yet (VideoToolbox pipelines buffer their first packets). Not
+    // an error -- matching got_packet=0 in FFmpeg's send/receive API; the
+    // pending packet comes out on a later call.
+    return (ret == AVERROR(EAGAIN)) ? 0 : -1;
   }
 
   int fill_frame(AVFrame *frame, uint8_t *data, int data_length,
