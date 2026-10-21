@@ -79,6 +79,20 @@ public:
       return false;
     }
 
+    if (strcmp(oc->oformat->name, "mp4") == 0) {
+      // Keep incomplete recordings recoverable and finalize normal recordings
+      // as ordinary MP4 for player compatibility.
+      if ((ret = av_opt_set(oc->priv_data, "movflags",
+                            "frag_keyframe+hybrid_fragmented", 0)) < 0 ||
+          (ret = av_opt_set_int(oc->priv_data, "frag_duration", 2000000, 0)) < 0) {
+        LOG_WARN(std::string("Failed to configure MP4 fragments, ret = ") +
+                  std::to_string(ret));
+        av_opt_set_defaults(oc->priv_data);
+      } else {
+        oc->flags |= AVFMT_FLAG_FLUSH_PACKETS;
+      }
+    }
+
     ret = avformat_write_header(oc, NULL);
     if (ret < 0) {
       LOG_ERROR(std::string("avformat_write_header failed"));

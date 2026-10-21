@@ -33,7 +33,6 @@ public:
   HANDLE GetSharedHandle();
   ID3D11Texture2D *GetCurrentTexture();
   int next();
-  void BeginQuery();
   void EndQuery();
   bool Query();
   bool Process(ID3D11Texture2D *in, ID3D11Texture2D *out, int width, int height,

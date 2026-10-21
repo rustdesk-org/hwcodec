@@ -1,6 +1,5 @@
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <cstdio>
 #include <list>
 #include <mutex>
@@ -12,6 +11,7 @@
 #include <dxgi.h>
 
 #include "win.h"
+#include "util.h"
 
 #define LOG_MODULE "WIN"
 #include "log.h"
@@ -375,27 +375,35 @@ int NativeDevice::next() {
   return index_;
 }
 
-void NativeDevice::BeginQuery() { context_->Begin(query_.Get()); }
-
 void NativeDevice::EndQuery() { context_->End(query_.Get()); }
 
 bool NativeDevice::Query() {
-  BOOL bResult = FALSE;
+  constexpr int SPIN_ATTEMPTS = 100;
+  constexpr int SLEEP_INTERVAL_MS = 1;
+  constexpr int MAX_QUERY_ATTEMPTS =
+      SPIN_ATTEMPTS + DECODE_TIMEOUT_MS / SLEEP_INTERVAL_MS;
+  const auto start = util::now();
   int attempts = 0;
-  while (!bResult) {
+  // The timeout bounds polling, not a GetData call blocked inside the driver.
+  while (true) {
+    BOOL bResult = FALSE;
     HRESULT hr = context_->GetData(query_.Get(), &bResult, sizeof(BOOL), 0);
-    if (SUCCEEDED(hr)) {
-      if (bResult) {
-        break;
-      }
+    if (FAILED(hr)) {
+      LOG_ERROR(std::string("GetData failed, hr = ") + std::to_string(hr));
+      return false;
     }
-    attempts++;
-    if (attempts > 100)
-      Sleep(1);
-    if (attempts > 1000)
+    if (hr == S_OK && bResult == TRUE)
+      return true;
+    if (util::elapsed_ms(start) >= DECODE_TIMEOUT_MS ||
+        attempts >= MAX_QUERY_ATTEMPTS)
       break;
+    attempts++;
+    // Keep the existing short spin for queries that complete promptly.
+    if (attempts > SPIN_ATTEMPTS)
+      Sleep(SLEEP_INTERVAL_MS);
   }
-  return bResult == TRUE;
+  LOG_ERROR("GPU query timed out");
+  return false;
 }
 
 bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out, int width,
@@ -463,9 +471,9 @@ bool NativeDevice::Process(ID3D11Texture2D *in, ID3D11Texture2D *out, int width,
   OutputViewDesc.ViewDimension = D3D11_VPOV_DIMENSION_TEXTURE2D;
   OutputViewDesc.Texture2D.MipSlice = 0;
   ComPtr<ID3D11VideoProcessorOutputView> outputView = nullptr;
-  video_device_->CreateVideoProcessorOutputView(
+  HRB(video_device_->CreateVideoProcessorOutputView(
       out, video_processor_enumerator_.Get(), &OutputViewDesc,
-      outputView.ReleaseAndGetAddressOf());
+      outputView.ReleaseAndGetAddressOf()));
 
   D3D11_VIDEO_PROCESSOR_STREAM StreamData;
   ZeroMemory(&StreamData, sizeof(StreamData));
