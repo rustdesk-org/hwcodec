@@ -31,4 +31,27 @@ int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width, int height,
                                           int *length);
 int ffmpeg_ram_set_bitrate(void *encoder, int kbs);
 
+#if defined(__linux__)
+#define FFMPEG_GPU_FRAME_PRIME 2
+
+typedef struct FFmpegPrimeFrame {
+  int kind;
+  int n_fds;
+  int fds[4];
+  uint32_t fourcc;
+  uint64_t modifier;
+  int width;
+  int height;
+  int n_planes;
+  int pitches[4];
+  int offsets[4];
+  int obj_indices[4];
+} FFmpegPrimeFrame;
+
+void *ffmpeg_vaapi_prime_new(int hevc);
+void ffmpeg_vaapi_prime_free(void *decoder);
+int ffmpeg_vaapi_prime_decode(void *decoder, const uint8_t *data, int length,
+                             FFmpegPrimeFrame *out);
+#endif
+
 #endif // FFMPEG_RAM_FFI_H

@@ -14,6 +14,8 @@ include!(concat!(env!("OUT_DIR"), "/ffmpeg_ram_ffi.rs"));
 
 pub mod decode;
 pub mod encode;
+#[cfg(target_os = "linux")]
+pub mod prime;
 
 pub enum Priority {
     Best = 0,

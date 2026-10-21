@@ -240,6 +240,12 @@ mod ffmpeg {
         builder.files(
             ["ffmpeg_ram_encode.cpp", "ffmpeg_ram_decode.cpp"].map(|f| ffmpeg_ram_dir.join(f)),
         );
+        let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+        if target_os == "linux" {
+            builder.file(ffmpeg_ram_dir.join("ffmpeg_vaapi_prime.cpp"));
+            println!("cargo:rustc-link-lib=va");
+            println!("cargo:rustc-link-lib=va-drm");
+        }
     }
 
     #[cfg(feature = "vram")]
