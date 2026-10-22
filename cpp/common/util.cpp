@@ -214,6 +214,7 @@ bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
       {"mediacodec",
        "bitrate_mode",
        {{RC_CBR, "cbr"}, {RC_VBR, "vbr"}, {RC_CQ, "cq"}}},
+      {"vaapi", "rc_mode", {{RC_CQ, "CQP"}}},
       // {"videotoolbox", "constant_bit_rate", {{RC_CBR, "1"}}},
     };
 
@@ -233,6 +234,19 @@ bool set_rate_control(AVCodecContext *c, const std::string &name, int rc,
             if (q >= 0 && q <= 51) {
               c->global_quality = q;
             }
+          }
+        }
+        if (name.find("vaapi") != std::string::npos && rc == RC_CQ) {
+          constexpr int default_qp = 23;
+          // FFmpeg treats qp = 0 as unspecified, not as an explicit QP.
+          // Negative values are also unspecified in EncodeContext. Positive
+          // values are validated by the codec-specific FFmpeg option.
+          const int qp = q > 0 ? q : default_qp;
+          ret = av_opt_set_int(c->priv_data, "qp", qp, 0);
+          if (ret < 0) {
+            LOG_ERROR(std::string("vaapi set opt qp failed, ret = ") +
+                      av_err2str(ret));
+            return false;
           }
         }
       }
