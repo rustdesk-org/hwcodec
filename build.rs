@@ -66,7 +66,8 @@ fn build_common(builder: &mut Build) {
         builder.include(&linux_path);
         builder.file(linux_path.join("linux.cpp"));
     }
-    if target_os == "macos" {
+    #[cfg(target_os = "macos")]
+    {
         let macos_path = _platform_path.join("mac");
         builder.include(&macos_path);
         builder.file(macos_path.join("mac.mm"));
