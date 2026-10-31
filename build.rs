@@ -174,15 +174,10 @@ mod ffmpeg {
 
     fn link_os() {
         let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
-        let target_arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
         let dyn_libs: Vec<&str> = if target_os == "windows" {
             ["User32", "bcrypt", "ole32", "advapi32"].to_vec()
         } else if target_os == "linux" {
-            let mut v = ["drm", "X11", "stdc++"].to_vec();
-            if target_arch == "x86_64" {
-                v.push("z");
-            }
-            v
+            ["drm", "X11", "stdc++", "z"].to_vec()
         } else if target_os == "macos" || target_os == "ios" {
             ["c++", "m"].to_vec()
         } else if target_os == "android" {
