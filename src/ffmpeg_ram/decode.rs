@@ -24,10 +24,6 @@ use std::{
     ffi::{c_void, CString},
     os::raw::c_int,
     slice::from_raw_parts,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
     time::Instant,
     vec,
 };
@@ -67,6 +63,25 @@ impl std::fmt::Display for DecodeFrame {
     }
 }
 
+/// What one `decode()` call produced.
+///
+/// Both fields belong to that call. Nothing reads the decoder afterwards, so a
+/// frame from a previous call is not expressible: the software frames borrow
+/// the decoder (and therefore cannot outlive the next `decode()`), while the
+/// GPU frame is taken out of it and can be handed to the renderer.
+pub struct Decoded<'a> {
+    /// The software frames this call produced.
+    pub frames: &'a [DecodeFrame],
+    /// The GPU frame this call delivered straight to us, if the caller asked
+    /// for it and the decoder accepted it.
+    ///
+    /// `None` means this call produced no direct frame: the caller passed
+    /// `want_gpu = false`, the format is not directly deliverable, or a
+    /// software frame won in the same transaction.
+    #[cfg(target_os = "macos")]
+    pub pixelbuffer: Option<PixelBufferFrame>,
+}
+
 /// Per-decode output state. Also the `obj` handed to both the software
 /// callback and the pixel-buffer callback, so they share one transaction view:
 /// a software frame clears the pending GPU frame of the same call, which makes
@@ -75,14 +90,14 @@ pub struct DecodeOutput {
     frames: Vec<DecodeFrame>,
     #[cfg(target_os = "macos")]
     pixelbuffer: Option<PixelBufferFrame>,
-    /// The caller's "can you present GPU frames" flag, shared by reference so
-    /// the answer can change between frames without touching the decoder.
+    /// Whether the running call asked for the GPU frame.
     ///
-    /// `None` means the caller never asked for GPU frames, and the callback then
-    /// rejects every frame: delivery is opt-in, because accepting one makes the
-    /// decoder skip the software transfer for that frame.
+    /// Written by `decode()` for the duration of one call and read by the
+    /// pixel-buffer callback. `false` makes the callback reject every frame:
+    /// delivery is opt-in, because accepting one makes the decoder skip the
+    /// software transfer for that frame.
     #[cfg(target_os = "macos")]
-    pixelbuffer_wanted: Option<Arc<AtomicBool>>,
+    want_gpu: bool,
 }
 
 impl DecodeOutput {
@@ -92,7 +107,7 @@ impl DecodeOutput {
             #[cfg(target_os = "macos")]
             pixelbuffer: None,
             #[cfg(target_os = "macos")]
-            pixelbuffer_wanted: None,
+            want_gpu: false,
         }
     }
 
@@ -102,6 +117,18 @@ impl DecodeOutput {
         #[cfg(target_os = "macos")]
         {
             self.pixelbuffer = None;
+        }
+    }
+
+    /// Hand this call's result to the caller: the software frames are borrowed
+    /// back from the buffer, the GPU frame is taken out of it.
+    fn take(&mut self) -> Decoded<'_> {
+        #[cfg(target_os = "macos")]
+        let pixelbuffer = self.pixelbuffer.take();
+        Decoded {
+            frames: &self.frames,
+            #[cfg(target_os = "macos")]
+            pixelbuffer,
         }
     }
 }
@@ -141,7 +168,18 @@ impl Decoder {
         }
     }
 
-    pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
+    /// Decode one packet.
+    ///
+    /// `want_gpu` answers "can the caller present a directly delivered GPU
+    /// frame?". The C++ decoder only skips its software transfer when the
+    /// pixel-buffer callback accepts a frame *during* this call, so the answer
+    /// has to arrive with the packet: a frame accepted here and dropped further
+    /// up would leave the renderer with neither a GPU frame nor a software one.
+    /// `false` keeps the software path, and platforms without pixel buffers
+    /// ignore the argument.
+    pub fn decode(&mut self, packet: &[u8], want_gpu: bool) -> Result<Decoded<'_>, i32> {
+        #[cfg(not(target_os = "macos"))]
+        let _ = want_gpu;
         // No `&mut DecodeOutput` may be alive while `ffmpeg_ram_decode` runs: the C
         // side calls `callback` synchronously, and that callback reaches this same
         // allocation through the raw pointer and takes its own reference to it.
@@ -152,6 +190,10 @@ impl Decoder {
         let output = self.output;
         unsafe {
             (*output).clear();
+            #[cfg(target_os = "macos")]
+            {
+                (*output).want_gpu = want_gpu;
+            }
             let ret = ffmpeg_ram_decode(
                 self.codec,
                 packet.as_ptr(),
@@ -162,7 +204,7 @@ impl Decoder {
             if ret < 0 {
                 Err(ret)
             } else {
-                Ok(&mut (*output).frames)
+                Ok((&mut *output).take())
             }
         }
     }
@@ -271,48 +313,6 @@ impl Decoder {
         }
     }
 
-    /// The software frames produced by the last `decode()` call.
-    ///
-    /// Use this instead of the `decode()` return value when the caller must
-    /// also read [`Self::take_pixelbuffer`]: `decode()` returns a mutable borrow
-    /// of the decoder, so the two cannot overlap.
-    pub fn last_frames(&self) -> &[DecodeFrame] {
-        unsafe { &(*self.output).frames }
-    }
-
-    /// Take the GPU frame delivered to this decode call, if any.
-    ///
-    /// `None` means this call produced no direct frame: either the decoder
-    /// rejected it, the format is not directly deliverable, or a software frame
-    /// won in the same transaction. The caller must not fall back to a frame
-    /// from a previous call.
-    #[cfg(target_os = "macos")]
-    pub fn take_pixelbuffer(&mut self) -> Option<PixelBufferFrame> {
-        unsafe { (&mut *self.output).pixelbuffer.take() }
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn has_pixelbuffer(&self) -> bool {
-        unsafe { (&*self.output).pixelbuffer.is_some() }
-    }
-
-    /// Share the caller's "can you present GPU frames" flag with this decoder.
-    ///
-    /// The C++ decoder only skips its software transfer when the pixel buffer
-    /// callback accepts a frame *during* the decode call, so the decision has to
-    /// be taken there rather than after the fact: a frame accepted here and
-    /// dropped further up leaves the renderer with neither a GPU frame nor a
-    /// software one.  Rejecting here makes the decoder fall back to the software
-    /// transfer on that very frame.
-    ///
-    /// Taking the flag by reference (instead of a plain bool) means the caller
-    /// can flip it at any time, e.g. when the user switches the render path, and
-    /// the change applies from the next decoded frame.
-    #[cfg(target_os = "macos")]
-    pub fn set_pixelbuffer_wanted(&mut self, wanted: Arc<AtomicBool>) {
-        unsafe { (&mut *self.output).pixelbuffer_wanted = Some(wanted) };
-    }
-
     /// Borrowed-descriptor callback from the decoder.
     ///
     /// Accepting means "retained and stored"; rejecting means "nothing kept",
@@ -332,12 +332,9 @@ impl Decoder {
         // transfer on this very frame, so the renderer never has a frame taken
         // away from it.
         //
-        // Delivery is opt-in: a decoder the caller never configured keeps
-        // producing software frames, exactly like before this API existed.
-        let Some(wanted) = &output.pixelbuffer_wanted else {
-            return PIXELBUFFER_REJECTED;
-        };
-        if !wanted.load(Ordering::Relaxed) {
+        // Delivery is opt-in: a call that did not ask for the GPU frame keeps
+        // the software transfer, exactly like before this API existed.
+        if !output.want_gpu {
             return PIXELBUFFER_REJECTED;
         }
         let frame = &*frame;
@@ -486,7 +483,7 @@ impl Decoder {
 
                     let start = Instant::now();
 
-                    match decoder.decode(data) {
+                    match decoder.decode(data, false) {
                         Ok(_) => {
                             let elapsed = start.elapsed().as_millis();
 
@@ -539,7 +536,8 @@ impl Drop for Decoder {
 
 /// Transaction-ordering tests for the GPU-frame path.
 ///
-/// They live in the sibling file so this module reads as the feature only.
+/// They live in their own file so the production side of this module reads
+/// as the feature and nothing else.
 #[cfg(all(test, target_os = "macos"))]
 #[path = "tests/decode_output.rs"]
 mod output_tests;

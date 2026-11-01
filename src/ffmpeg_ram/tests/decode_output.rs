@@ -12,11 +12,11 @@ use crate::ffmpeg_ram::pixelbuffer::test_support::{create_buffer, release_buffer
 const W: i32 = 16;
 const H: i32 = 16;
 
-/// An output that asked for GPU frames; delivery is opt-in, so a bare
+/// An output that asked for GPU frames; delivery is opt-in per call, so a bare
 /// `DecodeOutput::new()` would reject everything.
 fn output_wanting_gpu(wanted: bool) -> DecodeOutput {
     let mut output = DecodeOutput::new();
-    output.pixelbuffer_wanted = Some(std::sync::Arc::new(AtomicBool::new(wanted)));
+    output.want_gpu = wanted;
     output
 }
 
@@ -55,19 +55,19 @@ fn direct_frame(output: &mut DecodeOutput, pixfmt: u32, raw: *mut c_void) -> c_i
 }
 
 #[test]
-fn unconfigured_decoder_rejects_gpu_frames() {
-    // Opt-in: a decoder the caller never configured must keep producing
-    // software frames, so it must refuse the surface even when it could
-    // deliver it. This is the regression that a Cargo.lock bump would
-    // otherwise push into every consumer.
+fn want_gpu_false_rejects_gpu_frames() {
+    // Opt-in: a caller that does not ask for GPU frames must keep getting
+    // software frames, so the surface is refused even when it could be
+    // delivered. This is the regression that a Cargo.lock bump would otherwise
+    // push into every consumer.
     let Some(raw) = create_buffer(crate::ffmpeg_ram::pixelbuffer::PIXEL_FORMAT_420F) else {
         eprintln!("skip: CVPixelBufferCreate failed in this environment");
         return;
     };
     let mut output = DecodeOutput::new();
     assert!(
-        output.pixelbuffer_wanted.is_none(),
-        "a decoder without a caller flag must not want GPU frames"
+        !output.want_gpu,
+        "a decoder without a caller request must not want GPU frames"
     );
     assert_eq!(
         direct_frame(
@@ -82,8 +82,8 @@ fn unconfigured_decoder_rejects_gpu_frames() {
         "a rejected frame must retain nothing"
     );
 
-    // ... and it accepts once the caller says it can present them.
-    output.pixelbuffer_wanted = Some(std::sync::Arc::new(AtomicBool::new(true)));
+    // ... and it accepts once the call asks for it.
+    output.want_gpu = true;
     assert_eq!(
         direct_frame(
             &mut output,
@@ -217,6 +217,29 @@ fn clear_drops_the_pending_frame_of_the_previous_call() {
     assert!(output.pixelbuffer.is_some());
     output.clear();
     // The next call must not answer with this frame.
+    assert!(output.pixelbuffer.is_none());
+    release_buffer(raw);
+}
+
+#[test]
+fn take_moves_the_gpu_frame_out_of_the_decoder() {
+    let Some(raw) = create_buffer(crate::ffmpeg_ram::pixelbuffer::PIXEL_FORMAT_420F) else {
+        eprintln!("skip: CVPixelBufferCreate failed in this environment");
+        return;
+    };
+    let mut output = output_wanting_gpu(true);
+    software_frame(&mut output);
+    direct_frame(
+        &mut output,
+        crate::ffmpeg_ram::pixelbuffer::PIXEL_FORMAT_420F,
+        raw,
+    );
+
+    let decoded = output.take();
+    assert_eq!(decoded.frames.len(), 1);
+    assert!(decoded.pixelbuffer.is_some());
+    // Taken means taken: the buffer no longer belongs to the decoder, so the
+    // next call's clear() has nothing of this call's to drop.
     assert!(output.pixelbuffer.is_none());
     release_buffer(raw);
 }
