@@ -130,6 +130,44 @@ impl Encoder {
         }
     }
 
+    /// Import and convert an SDR scanout directly into VAAPI encoder surfaces.
+    /// Unsupported drivers/formats return an error; callers retain the CPU fallback.
+    #[cfg(all(target_os = "linux", feature = "linux-dmabuf"))]
+    pub fn encode_dmabuf(
+        &mut self,
+        frame: &DmaBufFrame,
+        ms: i64,
+    ) -> Result<&mut Vec<EncodeFrame>, i32> {
+        use std::os::fd::AsRawFd;
+        let node = CString::new(frame.render_node.as_str()).map_err(|_| -22)?;
+        let desc = super::HwDmaBufDescriptor {
+            fd: frame.fd.as_raw_fd(),
+            width: frame.width,
+            height: frame.height,
+            format: frame.format,
+            num_planes: frame.num_planes,
+            offsets: frame.offsets,
+            pitches: frame.pitches,
+            modifier: frame.modifier,
+        };
+        // SAFETY: the owned fd, descriptor and node outlive this synchronous call; the
+        // callback copies encoded packets into this encoder's exclusively borrowed Vec.
+        unsafe {
+            (&mut *self.frames).clear();
+            let result = super::ffmpeg_ram_encode_dmabuf(
+                self.codec,
+                &desc,
+                node.as_ptr(),
+                self.frames as *const _ as *const c_void,
+                ms,
+            );
+            if result != 0 {
+                return Err(result);
+            }
+            Ok(&mut *self.frames)
+        }
+    }
+
     extern "C" fn callback(data: *const u8, size: c_int, pts: i64, key: i32, obj: *const c_void) {
         unsafe {
             let frames = &mut *(obj as *mut Vec<EncodeFrame>);
@@ -418,4 +456,19 @@ impl Drop for Encoder {
             trace!("Encoder dropped");
         }
     }
+}
+
+/// Owned Linux scanout plus its exact DRM plane layout. No CPU pixel mapping is needed.
+#[cfg(all(target_os = "linux", feature = "linux-dmabuf"))]
+#[derive(Debug)]
+pub struct DmaBufFrame {
+    pub fd: std::os::fd::OwnedFd,
+    pub render_node: String,
+    pub width: u32,
+    pub height: u32,
+    pub format: u32,
+    pub num_planes: u32,
+    pub offsets: [u32; 4],
+    pub pitches: [u32; 4],
+    pub modifier: u64,
 }

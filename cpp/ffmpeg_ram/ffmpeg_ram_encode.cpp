@@ -17,6 +17,10 @@ extern "C" {
 #define LOG_MODULE "FFMPEG_RAM_ENC"
 #include <log.h>
 #include <util.h>
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+#include <libavutil/hwcontext_vaapi.h>
+#include "linux_dmabuf.h"
+#endif
 #ifdef _WIN32
 #include "win.h"
 #endif
@@ -121,6 +125,9 @@ public:
   AVPixelFormat hw_pixfmt_ = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx_ = NULL;
   AVFrame *hw_frame_ = NULL;
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+  std::unique_ptr<DmaBufConverter> dmabuf_converter_;
+#endif
 
   FFmpegRamEncoder(const char *name, const char *mc_name, int width, int height,
                    int pixfmt, int align, int fps, int gop, int rc, int quality,
@@ -290,7 +297,39 @@ public:
     return do_encode(tmp_frame, obj, ms);
   }
 
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+  int encode_dmabuf(const HwDmaBufDescriptor *desc, const char *node,
+                    const void *obj, int64_t ms) {
+    if (!desc || !node || hw_device_type_ != AV_HWDEVICE_TYPE_VAAPI ||
+        desc->width != static_cast<uint32_t>(width_) ||
+        desc->height != static_cast<uint32_t>(height_) || pixfmt_ != AV_PIX_FMT_NV12)
+      return AVERROR(EINVAL);
+    const bool first_gpu_frame = !dmabuf_converter_;
+    if (!dmabuf_converter_) {
+      dmabuf_converter_ = DmaBufConverter::create(node);
+      if (!dmabuf_converter_) return AVERROR(ENOSYS);
+    }
+    AVFrame *target = av_frame_alloc();
+    if (!target) return AVERROR(ENOMEM);
+    int ret = av_hwframe_get_buffer(c_->hw_frames_ctx, target, 0);
+    if (ret >= 0) {
+      auto device = reinterpret_cast<AVHWDeviceContext *>(hw_device_ctx_->data);
+      auto va = reinterpret_cast<AVVAAPIDeviceContext *>(device->hwctx);
+      ret = dmabuf_converter_->convert(*desc, node, va->display,
+                                       static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(target->data[3])));
+      if (ret == 0) ret = do_encode(target, obj, ms);
+      if (ret == 0 && first_gpu_frame)
+        LOG_INFO("encoded first GPU-resident DMA-BUF -> NV12 -> VAAPI frame");
+    }
+    av_frame_free(&target);
+    return ret;
+  }
+#endif
+
   void free_encoder() {
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+    dmabuf_converter_.reset();
+#endif
     if (pkt_)
       av_packet_free(&pkt_);
     if (frame_)
@@ -323,6 +362,11 @@ private:
     frames_ctx->width = width_;
     frames_ctx->height = height_;
     frames_ctx->initial_pool_size = 1;
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+    // GPU inputs need an owned target while the RAM fallback retains hw_frame_,
+    // and the codec may still reference prior submitted surfaces.
+    if (hw_device_type_ == AV_HWDEVICE_TYPE_VAAPI) frames_ctx->initial_pool_size = 8;
+#endif
     if ((err = av_hwframe_ctx_init(hw_frames_ref)) < 0) {
       av_buffer_unref(&hw_frames_ref);
       return err;
@@ -472,3 +516,17 @@ extern "C" int ffmpeg_ram_set_bitrate(FFmpegRamEncoder *encoder, int kbs) {
   }
   return -1;
 }
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+extern "C" int ffmpeg_ram_encode_dmabuf(FFmpegRamEncoder *encoder,
+    const HwDmaBufDescriptor *frame, const char *render_node, const void *obj, int64_t ms) {
+  if (!encoder) return AVERROR(EINVAL);
+  try {
+    return encoder->encode_dmabuf(frame, render_node, obj, ms);
+  } catch (const std::exception &e) {
+    LOG_ERROR(std::string("DMA-BUF encode failed: ") + e.what());
+  } catch (...) {
+    LOG_ERROR("DMA-BUF encode failed");
+  }
+  return AVERROR(EIO);
+}
+#endif

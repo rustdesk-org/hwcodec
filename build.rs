@@ -13,6 +13,13 @@ fn main() {
     println!("cargo:rerun-if-changed={}", externals_dir.display());
     println!("cargo:rerun-if-changed={}", cpp_dir.display());
     let mut builder = Build::new();
+    if cfg!(all(target_os = "linux", feature = "linux-dmabuf")) {
+        builder.define("HWCODEC_LINUX_DMABUF", None);
+        // The optional GPU path requires FFmpeg's VAAPI device backends.
+        for lib in ["va", "va-drm", "va-x11"] {
+            println!("cargo:rustc-link-lib={lib}");
+        }
+    }
 
     build_common(&mut builder);
     ffmpeg::build_ffmpeg(&mut builder);
