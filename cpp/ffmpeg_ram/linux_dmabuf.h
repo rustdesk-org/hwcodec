@@ -18,7 +18,8 @@
 #define HW_GPU_EGL(X) \
   X(eglGetPlatformDisplay) X(eglInitialize) X(eglBindAPI) X(eglChooseConfig) \
   X(eglCreateContext) X(eglMakeCurrent) X(eglDestroyContext) X(eglTerminate) \
-  X(eglGetProcAddress)
+  X(eglGetProcAddress) X(eglGetCurrentDisplay) X(eglGetCurrentContext) \
+  X(eglGetCurrentSurface) X(eglQueryAPI)
 #define HW_GPU_GL(X) \
   X(glCreateShader) X(glShaderSource) X(glCompileShader) X(glGetShaderiv) \
   X(glDeleteShader) X(glCreateProgram) X(glAttachShader) X(glLinkProgram) \
@@ -47,6 +48,28 @@ class DmaBufConverter {
   EGLContext context_ = EGL_NO_CONTEXT;
   GLuint program_ = 0, vao_ = 0, fbo_ = 0;
   std::string node_;
+
+  // EGL bindings belong to the calling thread, even when the encoder owns its
+  // own context. Restore callers on success, failure and partial-init cleanup.
+  class CurrentBinding {
+    DmaBufConverter &c;
+    EGLDisplay display;
+    EGLContext context;
+    EGLSurface draw, read;
+    EGLenum api;
+  public:
+    explicit CurrentBinding(DmaBufConverter &owner) : c(owner),
+      display(c.eglGetCurrentDisplay()), context(c.eglGetCurrentContext()),
+      draw(c.eglGetCurrentSurface(EGL_DRAW)), read(c.eglGetCurrentSurface(EGL_READ)),
+      api(c.eglQueryAPI()) {}
+    ~CurrentBinding() {
+      if (c.display_ != EGL_NO_DISPLAY)
+        c.eglMakeCurrent(c.display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+      c.eglBindAPI(api);
+      if (display != EGL_NO_DISPLAY)
+        c.eglMakeCurrent(display, draw, read, context);
+    }
+  };
 
   GLuint shader(GLenum type, const char *text) {
     GLuint s = glCreateShader(type);
@@ -87,6 +110,7 @@ class DmaBufConverter {
       display_ = EGL_NO_DISPLAY;
       return false;
     }
+    CurrentBinding binding(*this);
     if (!eglBindAPI(EGL_OPENGL_ES_API)) return false;
     EGLint attrs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, EGL_NONE};
     EGLConfig config;
@@ -133,9 +157,7 @@ void main() {
     if (!linked) return false;
     glGenVertexArrays(1, &vao_); glBindVertexArray(vao_);
     glGenFramebuffers(1, &fbo_); glDisable(GL_DITHER);
-    bool ok = glGetError() == GL_NO_ERROR;
-    eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    return ok;
+    return glGetError() == GL_NO_ERROR;
   }
 
   EGLImageKHR import_image(uint32_t w, uint32_t h, uint32_t format, uint32_t planes,
@@ -175,12 +197,14 @@ public:
   DmaBufConverter &operator=(const DmaBufConverter &) = delete;
   ~DmaBufConverter() {
     if (context_ != EGL_NO_CONTEXT) {
-      if (eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, context_)) {
-        if (program_) glDeleteProgram(program_);
-        if (fbo_) glDeleteFramebuffers(1, &fbo_);
-        if (vao_) glDeleteVertexArrays(1, &vao_);
+      {
+        CurrentBinding binding(*this);
+        if (eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, context_)) {
+          if (program_) glDeleteProgram(program_);
+          if (fbo_) glDeleteFramebuffers(1, &fbo_);
+          if (vao_) glDeleteVertexArrays(1, &vao_);
+        }
       }
-      eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
       eglDestroyContext(display_, context_);
     }
     if (display_ != EGL_NO_DISPLAY) eglTerminate(display_);
@@ -207,14 +231,12 @@ public:
     for (uint32_t p = 0; p < d.num_planes; ++p)
       if (!d.pitches[p] || uint64_t(d.offsets[p]) + uint64_t(d.pitches[p]) * d.height > 256ULL * 1024 * 1024)
         return AVERROR(EINVAL);
+    CurrentBinding binding(*this);
     if (!eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, context_)) return AVERROR(EIO);
     int fds[4] = {d.fd, d.fd, d.fd, d.fd};
     uint64_t mods[4] = {d.modifier, d.modifier, d.modifier, d.modifier};
     EGLImageKHR source = import_image(d.width, d.height, d.format, d.num_planes, fds, d.offsets, d.pitches, mods);
-    if (source == EGL_NO_IMAGE_KHR) {
-      eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-      return AVERROR(ENOSYS);
-    }
+    if (source == EGL_NO_IMAGE_KHR) return AVERROR(ENOSYS);
     GLuint textures[3] = {};
     EGLImageKHR dest[2] = {EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR};
     VADRMPRIMESurfaceDescriptor output = {};
@@ -266,7 +288,6 @@ public:
     destroy_image_(display_, source);
     for (auto image : dest) if (image != EGL_NO_IMAGE_KHR) destroy_image_(display_, image);
     if (exported) for (uint32_t o = 0; o < output.num_objects && o < 4; ++o) close(output.objects[o].fd);
-    eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     return result;
   }
 };

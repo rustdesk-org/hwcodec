@@ -37,6 +37,39 @@ extern "C" {
     fn gbm_bo_get_modifier(bo: *mut c_void) -> u64;
 }
 
+#[link(name = "EGL")]
+extern "C" {
+    fn eglGetPlatformDisplay(
+        platform: u32,
+        native: *mut c_void,
+        attrs: *const isize,
+    ) -> *mut c_void;
+    fn eglInitialize(display: *mut c_void, major: *mut i32, minor: *mut i32) -> u32;
+    fn eglBindAPI(api: u32) -> u32;
+    fn eglChooseConfig(
+        display: *mut c_void,
+        attrs: *const i32,
+        config: *mut *mut c_void,
+        size: i32,
+        count: *mut i32,
+    ) -> u32;
+    fn eglCreateContext(
+        display: *mut c_void,
+        config: *mut c_void,
+        share: *mut c_void,
+        attrs: *const i32,
+    ) -> *mut c_void;
+    fn eglMakeCurrent(
+        display: *mut c_void,
+        draw: *mut c_void,
+        read: *mut c_void,
+        context: *mut c_void,
+    ) -> u32;
+    fn eglGetCurrentContext() -> *mut c_void;
+    fn eglDestroyContext(display: *mut c_void, context: *mut c_void) -> u32;
+    fn eglTerminate(display: *mut c_void) -> u32;
+}
+
 #[test]
 #[ignore = "requires real VAAPI/GBM/GLES3 hardware"]
 fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
@@ -49,6 +82,28 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
     unsafe {
         let dev = gbm_create_device(render.as_raw_fd());
         assert!(!dev.is_null());
+        // Represent an existing graphics caller on this same thread. Encoding
+        // and failed imports must leave that caller's context bound.
+        let null = std::ptr::null_mut();
+        let display = eglGetPlatformDisplay(0x31d7, dev, std::ptr::null()); // GBM
+        assert!(!display.is_null());
+        assert_ne!(
+            eglInitialize(display, std::ptr::null_mut(), std::ptr::null_mut()),
+            0
+        );
+        assert_ne!(eglBindAPI(0x30a0), 0); // GLES
+        let attrs = [0x3033, 4, 0x3040, 0x40, 0x3038]; // window, GLES3
+        let mut config = null;
+        let mut count = 0;
+        assert_ne!(
+            eglChooseConfig(display, attrs.as_ptr(), &mut config, 1, &mut count),
+            0
+        );
+        assert_eq!(count, 1);
+        let context_attrs = [0x3098, 3, 0x3038];
+        let context = eglCreateContext(display, config, null, context_attrs.as_ptr());
+        assert!(!context.is_null());
+        assert_ne!(eglMakeCurrent(display, null, null, context), 0);
         let bo = gbm_bo_create(dev, 384, 216, 0x3432_5258, 4);
         assert!(!bo.is_null());
         let mut stride = 0;
@@ -128,6 +183,7 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
                 gbm_bo_unmap(bo, cookie);
             }
             let packets = encoder.encode_dmabuf(&frame, n * 33).unwrap();
+            assert_eq!(eglGetCurrentContext(), context);
             assert!(
                 !packets.is_empty(),
                 "low-latency encoder must produce a packet"
@@ -174,6 +230,7 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
         let modifier = frame.modifier;
         frame.modifier = u64::MAX - 42;
         assert!(encoder.encode_dmabuf(&frame, 460).is_err());
+        assert_eq!(eglGetCurrentContext(), context);
         frame.modifier = modifier;
         assert!(!encoder.encode_dmabuf(&frame, 480).unwrap().is_empty());
         // The optional GPU input does not consume or corrupt the ordinary RAM input.
@@ -181,6 +238,10 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
         yuv[..encoder.offset[0] as usize].fill(82);
         assert!(!encoder.encode(&yuv, 500).unwrap().is_empty());
         drop(encoder);
+        assert_eq!(eglGetCurrentContext(), context);
+        assert_ne!(eglMakeCurrent(display, null, null, null), 0);
+        assert_ne!(eglDestroyContext(display, context), 0);
+        assert_ne!(eglTerminate(display), 0);
         drop(frame);
         gbm_bo_destroy(bo);
         gbm_device_destroy(dev);
