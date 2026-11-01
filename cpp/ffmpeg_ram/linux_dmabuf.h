@@ -211,7 +211,10 @@ public:
     int fds[4] = {d.fd, d.fd, d.fd, d.fd};
     uint64_t mods[4] = {d.modifier, d.modifier, d.modifier, d.modifier};
     EGLImageKHR source = import_image(d.width, d.height, d.format, d.num_planes, fds, d.offsets, d.pitches, mods);
-    if (source == EGL_NO_IMAGE_KHR) return AVERROR(ENOSYS);
+    if (source == EGL_NO_IMAGE_KHR) {
+      eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+      return AVERROR(ENOSYS);
+    }
     GLuint textures[3] = {};
     EGLImageKHR dest[2] = {EGL_NO_IMAGE_KHR, EGL_NO_IMAGE_KHR};
     VADRMPRIMESurfaceDescriptor output = {};

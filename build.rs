@@ -13,7 +13,9 @@ fn main() {
     println!("cargo:rerun-if-changed={}", externals_dir.display());
     println!("cargo:rerun-if-changed={}", cpp_dir.display());
     let mut builder = Build::new();
-    if cfg!(all(target_os = "linux", feature = "linux-dmabuf")) {
+    if cfg!(feature = "linux-dmabuf")
+        && std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux")
+    {
         builder.define("HWCODEC_LINUX_DMABUF", None);
         // The optional GPU path requires FFmpeg's VAAPI device backends.
         for lib in ["va", "va-drm", "va-x11"] {

@@ -171,6 +171,10 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
         frame.width = 386;
         assert!(encoder.encode_dmabuf(&frame, 450).is_err());
         frame.width = 384;
+        let modifier = frame.modifier;
+        frame.modifier = u64::MAX - 42;
+        assert!(encoder.encode_dmabuf(&frame, 460).is_err());
+        frame.modifier = modifier;
         assert!(!encoder.encode_dmabuf(&frame, 480).unwrap().is_empty());
         // The optional GPU input does not consume or corrupt the ordinary RAM input.
         let mut yuv = vec![128; encoder.length as usize];
