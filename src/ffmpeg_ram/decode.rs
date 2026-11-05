@@ -86,7 +86,7 @@ pub struct Decoded<'a> {
 /// callback and the pixel-buffer callback, so they share one transaction view:
 /// a software frame clears the pending GPU frame of the same call, which makes
 /// "last decoded frame wins" hold across mixed frames.
-pub struct DecodeOutput {
+pub(crate) struct DecodeOutput {
     frames: Vec<DecodeFrame>,
     #[cfg(target_os = "macos")]
     pixelbuffer: Option<PixelBufferFrame>,
@@ -177,7 +177,7 @@ impl Decoder {
     /// up would leave the renderer with neither a GPU frame nor a software one.
     /// `false` keeps the software path, and platforms without pixel buffers
     /// ignore the argument.
-    pub fn decode(&mut self, packet: &[u8], want_gpu: bool) -> Result<Decoded<'_>, i32> {
+    fn decode_inner(&mut self, packet: &[u8], want_gpu: bool) -> Result<Decoded<'_>, i32> {
         #[cfg(not(target_os = "macos"))]
         let _ = want_gpu;
         // No `&mut DecodeOutput` may be alive while `ffmpeg_ram_decode` runs: the C
@@ -207,6 +207,25 @@ impl Decoder {
                 Ok((&mut *output).take())
             }
         }
+    }
+
+    /// Decode one packet and return only the software frames.
+    ///
+    /// This is the signature this crate has always exposed: existing callers
+    /// keep working unchanged, and non-macOS targets never see the GPU-frame
+    /// argument.
+    pub fn decode(&mut self, packet: &[u8]) -> Result<&[DecodeFrame], i32> {
+        self.decode_inner(packet, false).map(|d| d.frames)
+    }
+
+    /// macOS only: also ask for the decoded frame as a GPU surface.
+    ///
+    /// `want_gpu` has to arrive with the packet, because the decoder decides
+    /// *during* the call whether to skip the software transfer. It stays off
+    /// every other platform's signature.
+    #[cfg(target_os = "macos")]
+    pub fn decode_gpu(&mut self, packet: &[u8], want_gpu: bool) -> Result<Decoded<'_>, i32> {
+        self.decode_inner(packet, want_gpu)
     }
 
     unsafe extern "C" fn callback(
@@ -483,7 +502,7 @@ impl Decoder {
 
                     let start = Instant::now();
 
-                    match decoder.decode(data, false) {
+                    match decoder.decode_inner(data, false) {
                         Ok(_) => {
                             let elapsed = start.elapsed().as_millis();
 
