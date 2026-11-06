@@ -71,6 +71,10 @@ impl std::fmt::Display for DecodeFrame {
 /// GPU frame is taken out of it and can be handed to the renderer.
 pub struct Decoded<'a> {
     /// The software frames this call produced.
+    ///
+    /// The vector stays decoder-owned (it is the decoder's own buffer, returned
+    /// mutably only to keep the historical signature): reading it is supported,
+    /// clearing or taking from it is not.
     pub frames: &'a mut Vec<DecodeFrame>,
     /// The GPU frame this call delivered straight to us, if the caller asked
     /// for it and the decoder accepted it.
@@ -265,12 +269,14 @@ impl Decoder {
         let datas = from_raw_parts(datas, AV_NUM_DATA_POINTERS as _);
         let linesizes = from_raw_parts(linesizes, AV_NUM_DATA_POINTERS as _);
 
-        // Reject an unknown format before anything else: `DecodeFrame.pixfmt` is a
-        // `#[repr(u32)]` bindgen enum with two variants, so transmuting a raw value
-        // such as P010 (123) would build an invalid discriminant -- UB from stream
-        // content, not from a caller mistake.
+        // Reject an unknown format before the `DecodeFrame` is built:
+        // `DecodeFrame.pixfmt` is a `#[repr(u32)]` bindgen enum with two variants, so
+        // transmuting a raw value such as P010 (123) would produce an invalid
+        // discriminant -- UB reachable from stream content, not from a caller mistake.
         let pixfmt = match pixfmt {
-            v if v == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int => AVPixelFormat::AV_PIX_FMT_YUV420P,
+            v if v == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int => {
+                AVPixelFormat::AV_PIX_FMT_YUV420P
+            }
             v if v == AVPixelFormat::AV_PIX_FMT_NV12 as c_int => AVPixelFormat::AV_PIX_FMT_NV12,
             _ => {
                 error!("unsupported pixfmt {}", pixfmt);
