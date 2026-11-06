@@ -29,7 +29,8 @@
   X(glTexParameteri) X(glUseProgram) X(glUniform1i) X(glUniform2f) \
   X(glGetUniformLocation) X(glBindFramebuffer) X(glFramebufferTexture2D) \
   X(glCheckFramebufferStatus) X(glViewport) X(glDrawArrays) X(glFinish) \
-  X(glGetError) X(glDeleteTextures)
+  X(glGetError) X(glDeleteTextures) X(glTexImage2D) X(glGenQueries) \
+  X(glDeleteQueries) X(glBeginQuery) X(glEndQuery) X(glGetQueryObjectuiv)
 #define HW_GPU_GBM(X) X(gbm_create_device) X(gbm_device_destroy)
 
 class DmaBufConverter {
@@ -48,6 +49,10 @@ class DmaBufConverter {
   EGLContext context_ = EGL_NO_CONTEXT;
   GLuint program_ = 0, vao_ = 0, fbo_ = 0;
   std::string node_;
+  GLuint compare_program_ = 0, compare_query_ = 0, snapshots_[2] = {};
+  uint32_t snapshot_width_ = 0, snapshot_height_ = 0;
+  int previous_ = -1;
+
 
   // EGL bindings belong to the calling thread, even when the encoder owns its
   // own context. Restore callers on success, failure and partial-init cleanup.
@@ -200,6 +205,9 @@ public:
       {
         CurrentBinding binding(*this);
         if (eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, context_)) {
+          if (compare_program_) glDeleteProgram(compare_program_);
+          if (compare_query_) glDeleteQueries(1, &compare_query_);
+          glDeleteTextures(2, snapshots_);
           if (program_) glDeleteProgram(program_);
           if (fbo_) glDeleteFramebuffers(1, &fbo_);
           if (vao_) glDeleteVertexArrays(1, &vao_);
@@ -213,6 +221,111 @@ public:
     if (gbm_lib_) dlclose(gbm_lib_);
     if (gles_) dlclose(gles_);
     if (egl_) dlclose(egl_);
+  }
+
+  // Compare every quantized RGB pixel on the GPU. Only the occlusion-query bit
+  // crosses to the CPU; the retained image owns its storage, never a mutable scanout.
+  int changed(const HwDmaBufDescriptor &d, const char *node) {
+    if (!node || node_ != node || d.fd < 0 || !d.width || !d.height ||
+        d.width > 16384 || d.height > 16384 ||
+        uint64_t(d.width) * d.height * 4 > 256ULL * 1024 * 1024 ||
+        d.num_planes < 1 || d.num_planes > 4) return AVERROR(EINVAL);
+    switch (d.format) {
+    case 0x34325258: case 0x34325241: case 0x34324258: case 0x34324241:
+    case 0x30335258: case 0x30335241: case 0x30334258: case 0x30334241:
+      break;
+    default: return AVERROR(ENOSYS);
+    }
+    for (uint32_t p = 0; p < d.num_planes; ++p)
+      if (!d.pitches[p] || uint64_t(d.offsets[p]) + uint64_t(d.pitches[p]) * d.height > 256ULL * 1024 * 1024)
+        return AVERROR(EINVAL);
+    CurrentBinding binding(*this);
+    if (!eglMakeCurrent(display_, EGL_NO_SURFACE, EGL_NO_SURFACE, context_)) return AVERROR(EIO);
+    if (!compare_program_) {
+      const char *vs = R"(#version 300 es
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+})";
+      const char *fs = R"(#version 300 es
+#extension GL_OES_EGL_image_external_essl3 : require
+precision highp float;
+precision highp int;
+uniform samplerExternalOES scanout;
+uniform highp sampler2D previous;
+uniform vec2 size;
+uniform int compare;
+out vec4 output_pixel;
+void main() {
+  vec3 current = floor(texture(scanout, gl_FragCoord.xy / size).rgb * 255.0 + 0.5);
+  if (compare != 0 && all(equal(current,
+      floor(texelFetch(previous, ivec2(gl_FragCoord.xy), 0).rgb * 255.0 + 0.5)))) discard;
+  output_pixel = vec4(current / 255.0, 1.0);
+})";
+      GLuint v = shader(GL_VERTEX_SHADER, vs), f = shader(GL_FRAGMENT_SHADER, fs);
+      if (!v || !f) { if (v) glDeleteShader(v); if (f) glDeleteShader(f); return AVERROR(ENOSYS); }
+      compare_program_ = glCreateProgram();
+      glAttachShader(compare_program_, v); glAttachShader(compare_program_, f);
+      glLinkProgram(compare_program_); glDeleteShader(v); glDeleteShader(f);
+      GLint ok = 0; glGetProgramiv(compare_program_, GL_LINK_STATUS, &ok);
+      if (!ok) return AVERROR(ENOSYS);
+      glGenQueries(1, &compare_query_);
+    }
+    if (!snapshots_[0] || snapshot_width_ != d.width || snapshot_height_ != d.height) {
+      previous_ = -1;
+      glDeleteTextures(2, snapshots_); glGenTextures(2, snapshots_);
+      for (auto texture : snapshots_) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, d.width, d.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+      }
+      snapshot_width_ = d.width; snapshot_height_ = d.height;
+    }
+    int fds[4] = {d.fd, d.fd, d.fd, d.fd};
+    uint64_t mods[4] = {d.modifier, d.modifier, d.modifier, d.modifier};
+    EGLImageKHR source = import_image(d.width, d.height, d.format, d.num_planes, fds, d.offsets, d.pitches, mods);
+    if (source == EGL_NO_IMAGE_KHR) return AVERROR(ENOSYS);
+    GLuint texture = 0; glGenTextures(1, &texture);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_EXTERNAL_OES, texture);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    image_target_(GL_TEXTURE_EXTERNAL_OES, source);
+    int result = AVERROR(EIO);
+    const int next = previous_ == 0 ? 1 : 0;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, snapshots_[next], 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+      glUseProgram(compare_program_); glBindVertexArray(vao_);
+      glUniform1i(glGetUniformLocation(compare_program_, "scanout"), 0);
+      glUniform1i(glGetUniformLocation(compare_program_, "previous"), 1);
+      glUniform2f(glGetUniformLocation(compare_program_, "size"), d.width, d.height);
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, previous_ < 0 ? snapshots_[1 - next] : snapshots_[previous_]);
+      glViewport(0, 0, d.width, d.height);
+      GLuint different = 1;
+      if (previous_ >= 0) {
+        glUniform1i(glGetUniformLocation(compare_program_, "compare"), 1);
+        glBeginQuery(GL_ANY_SAMPLES_PASSED, compare_query_);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glEndQuery(GL_ANY_SAMPLES_PASSED);
+        glGetQueryObjectuiv(compare_query_, GL_QUERY_RESULT, &different);
+      }
+      if (different) {
+        // The query discards equal pixels; fill the entire new snapshot before retaining it.
+        glUniform1i(glGetUniformLocation(compare_program_, "compare"), 0);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+      }
+      glFinish();
+      if (glGetError() == GL_NO_ERROR) {
+        if (different) previous_ = next;
+        result = different ? 1 : 0;
+      }
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glDeleteTextures(1, &texture); destroy_image_(display_, source);
+    return result;
   }
 
   int convert(const HwDmaBufDescriptor &d, const char *node,

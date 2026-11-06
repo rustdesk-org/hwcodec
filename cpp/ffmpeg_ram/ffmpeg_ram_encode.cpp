@@ -530,3 +530,16 @@ extern "C" int ffmpeg_ram_encode_dmabuf(FFmpegRamEncoder *encoder,
   return AVERROR(EIO);
 }
 #endif
+
+#if defined(__linux__) && defined(HWCODEC_LINUX_DMABUF)
+extern "C" void *ffmpeg_ram_new_dmabuf_detector(const char *node) {
+  return DmaBufConverter::create(node).release();
+}
+extern "C" int ffmpeg_ram_dmabuf_changed(void *detector, const HwDmaBufDescriptor *frame, const char *node) {
+  if (!detector || !frame) return AVERROR(EINVAL);
+  return static_cast<DmaBufConverter *>(detector)->changed(*frame, node);
+}
+extern "C" void ffmpeg_ram_free_dmabuf_detector(void *detector) {
+  delete static_cast<DmaBufConverter *>(detector);
+}
+#endif

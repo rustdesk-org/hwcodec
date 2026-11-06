@@ -33,6 +33,10 @@ int ffmpeg_ram_set_bitrate(void *encoder, int kbs);
 
 #ifdef __linux__
 #include "linux_dmabuf_ffi.h"
+/** Thread-confined GPU comparison context. Returns 1 changed, 0 equal, or a negative error. */
+void *ffmpeg_ram_new_dmabuf_detector(const char *render_node);
+int ffmpeg_ram_dmabuf_changed(void *detector, const HwDmaBufDescriptor *frame, const char *render_node);
+void ffmpeg_ram_free_dmabuf_detector(void *detector);
 int ffmpeg_ram_encode_dmabuf(void *encoder, const HwDmaBufDescriptor *frame,
                              const char *render_node, const void *obj, int64_t ms);
 #endif

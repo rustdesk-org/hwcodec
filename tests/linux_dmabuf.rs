@@ -6,7 +6,7 @@ use hwcodec::{
     ffmpeg::{AVHWDeviceType::AV_HWDEVICE_TYPE_NONE, AVPixelFormat},
     ffmpeg_ram::{
         decode::{DecodeContext, Decoder},
-        encode::{DmaBufFrame, EncodeContext, Encoder},
+        encode::{DmaBufDetector, DmaBufFrame, EncodeContext, Encoder},
     },
 };
 use std::{
@@ -141,6 +141,8 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
             pitches: [gbm_bo_get_stride(bo), 0, 0, 0],
             modifier: gbm_bo_get_modifier(bo),
         };
+        let mut detector = DmaBufDetector::new(&frame.render_node).unwrap();
+        assert_eq!(eglGetCurrentContext(), context);
         let mut encoder = Encoder::new(EncodeContext {
             name: "h264_vaapi".into(),
             mc_name: None,
@@ -182,6 +184,8 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
                 }
                 gbm_bo_unmap(bo, cookie);
             }
+            assert_eq!(detector.changed(&frame).unwrap(), n == 0 || n == 6);
+            assert_eq!(eglGetCurrentContext(), context);
             let packets = encoder.encode_dmabuf(&frame, n * 33).unwrap();
             assert_eq!(eglGetCurrentContext(), context);
             assert!(
@@ -223,6 +227,40 @@ fn dmabuf_roundtrip_preserves_colour_orientation_and_ram_fallback() {
                 }
             }
         }
+        // A one-level change in one bottom-right pixel must not be lost to sampling.
+        cookie = std::ptr::null_mut();
+        let data = gbm_bo_map(bo, 0, 0, 384, 216, 2, &mut stride, &mut cookie);
+        assert!(!data.is_null() && data as isize != -1);
+        let pixel = data.add(215 * stride as usize + 383 * 4);
+        *pixel ^= 1;
+        gbm_bo_unmap(bo, cookie);
+        assert!(detector.changed(&frame).unwrap());
+        assert!(!detector.changed(&frame).unwrap());
+        let small_bo = gbm_bo_create(dev, 192, 108, 0x3432_5258, 4);
+        assert!(!small_bo.is_null());
+        cookie = std::ptr::null_mut();
+        let data = gbm_bo_map(small_bo, 0, 0, 192, 108, 2, &mut stride, &mut cookie);
+        assert!(!data.is_null() && data as isize != -1);
+        std::ptr::write_bytes(data, 0, stride as usize * 108);
+        gbm_bo_unmap(small_bo, cookie);
+        let small = DmaBufFrame {
+            fd: OwnedFd::from_raw_fd(gbm_bo_get_fd(small_bo)),
+            render_node: frame.render_node.clone(), width: 192, height: 108,
+            format: frame.format, num_planes: 1, offsets: [0; 4],
+            pitches: [gbm_bo_get_stride(small_bo), 0, 0, 0], modifier: gbm_bo_get_modifier(small_bo),
+        };
+        assert!(detector.changed(&small).unwrap());
+        assert!(!detector.changed(&small).unwrap());
+        assert!(detector.changed(&frame).unwrap());
+        drop(small);
+        gbm_bo_destroy(small_bo);
+        let format = frame.format;
+        frame.format = 0;
+        assert!(detector.changed(&frame).is_err());
+        frame.format = format;
+        assert!(!detector.changed(&frame).unwrap());
+        drop(detector);
+        assert_eq!(eglGetCurrentContext(), context);
         assert!(decoded >= 10, "decoder must receive the complete stream");
         frame.width = 386;
         assert!(encoder.encode_dmabuf(&frame, 450).is_err());
