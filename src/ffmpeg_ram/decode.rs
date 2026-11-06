@@ -265,15 +265,26 @@ impl Decoder {
         let datas = from_raw_parts(datas, AV_NUM_DATA_POINTERS as _);
         let linesizes = from_raw_parts(linesizes, AV_NUM_DATA_POINTERS as _);
 
+        // Reject an unknown format before anything else: `DecodeFrame.pixfmt` is a
+        // `#[repr(u32)]` bindgen enum with two variants, so transmuting a raw value
+        // such as P010 (123) would build an invalid discriminant -- UB from stream
+        // content, not from a caller mistake.
+        let pixfmt = match pixfmt {
+            v if v == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int => AVPixelFormat::AV_PIX_FMT_YUV420P,
+            v if v == AVPixelFormat::AV_PIX_FMT_NV12 as c_int => AVPixelFormat::AV_PIX_FMT_NV12,
+            _ => {
+                error!("unsupported pixfmt {}", pixfmt);
+                return;
+            }
+        };
+
         // Every plane this format reads is dereferenced below, so validate the
         // pointer and the stride first: a null plane or a non-positive stride is a
         // producer bug, and dropping the frame beats reading unmapped memory.
-        let planes = if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int {
+        let planes = if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P {
             3
-        } else if pixfmt == AVPixelFormat::AV_PIX_FMT_NV12 as c_int {
-            2
         } else {
-            0
+            2
         };
         for i in 0..planes {
             if datas[i].is_null() {
@@ -290,7 +301,7 @@ impl Decoder {
         }
 
         let mut frame = DecodeFrame {
-            pixfmt: std::mem::transmute(pixfmt),
+            pixfmt,
             width,
             height,
             data: vec![],
@@ -298,7 +309,7 @@ impl Decoder {
             key: key != 0,
         };
 
-        if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int {
+        if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P {
             let y = from_raw_parts(datas[0], (linesizes[0] * height) as usize).to_vec();
             let u = from_raw_parts(datas[1], (linesizes[1] * height / 2) as usize).to_vec();
             let v = from_raw_parts(datas[2], (linesizes[2] * height / 2) as usize).to_vec();
@@ -317,7 +328,7 @@ impl Decoder {
                 output.pixelbuffer = None;
             }
             output.frames.push(frame);
-        } else if pixfmt == AVPixelFormat::AV_PIX_FMT_NV12 as c_int {
+        } else {
             let y = from_raw_parts(datas[0], (linesizes[0] * height) as usize).to_vec();
             let uv = from_raw_parts(datas[1], (linesizes[1] * height / 2) as usize).to_vec();
 
@@ -333,8 +344,6 @@ impl Decoder {
                 output.pixelbuffer = None;
             }
             output.frames.push(frame);
-        } else {
-            error!("unsupported pixfmt {}", pixfmt as i32);
         }
     }
 
