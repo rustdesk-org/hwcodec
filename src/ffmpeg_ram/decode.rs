@@ -202,6 +202,12 @@ impl Decoder {
             );
 
             if ret < 0 {
+                // A failed call can still have had a GPU frame accepted: the C++ side
+                // calls `pixelbuffer_callback` and then fails on later error paths such
+                // as HEVC's "could not find ref with POC". That frame is pinned in
+                // `output` and would otherwise keep its IOSurface alive until the next
+                // decode or the decoder's drop, so clear it here as well.
+                (*output).clear();
                 Err(ret)
             } else {
                 Ok((&mut *output).take())
