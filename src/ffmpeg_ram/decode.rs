@@ -71,7 +71,7 @@ impl std::fmt::Display for DecodeFrame {
 /// GPU frame is taken out of it and can be handed to the renderer.
 pub struct Decoded<'a> {
     /// The software frames this call produced.
-    pub frames: &'a [DecodeFrame],
+    pub frames: &'a mut Vec<DecodeFrame>,
     /// The GPU frame this call delivered straight to us, if the caller asked
     /// for it and the decoder accepted it.
     ///
@@ -126,7 +126,7 @@ impl DecodeOutput {
         #[cfg(target_os = "macos")]
         let pixelbuffer = self.pixelbuffer.take();
         Decoded {
-            frames: &self.frames,
+            frames: &mut self.frames,
             #[cfg(target_os = "macos")]
             pixelbuffer,
         }
@@ -220,7 +220,7 @@ impl Decoder {
     /// This is the signature this crate has always exposed: existing callers
     /// keep working unchanged, and non-macOS targets never see the GPU-frame
     /// argument.
-    pub fn decode(&mut self, packet: &[u8]) -> Result<&[DecodeFrame], i32> {
+    pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
         self.decode_inner(packet, false).map(|d| d.frames)
     }
 
