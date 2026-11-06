@@ -174,6 +174,34 @@ fn unsupported_format_is_rejected() {
 }
 
 #[test]
+fn unknown_software_format_is_dropped() {
+    // `DecodeFrame.pixfmt` is a two-variant enum, so an unknown format has to be
+    // rejected before a frame is built: P010 (123) arrives here whenever a 10-bit
+    // stream takes the software path.
+    let mut y = vec![0u8; (W * H) as usize];
+    let mut linesizes = [0 as c_int; AV_NUM_DATA_POINTERS as _];
+    linesizes[0] = W;
+    let mut datas = [std::ptr::null_mut::<u8>(); AV_NUM_DATA_POINTERS as _];
+    datas[0] = y.as_mut_ptr();
+    let mut output = DecodeOutput::new();
+    unsafe {
+        Decoder::callback(
+            &mut output as *mut _ as *const c_void,
+            W,
+            H,
+            123,
+            linesizes.as_mut_ptr(),
+            datas.as_mut_ptr(),
+            1,
+        )
+    };
+    assert!(
+        output.frames.is_empty(),
+        "an unknown format must not produce a frame"
+    );
+}
+
+#[test]
 fn null_descriptor_is_rejected() {
     let mut output = output_wanting_gpu(true);
     assert_eq!(
