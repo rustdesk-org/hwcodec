@@ -9,7 +9,6 @@ fn main() {
     let externals_dir = manifest_dir.join("externals");
     let cpp_dir = manifest_dir.join("cpp");
     println!("cargo:rerun-if-changed=src");
-    println!("cargo:rerun-if-env-changed=HWCODEC_FFMPEG_DYNAMIC");
     println!("cargo:rerun-if-changed=deps");
     println!("cargo:rerun-if-changed={}", externals_dir.display());
     println!("cargo:rerun-if-changed={}", cpp_dir.display());
@@ -172,8 +171,7 @@ mod ffmpeg {
             }
             static_libs
                 .iter()
-                .map(|lib| println!("cargo:rustc-link-lib={}={}",
-                    if target_os == "linux" && env::var_os("HWCODEC_FFMPEG_DYNAMIC").is_some() { "dylib" } else { "static" }, lib))
+                .map(|lib| println!("cargo:rustc-link-lib=static={}", lib))
                 .count();
         }
 

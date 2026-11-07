@@ -106,3 +106,13 @@ updated content, and subsequent RAM input:
 ```sh
 DRM_RENDER_NODE=/dev/dri/renderD128 cargo test --features linux-dmabuf --test linux_dmabuf -- --ignored
 ```
+
+
+`DmaBufDetector` compares the imported scanout with an owned GPU snapshot at
+8-bit RGB precision. It returns only a changed/unchanged bit to the CPU; it does
+not read back the full frame, sample a subset of pixels, or treat framebuffer
+identity as content identity. A change in a single quantized RGB pixel is
+observable, including when the producer updates the same DMA-BUF in place.
+The detector reallocates its snapshots on a size change. Keep it and its caller
+on the same thread and retain a CPU fallback when creation/comparison fails.
+As with conversion, an existing caller EGL binding is restored on return.
