@@ -76,3 +76,43 @@ Based on the information above, there are several optimizations and changes made
 
   https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new?ncid=em-prod-816193
 
+
+### Experimental Linux DMA-BUF encoder input
+
+The optional `linux-dmabuf` feature adds `Encoder::encode_dmabuf`. A caller owns
+an SDR RGB scanout fd and passes its exact DRM format, modifier, plane offsets,
+pitches and exporting render node in `DmaBufFrame`. The encoder imports it with
+EGL, renders limited-range BT.601 NV12 directly into exported VAAPI encoder
+surfaces, synchronizes the GPU writes, then submits those surfaces to the codec.
+The hot path performs no full-frame CPU pixel readback, colour conversion or
+upload. The fd remains borrowed for the synchronous encode call.
+
+This requires VAAPI surface export, GBM, GLES3, external-image sampling, and
+renderable NV12 plane imports on the same GPU. EGL/GLES/GBM are loaded only on
+first use. Build headers are required, but enabling the feature does not link
+the application to those graphics libraries. The optional VAAPI surface pool
+holds eight surfaces so frames retained by the encoder cannot be overwritten.
+Use the encoder on one thread, and drop it on that thread.
+
+The first implementation accepts packed 8-bit and 10-bit SDR RGB. The caller
+must retain a CPU fallback for unsupported layouts, drivers, HDR tone mapping,
+rotation and device combinations. A successful DMA-BUF import alone does not
+establish correct colour or orientation. The ordinary `encode` API remains
+available after GPU input, including for fallback.
+
+A real-hardware regression test checks H.264 encode/decode colour, orientation,
+updated content, and subsequent RAM input:
+
+```sh
+DRM_RENDER_NODE=/dev/dri/renderD128 cargo test --features linux-dmabuf --test linux_dmabuf -- --ignored
+```
+
+
+`DmaBufDetector` compares the imported scanout with an owned GPU snapshot at
+8-bit RGB precision. It returns only a changed/unchanged bit to the CPU; it does
+not read back the full frame, sample a subset of pixels, or treat framebuffer
+identity as content identity. A change in a single quantized RGB pixel is
+observable, including when the producer updates the same DMA-BUF in place.
+The detector reallocates its snapshots on a size change. Keep it and its caller
+on the same thread and retain a CPU fallback when creation/comparison fails.
+As with conversion, an existing caller EGL binding is restored on return.
