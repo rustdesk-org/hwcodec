@@ -19,6 +19,11 @@ extern "C" {
 #include <libavutil/hwcontext_d3d11va.h>
 #endif
 
+#ifdef __APPLE__
+#include <CoreVideo/CVPixelBuffer.h>
+#include <CoreVideo/CVPixelBufferIOSurface.h>
+#endif
+
 #include "common.h"
 #include "system.h"
 
@@ -29,6 +34,28 @@ typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
                                   enum AVPixelFormat pixfmt,
                                   int linesize[AV_NUM_DATA_POINTERS],
                                   uint8_t *data[AV_NUM_DATA_POINTERS], int key);
+typedef void (*RamDecodeHwBufferCallback)(const void *obj, int width,
+                                          int height, void *hw_buffer,
+                                          int key);
+
+#ifdef __APPLE__
+// True if the VideoToolbox output is an IOSurface-backed bi-planar 8-bit 4:2:0
+// buffer, which Metal can sample without a copy. The size check makes cropped
+// frames fall back to the copy path, which honours the frame's visible size.
+bool is_directly_renderable(const AVFrame *frame) {
+  if (frame->format != AV_PIX_FMT_VIDEOTOOLBOX || !frame->data[3])
+    return false;
+  CVPixelBufferRef pb = (CVPixelBufferRef)frame->data[3];
+  OSType fmt = CVPixelBufferGetPixelFormatType(pb);
+  if (fmt != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange &&
+      fmt != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+    return false;
+  if (!CVPixelBufferGetIOSurface(pb))
+    return false;
+  return (int)CVPixelBufferGetWidth(pb) == frame->width &&
+         (int)CVPixelBufferGetHeight(pb) == frame->height;
+}
+#endif
 
 class FFmpegRamDecoder {
 public:
@@ -43,6 +70,8 @@ public:
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_NONE;
   int thread_count_ = 1;
   RamDecodeCallback callback_ = NULL;
+  RamDecodeHwBufferCallback hw_buffer_callback_ = NULL;
+  int hw_buffer_direct_ = -1; // last logged decision, -1 before the first frame
   DataFormat data_format_;
 
 #ifdef CFG_PKG_TRACE
@@ -197,6 +226,34 @@ private:
           LOG_ERROR(std::string("hw_frames_ctx is NULL"));
           goto _exit;
         }
+#ifdef __APPLE__
+        if (hw_buffer_callback_) {
+          bool direct = is_directly_renderable(frame_);
+          if ((int)direct != hw_buffer_direct_) {
+            hw_buffer_direct_ = direct;
+            LOG_INFO(std::string("VideoToolbox output ") +
+                     (direct ? "passed through as CVPixelBuffer"
+                             : "not directly renderable, copying to memory"));
+          }
+          if (direct) {
+#if FF_API_FRAME_KEY
+            int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;
+#else
+            int key_frame = frame_->key_frame;
+#endif
+            decoded = true;
+#ifdef CFG_PKG_TRACE
+            out_++;
+            LOG_DEBUG(std::string("delay DO: in:") + in_ + " out:" + out_);
+#endif
+            // frame_ keeps the buffer alive during the call; the receiver
+            // must retain it to keep it longer.
+            hw_buffer_callback_(obj, frame_->width, frame_->height,
+                                frame_->data[3], key_frame);
+            continue;
+          }
+        }
+#endif
         if ((sw_frame_->width != 0 || sw_frame_->height != 0) &&
             (sw_frame_->width != frame_->width ||
              sw_frame_->height != frame_->height)) {
@@ -317,6 +374,21 @@ ffmpeg_ram_new_decoder(const char *name, int device_type, int thread_count,
     decoder = NULL;
   }
   return NULL;
+}
+
+extern "C" void
+ffmpeg_ram_decoder_set_hw_buffer_callback(FFmpegRamDecoder *decoder,
+                                          RamDecodeHwBufferCallback callback) {
+  if (!decoder)
+    return;
+#ifdef __APPLE__
+  if (decoder->device_type_ == AV_HWDEVICE_TYPE_VIDEOTOOLBOX) {
+    decoder->hw_buffer_callback_ = callback;
+    decoder->hw_buffer_direct_ = -1;
+  }
+#else
+  (void)callback;
+#endif
 }
 
 extern "C" int ffmpeg_ram_decode(FFmpegRamDecoder *decoder, const uint8_t *data,
