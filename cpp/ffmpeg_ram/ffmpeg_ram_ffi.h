@@ -11,6 +11,10 @@ typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
                                   uint8_t *data[AV_NUM_DATA_POINTERS], int key);
 typedef void (*RamEncodeCallback)(const uint8_t *data, int len, int64_t pts,
                                   int key, const void *obj);
+// hw_buffer is borrowed and only valid during the call (macOS: CVPixelBufferRef).
+typedef void (*RamDecodeHwBufferCallback)(const void *obj, int width,
+                                          int height, void *hw_buffer,
+                                          int key);
 
 void *ffmpeg_ram_new_encoder(const char *name, const char *mc_name, int width,
                              int height, int pixfmt, int align, int fps,
@@ -26,6 +30,13 @@ int ffmpeg_ram_decode(void *decoder, const uint8_t *data, int length,
                       const void *obj);
 void ffmpeg_ram_free_encoder(void *encoder);
 void ffmpeg_ram_free_decoder(void *decoder);
+// Apple VideoToolbox decoders only, no-op for other decoders and platforms.
+// With a non-NULL callback, frames whose CVPixelBuffer can be sampled directly
+// by Metal (IOSurface-backed 8-bit NV12) go to the callback instead of being
+// copied to system memory. Other frames still use RamDecodeCallback. NULL
+// restores the default behaviour.
+void ffmpeg_ram_decoder_set_hw_buffer_callback(
+    void *decoder, RamDecodeHwBufferCallback callback);
 int ffmpeg_ram_get_linesize_offset_length(int pix_fmt, int width, int height,
                                           int align, int *linesize, int *offset,
                                           int *length);

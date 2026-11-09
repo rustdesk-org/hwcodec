@@ -34,6 +34,51 @@ pub struct DecodeFrame {
     pub data: Vec<Vec<u8>>,
     pub linesize: Vec<i32>,
     pub key: bool,
+    /// Set instead of `data`/`linesize` for frames passed through by
+    /// [`Decoder::set_output_cv_pixel_buffer`]. `pixfmt` is then NV12 (video or
+    /// full range); check this field before reading `data`.
+    #[cfg(target_os = "macos")]
+    pub cv_pixel_buffer: Option<CVPixelBuffer>,
+}
+
+#[cfg(target_os = "macos")]
+pub use cv_pixel_buffer::CVPixelBuffer;
+
+#[cfg(target_os = "macos")]
+mod cv_pixel_buffer {
+    use std::ffi::c_void;
+
+    extern "C" {
+        fn CFRetain(cf: *const c_void) -> *const c_void;
+        fn CFRelease(cf: *const c_void);
+    }
+
+    /// An owned reference to a `CVPixelBufferRef`.
+    pub struct CVPixelBuffer(*mut c_void);
+
+    // CoreFoundation reference counting is thread safe, and the decoder never
+    // writes to a buffer after handing it out.
+    unsafe impl Send for CVPixelBuffer {}
+    unsafe impl Sync for CVPixelBuffer {}
+
+    impl CVPixelBuffer {
+        /// # Safety
+        /// `ptr` must be a valid, non-null `CVPixelBufferRef`.
+        pub(super) unsafe fn retain(ptr: *mut c_void) -> Self {
+            CFRetain(ptr);
+            Self(ptr)
+        }
+
+        pub fn as_ptr(&self) -> *mut c_void {
+            self.0
+        }
+    }
+
+    impl Drop for CVPixelBuffer {
+        fn drop(&mut self) {
+            unsafe { CFRelease(self.0) }
+        }
+    }
 }
 
 impl std::fmt::Display for DecodeFrame {
@@ -105,6 +150,46 @@ impl Decoder {
         }
     }
 
+    /// VideoToolbox frames that Metal can sample directly come out in
+    /// [`DecodeFrame::cv_pixel_buffer`] instead of being copied to `data`.
+    #[cfg(target_os = "macos")]
+    pub fn set_output_cv_pixel_buffer(&mut self, enable: bool) {
+        unsafe {
+            crate::ffmpeg_ram::ffmpeg_ram_decoder_set_hw_buffer_callback(
+                self.codec,
+                if enable {
+                    Some(Decoder::hw_buffer_callback)
+                } else {
+                    None
+                },
+            );
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    unsafe extern "C" fn hw_buffer_callback(
+        obj: *const c_void,
+        width: c_int,
+        height: c_int,
+        hw_buffer: *mut c_void,
+        key: c_int,
+    ) {
+        if hw_buffer.is_null() {
+            return;
+        }
+        let frames = &mut *(obj as *mut Vec<DecodeFrame>);
+        frames.push(DecodeFrame {
+            pixfmt: AVPixelFormat::AV_PIX_FMT_NV12,
+            width,
+            height,
+            data: vec![],
+            linesize: vec![],
+            key: key != 0,
+            // Borrowed for the duration of this call only.
+            cv_pixel_buffer: Some(CVPixelBuffer::retain(hw_buffer)),
+        });
+    }
+
     unsafe extern "C" fn callback(
         obj: *const c_void,
         width: c_int,
@@ -125,6 +210,8 @@ impl Decoder {
             data: vec![],
             linesize: vec![],
             key: key != 0,
+            #[cfg(target_os = "macos")]
+            cv_pixel_buffer: None,
         };
 
         if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int {
