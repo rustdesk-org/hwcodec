@@ -18,15 +18,15 @@ use std::os::raw::c_int;
 use std::ptr::NonNull;
 
 /// `kCVPixelFormatType_420YpCbCr8BiPlanarFullRange` ('420f').
-pub const PIXEL_FORMAT_420F: u32 = 0x3432_3066;
+pub(crate) const PIXEL_FORMAT_420F: u32 = 0x3432_3066;
 /// `kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange` ('420v').
-pub const PIXEL_FORMAT_420V: u32 = 0x3432_3076;
+pub(crate) const PIXEL_FORMAT_420V: u32 = 0x3432_3076;
 
 /// The decoder took the frame over; it will skip the software transfer.
-pub const PIXELBUFFER_ACCEPTED: c_int = 1;
+pub(crate) const PIXELBUFFER_ACCEPTED: c_int = 1;
 /// The decoder did not keep the frame; it falls back to the software path for
 /// the very same decoded frame.
-pub const PIXELBUFFER_REJECTED: c_int = 0;
+pub(crate) const PIXELBUFFER_REJECTED: c_int = 0;
 
 extern "C" {
     fn CVPixelBufferRetain(pixel_buffer: *mut c_void) -> *mut c_void;
@@ -36,7 +36,7 @@ extern "C" {
 /// Whether a `CVPixelBuffer` pixel format can be sampled directly by the
 /// renderer (the Flutter engine supports 8-bit bi-planar NV12 in both ranges;
 /// P010 and everything else must go through the software path).
-pub fn is_direct_deliverable(pixfmt: u32) -> bool {
+pub(crate) fn is_direct_deliverable(pixfmt: u32) -> bool {
     pixfmt == PIXEL_FORMAT_420F || pixfmt == PIXEL_FORMAT_420V
 }
 
@@ -73,14 +73,17 @@ impl PixelBufferFrame {
         self.buffer.as_ptr()
     }
 
+    /// Pixel width of the delivered surface.
     pub fn width(&self) -> i32 {
         self.width
     }
 
+    /// Pixel height of the delivered surface.
     pub fn height(&self) -> i32 {
         self.height
     }
 
+    /// CoreVideo pixel format of the surface (`PIXEL_FORMAT_420F` or `PIXEL_FORMAT_420V`).
     pub fn pixfmt(&self) -> u32 {
         self.pixfmt
     }
