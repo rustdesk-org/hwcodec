@@ -19,6 +19,16 @@ extern "C" {
 #include <libavutil/hwcontext_d3d11va.h>
 #endif
 
+/* macOS: delivering the decoded CVPixelBuffer directly to the renderer
+ * (zero copy). See the proposed design in the PR description. */
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_OSX
+#include <CoreVideo/CoreVideo.h>
+#define HWCODEC_HAVE_PIXELBUFFER 1
+#endif
+#endif
+
 #include "common.h"
 #include "system.h"
 
@@ -29,6 +39,34 @@ typedef void (*RamDecodeCallback)(const void *obj, int width, int height,
                                   enum AVPixelFormat pixfmt,
                                   int linesize[AV_NUM_DATA_POINTERS],
                                   uint8_t *data[AV_NUM_DATA_POINTERS], int key);
+
+/* Kept in sync with cpp/ffmpeg_ram/ffmpeg_ram_ffi.h. Declared locally because
+ * this translation unit has its own RamDecodeCallback typedef.
+ *
+ * The frame struct and the callback typedef are deliberately declared on every
+ * platform, not only under HWCODEC_HAVE_PIXELBUFFER: the exported setter below
+ * takes a RamPixelBufferCallback in its signature on all targets (its body is a
+ * no-op where no pixel buffer exists), and MSVC rejects that signature with
+ * C2061 when the type is only declared inside the Apple guard. Nothing here
+ * depends on CoreVideo - the pixfmt constants used to compare against live in
+ * is_direct_deliverable, which stays guarded. */
+#define PIXELBUFFER_REJECTED 0
+#define PIXELBUFFER_ACCEPTED 1
+struct FfiPixelBufferFrame {
+  void *pixel_buffer; /* borrowed CVPixelBufferRef, valid only during the call */
+  int32_t width;
+  int32_t height;
+  uint32_t pixfmt;
+};
+typedef int32_t (*RamPixelBufferCallback)(void *obj,
+                                          const FfiPixelBufferFrame *frame);
+
+#ifdef HWCODEC_HAVE_PIXELBUFFER
+static bool is_direct_deliverable(uint32_t pixfmt) {
+  return pixfmt == (uint32_t)kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
+         pixfmt == (uint32_t)kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
+}
+#endif
 
 class FFmpegRamDecoder {
 public:
@@ -43,6 +81,9 @@ public:
   AVHWDeviceType device_type_ = AV_HWDEVICE_TYPE_NONE;
   int thread_count_ = 1;
   RamDecodeCallback callback_ = NULL;
+#ifdef HWCODEC_HAVE_PIXELBUFFER
+  RamPixelBufferCallback pixelbuffer_cb_ = NULL;
+#endif
   DataFormat data_format_;
 
 #ifdef CFG_PKG_TRACE
@@ -57,6 +98,13 @@ public:
     this->thread_count_ = thread_count;
     this->callback_ = callback;
   }
+
+#ifdef HWCODEC_HAVE_PIXELBUFFER
+  /* Owner-only and idle-only: see ffmpeg_ram_set_pixelbuffer_callback(). */
+  void set_pixelbuffer_callback(RamPixelBufferCallback callback) {
+    this->pixelbuffer_cb_ = callback;
+  }
+#endif
 
   ~FFmpegRamDecoder() {}
 
@@ -192,23 +240,47 @@ private:
         goto _exit;
       }
 
+      /* Reset per iteration: a previous frame's software frame must never be
+       * delivered twice, and a direct frame must never replay it. */
+      tmp_frame = NULL;
+      bool delivered_by_pixelbuffer = false;
+
       if (hwaccel_) {
         if (!frame_->hw_frames_ctx) {
           LOG_ERROR(std::string("hw_frames_ctx is NULL"));
           goto _exit;
         }
-        if ((sw_frame_->width != 0 || sw_frame_->height != 0) &&
-            (sw_frame_->width != frame_->width ||
-             sw_frame_->height != frame_->height)) {
-          av_frame_unref(sw_frame_);
+#ifdef HWCODEC_HAVE_PIXELBUFFER
+        if (pixelbuffer_cb_ != NULL &&
+            frame_->format == AV_PIX_FMT_VIDEOTOOLBOX &&
+            frame_->data[3] != NULL) {
+          CVPixelBufferRef pb = (CVPixelBufferRef)frame_->data[3];
+          uint32_t pixfmt = (uint32_t)CVPixelBufferGetPixelFormatType(pb);
+          if (is_direct_deliverable(pixfmt)) {
+            FfiPixelBufferFrame f{pb, frame_->width, frame_->height, pixfmt};
+            /* Borrowed descriptor: the callee retains what it keeps, so a
+             * rejected frame needs no cleanup here. */
+            delivered_by_pixelbuffer =
+                pixelbuffer_cb_((void *)obj, &f) == PIXELBUFFER_ACCEPTED;
+          }
+          /* Unsupported format or rejection falls through to the software
+           * transfer below, on this very frame_ (no re-decode). */
         }
-        if ((ret = av_hwframe_transfer_data(sw_frame_, frame_, 0)) < 0) {
-          LOG_ERROR(std::string("av_hwframe_transfer_data failed, ret = ") +
-                    av_err2str(ret));
-          goto _exit;
-        }
+#endif
+        if (!delivered_by_pixelbuffer) {
+          if ((sw_frame_->width != 0 || sw_frame_->height != 0) &&
+              (sw_frame_->width != frame_->width ||
+               sw_frame_->height != frame_->height)) {
+            av_frame_unref(sw_frame_);
+          }
+          if ((ret = av_hwframe_transfer_data(sw_frame_, frame_, 0)) < 0) {
+            LOG_ERROR(std::string("av_hwframe_transfer_data failed, ret = ") +
+                      av_err2str(ret));
+            goto _exit;
+          }
 
-        tmp_frame = sw_frame_;
+          tmp_frame = sw_frame_;
+        }
       } else {
         tmp_frame = frame_;
       }
@@ -223,9 +295,13 @@ private:
       int key_frame = frame_->key_frame;
 #endif
 
-      callback_(obj, tmp_frame->width, tmp_frame->height,
-                (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
-                tmp_frame->data, key_frame);
+      /* The software callback is skipped whenever the frame was delivered as a
+       * pixel buffer, so a frame reaches the renderer exactly once. */
+      if (!delivered_by_pixelbuffer && tmp_frame != NULL) {
+        callback_(obj, tmp_frame->width, tmp_frame->height,
+                  (AVPixelFormat)tmp_frame->format, tmp_frame->linesize,
+                  tmp_frame->data, key_frame);
+      }
     }
   _exit:
     av_packet_unref(pkt_);
@@ -334,4 +410,26 @@ extern "C" int ffmpeg_ram_decode(FFmpegRamDecoder *decoder, const uint8_t *data,
     LOG_ERROR("ffmpeg_ram_decode: unknown exception");
   }
   return HWCODEC_ERR_COMMON;
+}
+
+/* Install (or clear, with NULL) the GPU-frame callback.
+ *
+ * Contract: must be called by the owner of the decoder while it is idle
+ * (before the first decode, or between two decodes). It is deliberately not
+ * synchronized against a concurrent decode() - the owner-serialized lifetime
+ * keeps the callback context alive, so no locking is needed here. */
+extern "C" void ffmpeg_ram_set_pixelbuffer_callback(
+    void *decoder, RamPixelBufferCallback callback) {
+#ifdef HWCODEC_HAVE_PIXELBUFFER
+  if (decoder == NULL) {
+    return;
+  }
+  /* Object pointer to object pointer: the header hands us `void *` so the symbol
+   * stays callable from Rust, where the decoder handle is opaque. The callback is
+   * NOT cast: it is a function pointer on both sides of the boundary. */
+  static_cast<FFmpegRamDecoder *>(decoder)->set_pixelbuffer_callback(callback);
+#else
+  (void)decoder;
+  (void)callback;
+#endif
 }

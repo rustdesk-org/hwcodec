@@ -14,6 +14,9 @@ include!(concat!(env!("OUT_DIR"), "/ffmpeg_ram_ffi.rs"));
 
 pub mod decode;
 pub mod encode;
+/// Direct delivery of decoded frames as `CVPixelBuffer`s (macOS only).
+#[cfg(target_os = "macos")]
+pub mod pixelbuffer;
 
 pub enum Priority {
     Best = 0,

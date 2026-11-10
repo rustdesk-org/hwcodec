@@ -3,6 +3,14 @@ use super::Priority;
 use crate::common::TEST_TIMEOUT_MS;
 use crate::ffmpeg::{init_av_log, AVHWDeviceType::*};
 
+#[cfg(target_os = "macos")]
+use crate::ffmpeg_ram::{
+    ffmpeg_ram_set_pixelbuffer_callback,
+    pixelbuffer::{
+        is_direct_deliverable, PixelBufferFrame, PIXELBUFFER_ACCEPTED, PIXELBUFFER_REJECTED,
+    },
+    FfiPixelBufferFrame,
+};
 use crate::{
     common::DataFormat::*,
     ffmpeg::{AVHWDeviceType, AVPixelFormat},
@@ -55,9 +63,83 @@ impl std::fmt::Display for DecodeFrame {
     }
 }
 
+/// What one `decode()` call produced.
+///
+/// Both fields belong to that call. Nothing reads the decoder afterwards, so a
+/// frame from a previous call is not expressible: the software frames borrow
+/// the decoder (and therefore cannot outlive the next `decode()`), while the
+/// GPU frame is taken out of it and can be handed to the renderer.
+pub struct Decoded<'a> {
+    /// The software frames this call produced.
+    ///
+    /// The vector stays decoder-owned (it is the decoder's own buffer, returned
+    /// mutably only to keep the historical signature): reading it is supported,
+    /// clearing or taking from it is not.
+    pub frames: &'a mut Vec<DecodeFrame>,
+    /// The GPU frame this call delivered straight to us, if the caller asked
+    /// for it and the decoder accepted it.
+    ///
+    /// `None` means this call produced no direct frame: the caller passed
+    /// `want_gpu = false`, the format is not directly deliverable, or a
+    /// software frame won in the same transaction.
+    #[cfg(target_os = "macos")]
+    pub pixelbuffer: Option<PixelBufferFrame>,
+}
+
+/// Per-decode output state. Also the `obj` handed to both the software
+/// callback and the pixel-buffer callback, so they share one transaction view:
+/// a software frame clears the pending GPU frame of the same call, which makes
+/// "last decoded frame wins" hold across mixed frames.
+pub(crate) struct DecodeOutput {
+    frames: Vec<DecodeFrame>,
+    #[cfg(target_os = "macos")]
+    pixelbuffer: Option<PixelBufferFrame>,
+    /// Whether the running call asked for the GPU frame.
+    ///
+    /// Written by `decode()` for the duration of one call and read by the
+    /// pixel-buffer callback. `false` makes the callback reject every frame:
+    /// delivery is opt-in, because accepting one makes the decoder skip the
+    /// software transfer for that frame.
+    #[cfg(target_os = "macos")]
+    want_gpu: bool,
+}
+
+impl DecodeOutput {
+    fn new() -> Self {
+        Self {
+            frames: vec![],
+            #[cfg(target_os = "macos")]
+            pixelbuffer: None,
+            #[cfg(target_os = "macos")]
+            want_gpu: false,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.frames.clear();
+        // Transaction boundary: never answer with a frame from a previous call.
+        #[cfg(target_os = "macos")]
+        {
+            self.pixelbuffer = None;
+        }
+    }
+
+    /// Hand this call's result to the caller: the software frames are borrowed
+    /// back from the buffer, the GPU frame is taken out of it.
+    fn take(&mut self) -> Decoded<'_> {
+        #[cfg(target_os = "macos")]
+        let pixelbuffer = self.pixelbuffer.take();
+        Decoded {
+            frames: &mut self.frames,
+            #[cfg(target_os = "macos")]
+            pixelbuffer,
+        }
+    }
+}
+
 pub struct Decoder {
     codec: *mut c_void,
-    frames: *mut Vec<DecodeFrame>,
+    output: *mut DecodeOutput,
     pub ctx: DecodeContext,
 }
 
@@ -79,30 +161,81 @@ impl Decoder {
                 return Err(());
             }
 
+            #[cfg(target_os = "macos")]
+            ffmpeg_ram_set_pixelbuffer_callback(codec, Some(Decoder::pixelbuffer_callback));
+
             Ok(Decoder {
                 codec,
-                frames: Box::into_raw(Box::new(Vec::<DecodeFrame>::new())),
+                output: Box::into_raw(Box::new(DecodeOutput::new())),
                 ctx,
             })
         }
     }
 
-    pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
+    /// Decode one packet.
+    ///
+    /// `want_gpu` answers "can the caller present a directly delivered GPU
+    /// frame?". The C++ decoder only skips its software transfer when the
+    /// pixel-buffer callback accepts a frame *during* this call, so the answer
+    /// has to arrive with the packet: a frame accepted here and dropped further
+    /// up would leave the renderer with neither a GPU frame nor a software one.
+    /// `false` keeps the software path, and platforms without pixel buffers
+    /// ignore the argument.
+    fn decode_inner(&mut self, packet: &[u8], want_gpu: bool) -> Result<Decoded<'_>, i32> {
+        #[cfg(not(target_os = "macos"))]
+        let _ = want_gpu;
+        // No `&mut DecodeOutput` may be alive while `ffmpeg_ram_decode` runs: the C
+        // side calls `callback` synchronously, and that callback reaches this same
+        // allocation through the raw pointer and takes its own reference to it.
+        // Two live `&mut`s to one object violate the aliasing rules even when one
+        // thread touches both, so the clear and the read each borrow through the
+        // raw pointer for the length of a statement, and the FFI call runs with no
+        // borrow alive at all.
+        let output = self.output;
         unsafe {
-            (&mut *self.frames).clear();
+            (*output).clear();
+            #[cfg(target_os = "macos")]
+            {
+                (*output).want_gpu = want_gpu;
+            }
             let ret = ffmpeg_ram_decode(
                 self.codec,
                 packet.as_ptr(),
                 packet.len() as c_int,
-                self.frames as *const _ as *const c_void,
+                output as *const c_void,
             );
 
             if ret < 0 {
+                // A failed call can still have had a GPU frame accepted: the C++ side
+                // calls `pixelbuffer_callback` and then fails on later error paths such
+                // as HEVC's "could not find ref with POC". That frame is pinned in
+                // `output` and would otherwise keep its IOSurface alive until the next
+                // decode or the decoder's drop, so clear it here as well.
+                (*output).clear();
                 Err(ret)
             } else {
-                Ok(&mut *self.frames)
+                Ok((&mut *output).take())
             }
         }
+    }
+
+    /// Decode one packet and return only the software frames.
+    ///
+    /// This is the signature this crate has always exposed: existing callers
+    /// keep working unchanged, and non-macOS targets never see the GPU-frame
+    /// argument.
+    pub fn decode(&mut self, packet: &[u8]) -> Result<&mut Vec<DecodeFrame>, i32> {
+        self.decode_inner(packet, false).map(|d| d.frames)
+    }
+
+    /// macOS only: also ask for the decoded frame as a GPU surface.
+    ///
+    /// `want_gpu` has to arrive with the packet, because the decoder decides
+    /// *during* the call whether to skip the software transfer. It stays off
+    /// every other platform's signature.
+    #[cfg(target_os = "macos")]
+    pub fn decode_gpu(&mut self, packet: &[u8], want_gpu: bool) -> Result<Decoded<'_>, i32> {
+        self.decode_inner(packet, want_gpu)
     }
 
     unsafe extern "C" fn callback(
@@ -114,12 +247,67 @@ impl Decoder {
         datas: *mut *mut u8,
         key: c_int,
     ) {
-        let frames = &mut *(obj as *mut Vec<DecodeFrame>);
+        // A panic here aborts the process: the release profile is `panic = "abort"`,
+        // so `catch_unwind` would be inert and this callback has to be non-panicking
+        // by construction. That means validating every pointer and length the C side
+        // hands over before building a slice from it -- `from_raw_parts` on a null
+        // pointer, or on a negative linesize cast to usize, is undefined behaviour
+        // rather than a panic, and no unwinding story would catch it either.
+        if obj.is_null() || datas.is_null() || linesizes.is_null() {
+            error!("decode callback got a null object or plane array");
+            return;
+        }
+        if width <= 0 || height <= 0 {
+            error!(
+                "decode callback got a non-positive frame size {}x{}",
+                width, height
+            );
+            return;
+        }
+
+        let output = &mut *(obj as *mut DecodeOutput);
         let datas = from_raw_parts(datas, AV_NUM_DATA_POINTERS as _);
         let linesizes = from_raw_parts(linesizes, AV_NUM_DATA_POINTERS as _);
 
+        // Reject an unknown format before the `DecodeFrame` is built:
+        // `DecodeFrame.pixfmt` is a `#[repr(u32)]` bindgen enum with two variants, so
+        // transmuting a raw value such as P010 (123) would produce an invalid
+        // discriminant -- UB reachable from stream content, not from a caller mistake.
+        let pixfmt = match pixfmt {
+            v if v == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int => {
+                AVPixelFormat::AV_PIX_FMT_YUV420P
+            }
+            v if v == AVPixelFormat::AV_PIX_FMT_NV12 as c_int => AVPixelFormat::AV_PIX_FMT_NV12,
+            _ => {
+                error!("unsupported pixfmt {}", pixfmt);
+                return;
+            }
+        };
+
+        // Every plane this format reads is dereferenced below, so validate the
+        // pointer and the stride first: a null plane or a non-positive stride is a
+        // producer bug, and dropping the frame beats reading unmapped memory.
+        let planes = if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P {
+            3
+        } else {
+            2
+        };
+        for i in 0..planes {
+            if datas[i].is_null() {
+                error!("decode callback got a null plane {}", i);
+                return;
+            }
+            if linesizes[i] <= 0 {
+                error!(
+                    "decode callback got a non-positive linesize {} on plane {}",
+                    linesizes[i], i
+                );
+                return;
+            }
+        }
+
         let mut frame = DecodeFrame {
-            pixfmt: std::mem::transmute(pixfmt),
+            pixfmt,
             width,
             height,
             data: vec![],
@@ -127,7 +315,7 @@ impl Decoder {
             key: key != 0,
         };
 
-        if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P as c_int {
+        if pixfmt == AVPixelFormat::AV_PIX_FMT_YUV420P {
             let y = from_raw_parts(datas[0], (linesizes[0] * height) as usize).to_vec();
             let u = from_raw_parts(datas[1], (linesizes[1] * height / 2) as usize).to_vec();
             let v = from_raw_parts(datas[2], (linesizes[2] * height / 2) as usize).to_vec();
@@ -140,8 +328,13 @@ impl Decoder {
             frame.linesize.push(linesizes[1]);
             frame.linesize.push(linesizes[2]);
 
-            frames.push(frame);
-        } else if pixfmt == AVPixelFormat::AV_PIX_FMT_NV12 as c_int {
+            // A software frame wins over a GPU frame of the same transaction.
+            #[cfg(target_os = "macos")]
+            {
+                output.pixelbuffer = None;
+            }
+            output.frames.push(frame);
+        } else {
             let y = from_raw_parts(datas[0], (linesizes[0] * height) as usize).to_vec();
             let uv = from_raw_parts(datas[1], (linesizes[1] * height / 2) as usize).to_vec();
 
@@ -151,9 +344,49 @@ impl Decoder {
             frame.linesize.push(linesizes[0]);
             frame.linesize.push(linesizes[1]);
 
-            frames.push(frame);
-        } else {
-            error!("unsupported pixfmt {}", pixfmt as i32);
+            // A software frame wins over a GPU frame of the same transaction.
+            #[cfg(target_os = "macos")]
+            {
+                output.pixelbuffer = None;
+            }
+            output.frames.push(frame);
+        }
+    }
+
+    /// Borrowed-descriptor callback from the decoder.
+    ///
+    /// Accepting means "retained and stored"; rejecting means "nothing kept",
+    /// so the decoder delivers the same decoded frame through the software
+    /// path. This must never panic: a panic across the FFI boundary aborts the
+    /// process in release builds (`panic = "abort"`).
+    #[cfg(target_os = "macos")]
+    unsafe extern "C" fn pixelbuffer_callback(
+        obj: *mut c_void,
+        frame: *const FfiPixelBufferFrame,
+    ) -> c_int {
+        if obj.is_null() || frame.is_null() {
+            return PIXELBUFFER_REJECTED;
+        }
+        let output = &mut *(obj as *mut DecodeOutput);
+        // Rejecting here is what makes the C++ side fall back to its software
+        // transfer on this very frame, so the renderer never has a frame taken
+        // away from it.
+        //
+        // Delivery is opt-in: a call that did not ask for the GPU frame keeps
+        // the software transfer, exactly like before this API existed.
+        if !output.want_gpu {
+            return PIXELBUFFER_REJECTED;
+        }
+        let frame = &*frame;
+        if !is_direct_deliverable(frame.pixfmt) || frame.pixel_buffer.is_null() {
+            return PIXELBUFFER_REJECTED;
+        }
+        match PixelBufferFrame::retain_from_borrowed(frame) {
+            Some(pixelbuffer) => {
+                output.pixelbuffer = Some(pixelbuffer);
+                PIXELBUFFER_ACCEPTED
+            }
+            None => PIXELBUFFER_REJECTED,
         }
     }
 
@@ -290,7 +523,7 @@ impl Decoder {
 
                     let start = Instant::now();
 
-                    match decoder.decode(data) {
+                    match decoder.decode_inner(data, false) {
                         Ok(_) => {
                             let elapsed = start.elapsed().as_millis();
 
@@ -330,9 +563,21 @@ impl Decoder {
 impl Drop for Decoder {
     fn drop(&mut self) {
         unsafe {
+            // Remove the callback first: after this no callback can reach the
+            // output state, so freeing it below cannot race a decode.
+            #[cfg(target_os = "macos")]
+            ffmpeg_ram_set_pixelbuffer_callback(self.codec, None);
             ffmpeg_ram_free_decoder(self.codec);
             self.codec = std::ptr::null_mut();
-            let _ = Box::from_raw(self.frames);
+            let _ = Box::from_raw(self.output);
         }
     }
 }
+
+/// Transaction-ordering tests for the GPU-frame path.
+///
+/// They live in their own file so the production side of this module reads
+/// as the feature and nothing else.
+#[cfg(all(test, target_os = "macos"))]
+#[path = "tests/decode_output.rs"]
+mod output_tests;
